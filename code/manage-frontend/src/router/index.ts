@@ -1,0 +1,100 @@
+import { createRouter, createWebHistory } from 'vue-router'
+import { TOKEN_KEY } from '@/utils/constants'
+
+const router = createRouter({
+  history: createWebHistory(),
+  routes: [
+    {
+      path: '/login',
+      name: 'Login',
+      component: () => import('@/views/login/LoginView.vue'),
+      meta: { public: true },
+    },
+    {
+      path: '/',
+      component: () => import('@/layouts/AdminLayout.vue'),
+      redirect: '/dashboard',
+      children: [
+        {
+          path: 'dashboard',
+          name: 'Dashboard',
+          component: () => import('@/views/dashboard/DashboardView.vue'),
+          meta: { title: '数据看板' },
+        },
+        {
+          path: 'questions',
+          name: 'QuestionList',
+          component: () => import('@/views/questions/QuestionListView.vue'),
+          meta: { title: '题库管理' },
+        },
+        {
+          path: 'questions/create',
+          name: 'QuestionCreate',
+          component: () => import('@/views/questions/QuestionFormView.vue'),
+          meta: { title: '新增题目' },
+        },
+        {
+          path: 'questions/:id/edit',
+          name: 'QuestionEdit',
+          component: () => import('@/views/questions/QuestionFormView.vue'),
+          meta: { title: '编辑题目' },
+        },
+        {
+          path: 'annotations',
+          name: 'Annotations',
+          component: () => import('@/views/annotations/AnnotationView.vue'),
+          meta: { title: 'AI标注审核' },
+        },
+        {
+          path: 'cognitive-test',
+          name: 'CognitiveTest',
+          component: () => import('@/views/cognitive-test/CognitiveTestView.vue'),
+          meta: { title: '五力测试题维护' },
+        },
+        {
+          path: 'training-config',
+          name: 'TrainingConfig',
+          component: () => import('@/views/training-config/TrainingConfigView.vue'),
+          meta: { title: '训练配置管理' },
+        },
+        {
+          path: 'system-config',
+          name: 'SystemConfig',
+          component: () => import('@/views/system-config/SystemConfigView.vue'),
+          meta: { title: '系统参数配置' },
+        },
+        {
+          path: 'students',
+          name: 'StudentList',
+          component: () => import('@/views/students/StudentListView.vue'),
+          meta: { title: '学生管理' },
+        },
+        {
+          path: 'students/:id',
+          name: 'StudentDetail',
+          component: () => import('@/views/students/StudentDetailView.vue'),
+          meta: { title: '学生详情' },
+        },
+        {
+          path: 'audit-logs',
+          name: 'AuditLogs',
+          component: () => import('@/views/audit-logs/AuditLogView.vue'),
+          meta: { title: '审计日志' },
+        },
+      ],
+    },
+    { path: '/:pathMatch(.*)*', redirect: '/' },
+  ],
+})
+
+router.beforeEach((to) => {
+  const token = localStorage.getItem(TOKEN_KEY)
+  if (!to.meta.public && !token) {
+    return { name: 'Login' }
+  }
+  if (to.name === 'Login' && token) {
+    return { path: '/' }
+  }
+})
+
+export default router
