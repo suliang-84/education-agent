@@ -167,7 +167,7 @@ function nextPage() { cursor.value += 20; loadData() }
 onMounted(loadData)
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .admin-avatar {
   width: 28px; height: 28px;
   border-radius: 8px;

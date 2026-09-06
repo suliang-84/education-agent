@@ -752,7 +752,7 @@ onUnmounted(() => {
 })
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .bg-canvas {
   display: block;
   width: 100%;

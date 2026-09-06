@@ -148,7 +148,7 @@ async function loadData() {
 onMounted(loadData)
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .live-pill {
   font-size: 12px; font-weight: 700;
   color: var(--green);

@@ -342,19 +342,26 @@ const mockRoutes: MockMethod[] = [
     url: '/api/v1/admin/dashboard/stats',
     method: 'get',
     response: () => success({
+      date: new Date().toISOString().split('T')[0],
       total_students: 483,
       new_students_today: 12,
       active_students_today: 85,
       students_with_profile: 312,
+      completed_test_total: 823,
       training_sessions_today: 156,
       answers_today: 780,
       avg_accuracy: 0.63,
+      wrong_answers_today: 198,
       rag_calls_today: 312,
+      chat_sessions_today: 89,
       chat_messages_today: 890,
+      aha_moments_today: 23,
       token_cost_today: 0.24,
       degradation_rate: 0.02,
       published_questions: 1280,
+      draft_questions: 124,
       pending_annotations: 45,
+      confirmed_annotations: 1197,
       pending_vectors: 8,
     }),
   },
@@ -368,6 +375,18 @@ const mockRoutes: MockMethod[] = [
         training_cost: 2.1 + Math.random() * 0.8,
         assistant_cost: 1.2 + Math.random() * 0.5,
         test_cost: 0.1 + Math.random() * 0.1,
+      })))
+    },
+  },
+  {
+    url: '/api/v1/admin/dashboard/user-growth',
+    method: 'get',
+    response: ({ query }) => {
+      const days = Number(query.days || 7)
+      return success(Array.from({ length: days }, (_, i) => ({
+        date: new Date(Date.now() - (days - 1 - i) * 86400000).toISOString().split('T')[0],
+        new_users: Math.floor(6 + Math.random() * 12),
+        active_users: Math.floor(70 + Math.random() * 40),
       })))
     },
   },

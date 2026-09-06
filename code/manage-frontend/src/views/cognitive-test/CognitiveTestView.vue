@@ -177,7 +177,7 @@ onMounted(async () => {
 })
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .warn-banner {
   display: flex; align-items: flex-start; gap: 10px;
   background: var(--amber-dim);

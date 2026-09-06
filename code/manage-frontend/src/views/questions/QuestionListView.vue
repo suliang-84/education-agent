@@ -209,7 +209,7 @@ function handleImport() { ElMessage.success('导入成功，AI 标注任务已�
 onMounted(loadData)
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .stem-cell { display: flex; flex-direction: column; gap: 5px; padding: 2px 0; }
 .stem-text { font-size: 13.5px; color: var(--text-1); line-height: 1.5; }
 .stem-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }

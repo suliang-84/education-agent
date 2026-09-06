@@ -177,19 +177,30 @@ export interface AuditLog {
 
 // 看板数据
 export interface DashboardStats {
+  date: string
+  // 用户规模
   total_students: number
   new_students_today: number
   active_students_today: number
   students_with_profile: number
+  completed_test_total: number
+  // 训练
   training_sessions_today: number
   answers_today: number
   avg_accuracy: number
+  wrong_answers_today: number
+  // AI
   rag_calls_today: number
+  chat_sessions_today: number
   chat_messages_today: number
+  aha_moments_today: number
   token_cost_today: number
   degradation_rate: number
+  // 题库
   published_questions: number
+  draft_questions: number
   pending_annotations: number
+  confirmed_annotations: number
   pending_vectors: number
 }
 
@@ -198,4 +209,10 @@ export interface TokenTrend {
   training_cost: number
   assistant_cost: number
   test_cost: number
+}
+
+export interface UserGrowthPoint {
+  date: string
+  new_users: number
+  active_users: number
 }

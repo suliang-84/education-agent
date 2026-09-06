@@ -2,7 +2,7 @@ import request from './request'
 import type {
   Question, Annotation, CognitiveQuestion, TrainingConfig,
   SystemConfig, Strategy, Student, StudentDetail, AuditLog,
-  DashboardStats, TokenTrend, PaginatedResponse
+  DashboardStats, TokenTrend, UserGrowthPoint, PaginatedResponse
 } from '@/types'
 
 // 认证
@@ -104,6 +104,8 @@ export const auditLogApi = {
 export const dashboardApi = {
   getStats: (date?: string) =>
     request.get<unknown, DashboardStats>('/dashboard/stats', { params: { date } }),
+  getUserGrowth: (days: number) =>
+    request.get<unknown, UserGrowthPoint[]>('/dashboard/user-growth', { params: { days } }),
   getTokenTrend: (days: number) =>
     request.get<unknown, TokenTrend[]>('/dashboard/token-trend', { params: { days } }),
 }

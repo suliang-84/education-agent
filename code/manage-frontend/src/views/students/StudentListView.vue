@@ -132,7 +132,7 @@ function nextPage() { cursor.value += 20; loadData() }
 onMounted(loadData)
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .student-avatar {
   width: 34px; height: 34px;
   border-radius: 10px;

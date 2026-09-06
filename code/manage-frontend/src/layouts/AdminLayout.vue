@@ -131,39 +131,6 @@
 
     <!-- ── Main ── -->
     <div class="main-wrap">
-      <!-- Topbar -->
-      <header class="topbar">
-        <div class="topbar-left">
-          <el-breadcrumb separator="/">
-            <el-breadcrumb-item :to="{ path: '/' }">MESH</el-breadcrumb-item>
-            <el-breadcrumb-item>{{ currentTitle }}</el-breadcrumb-item>
-          </el-breadcrumb>
-        </div>
-        <div class="topbar-right">
-          <router-link to="/annotations" class="topbar-icon-btn" title="待审核标注">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"/>
-            </svg>
-            <span class="topbar-icon-btn__dot"></span>
-          </router-link>
-          <div class="topbar-divider"></div>
-          <el-dropdown @command="handleCommand">
-            <div class="topbar-user">
-              <div class="user-avatar user-avatar--sm">{{ userInitial }}</div>
-              <span class="topbar-username">{{ authStore.user?.username }}</span>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color: var(--text-3)">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/>
-              </svg>
-            </div>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item command="logout">退出登录</el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
-        </div>
-      </header>
-
       <!-- Content -->
       <main class="content-area">
         <router-view />
@@ -185,7 +152,6 @@ const router = useRouter()
 const authStore = useAuthStore()
 const isCollapsed = ref(false)
 
-const currentTitle = computed(() => String(route.meta.title || ''))
 const userInitial = computed(() => authStore.user?.username?.[0]?.toUpperCase() || 'A')
 
 async function handleCommand(cmd: string) {
@@ -199,7 +165,7 @@ async function handleCommand(cmd: string) {
 }
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 /* ── Shell ── */
 .admin-shell {
   display: flex;
@@ -397,57 +363,6 @@ async function handleCommand(cmd: string) {
   overflow: hidden;
   min-width: 0;
 }
-
-/* Topbar */
-.topbar {
-  height: var(--header-h);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 24px;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-  background: var(--bg-surface);
-  box-shadow: 0 1px 0 var(--border);
-}
-.topbar-left { display: flex; align-items: center; gap: 12px; }
-.topbar-right { display: flex; align-items: center; gap: 12px; }
-
-.topbar-icon-btn {
-  width: 34px;
-  height: 34px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 10px;
-  color: var(--text-2);
-  text-decoration: none;
-  position: relative;
-  transition: all var(--t-fast);
-}
-.topbar-icon-btn:hover { background: var(--indigo-light); color: var(--indigo); }
-.topbar-icon-btn__dot {
-  position: absolute;
-  top: 7px; right: 7px;
-  width: 7px; height: 7px;
-  background: var(--pink);
-  border-radius: 50%;
-  border: 2px solid var(--bg-surface);
-}
-
-.topbar-divider { width: 1px; height: 20px; background: var(--border); }
-
-.topbar-user {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  padding: 5px 8px;
-  border-radius: 10px;
-  transition: background var(--t-fast);
-}
-.topbar-user:hover { background: var(--indigo-light); }
-.topbar-username { font-size: 13px; font-weight: 500; color: var(--text-2); }
 
 /* Content */
 .content-area {

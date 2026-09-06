@@ -259,7 +259,7 @@ async function loadData() {
 onMounted(loadData)
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .active-section { padding: 22px 24px; }
 .active-badge {
   font-size: 12px; font-weight: 600;

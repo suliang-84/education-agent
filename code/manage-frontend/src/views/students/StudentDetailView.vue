@@ -222,7 +222,7 @@ onMounted(async () => {
 })
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .info-block, .radar-block, .stats-block { padding: 22px 24px; margin-bottom: 16px; }
 .parent-block { padding: 22px 24px; }
 

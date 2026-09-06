@@ -203,7 +203,7 @@ onMounted(async () => {
 })
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .form-section {
   padding: 22px 24px;
   margin-bottom: 16px;

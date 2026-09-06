@@ -196,7 +196,7 @@ function nextPage() { cursor.value += 10; loadData() }
 onMounted(loadData)
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .stats-bar {
   display: flex; align-items: center; justify-content: space-between;
   padding: 16px 20px; gap: 16px;
