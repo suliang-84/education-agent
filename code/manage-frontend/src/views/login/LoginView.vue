@@ -2,7 +2,7 @@
   <div class="login-root">
 
     <!-- ── 背景视频 ── -->
-    <video class="bg-video" autoplay muted playsinline>
+    <video class="bg-video" autoplay muted playsinline loop>
       <source src="@/assets/login-background.mp4" type="video/mp4" />
     </video>
     <div class="bg-overlay" />
