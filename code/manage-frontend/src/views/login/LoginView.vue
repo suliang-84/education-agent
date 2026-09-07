@@ -75,7 +75,7 @@
             <form v-else key="s2" class="form-body" @submit.prevent="handleVerify">
               <div class="sms-tip">
                 <div class="sms-tip__icon">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.9)" stroke-width="1.8">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3"/>
                   </svg>
                 </div>
@@ -186,7 +186,7 @@ async function handleVerify() {
   justify-content: flex-end;
   min-height: 100dvh;
   overflow: hidden;
-  font-family: 'Inter', 'PingFang SC', system-ui, sans-serif;
+  font-family: var(--font-sans);
   position: relative;
 }
 
@@ -201,7 +201,7 @@ async function handleVerify() {
   pointer-events: none;
 }
 
-// 整体轻压暗，让卡片更突出
+// 轻压暗：让白色磨砂玻璃的反差更明显
 .bg-overlay {
   position: absolute;
   inset: 0;
@@ -216,50 +216,50 @@ async function handleVerify() {
   padding-right: 80px;
 }
 
-// ── 卡片外壳 ─────────────────────────────────────────────────
+// ── 卡片外壳：白色磨砂玻璃（0.4 opacity）────────────────────
 .login-card {
   width: 400px;
   border-radius: 24px;
   overflow: hidden;
   will-change: transform;
   transform-style: preserve-3d;
-  // 细白边：在深色卡片上恰到好处
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  // 阴影：深邃而低调，不抢视频风头
+  position: relative;
+  background-color: #ffffff;
+
+  // 白色磨砂玻璃核心
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+
+  // 阴影：靛蓝色调，与品牌系统一致
   box-shadow:
-    0 48px 96px rgba(6, 4, 18, 0.55),
-    0 16px 40px rgba(6, 4, 18, 0.35),
-    0 4px 12px rgba(6, 4, 18, 0.20);
+    0 32px 72px rgba(79, 70, 229, 0.22),
+    0 8px 28px rgba(79, 70, 229, 0.14),
+    0 2px 6px rgba(0, 0, 0, 0.10);
 }
 
-// ── 上半：品牌区 ─────────────────────────────────────────────
-// 透明，让视频透出来，文字加阴影保证可读
+// ── 上半：品牌区（继承卡片白色磨砂，深色文字）───────────────
 .card-brand {
-  padding: 36px 32px 28px;
+  padding: 38px 32px 26px;
   background: transparent;
 }
 
 .brand-sys-name {
-  font-size: 11px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.50);
-  letter-spacing: 0.12em;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--indigo);
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   margin-bottom: 14px;
+  opacity: 0.70;
 }
 
 .brand-headline {
-  font-size: 30px;
+  font-size: 28px;
   font-weight: 700;
-  color: #fff;
-  line-height: 1.20;
+  color: var(--text-1);
+  line-height: 1.22;
   letter-spacing: -0.025em;
   margin-bottom: 20px;
-  // 文字投影，清晰压住视频背景
-  text-shadow:
-    0 1px 0 rgba(0,0,0,0.35),
-    0 4px 16px rgba(0,0,0,0.40),
-    0 8px 32px rgba(0,0,0,0.25);
 }
 
 .brand-pills {
@@ -273,28 +273,21 @@ async function handleVerify() {
   font-weight: 500;
   padding: 4px 11px;
   border-radius: 9999px;
-  // 深色胶囊，低调融入
-  background: rgba(0, 0, 0, 0.28);
-  color: rgba(255, 255, 255, 0.65);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(79, 70, 229, 0.08);
+  color: var(--indigo);
+  border: 1px solid rgba(79, 70, 229, 0.18);
   letter-spacing: 0.02em;
-  backdrop-filter: blur(4px);
 }
 
-// ── 下半：毛玻璃磨砂表单区 ───────────────────────────────────
-// 深色半透明：深夜蓝底，高不透明度 → 清晰易读
+// ── 下半：表单区（略深于品牌区，靛蓝细分割线）───────────────
 .card-glass {
   position: relative;
-  padding: 28px 32px 32px;
-  // 核心：深色玻璃磨砂
-  background: rgba(12, 9, 30, 0.82);
-  backdrop-filter: blur(40px) saturate(140%);
-  -webkit-backdrop-filter: blur(40px) saturate(140%);
-  // 顶部分割线
-  border-top: 1px solid rgba(255, 255, 255, 0.10);
+  padding: 24px 32px 32px;
+  background: rgba(255, 255, 255, 0.22);
+  border-top: 1px solid rgba(79, 70, 229, 0.10);
 }
 
-// 顶部微弱折射高光
+// 分割线正中的靛蓝微光，增加光学层次
 .glass-shimmer {
   position: absolute;
   top: 0;
@@ -304,8 +297,8 @@ async function handleVerify() {
   background: linear-gradient(
     90deg,
     transparent,
-    rgba(255, 255, 255, 0.30) 40%,
-    rgba(255, 255, 255, 0.30) 60%,
+    rgba(79, 70, 229, 0.22) 40%,
+    rgba(79, 70, 229, 0.22) 60%,
     transparent
   );
   pointer-events: none;
@@ -327,15 +320,15 @@ async function handleVerify() {
 .field-label {
   font-size: 11px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.45);
-  letter-spacing: 0.08em;
+  color: var(--text-2);
+  letter-spacing: 0.07em;
   text-transform: uppercase;
 }
 
 .field-label-hint {
   font-size: 11px;
   font-weight: 400;
-  color: rgba(255, 255, 255, 0.25);
+  color: var(--text-3);
   text-transform: none;
   letter-spacing: 0;
 }
@@ -346,20 +339,19 @@ async function handleVerify() {
   gap: 10px;
   padding: 0 14px;
   border-radius: 10px;
-  // 输入框：深色底，带微弱白边
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.58);
+  border: 1.5px solid rgba(79, 70, 229, 0.14);
   transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
 
   &:focus-within {
-    background: rgba(255, 255, 255, 0.10);
-    border-color: rgba(148, 130, 255, 0.55);
-    box-shadow: 0 0 0 3px rgba(120, 100, 220, 0.14);
+    background: rgba(255, 255, 255, 0.88);
+    border-color: rgba(79, 70, 229, 0.45);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.10);
   }
 }
 
 .field-icon {
-  color: rgba(255, 255, 255, 0.28);
+  color: var(--text-3);
   flex-shrink: 0;
 }
 
@@ -368,47 +360,46 @@ async function handleVerify() {
   min-width: 0;
   font-family: inherit;
   font-size: 14px;
-  // 输入文字清晰白色
-  color: rgba(255, 255, 255, 0.90);
+  color: var(--text-1);
   background: transparent;
   border: none;
   outline: none;
   padding: 11px 0;
 
-  &::placeholder { color: rgba(255, 255, 255, 0.22); }
+  &::placeholder { color: var(--text-3); }
 }
 
 .field-input--code {
-  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 22px;
   letter-spacing: 0.24em;
   text-align: center;
   padding: 12px 0;
+  color: var(--indigo);
 }
 
 .eye-btn {
   background: none;
   border: none;
-  color: rgba(255, 255, 255, 0.28);
+  color: var(--text-3);
   cursor: pointer;
   display: flex;
   align-items: center;
   padding: 0;
   transition: color 0.12s;
 
-  &:hover { color: rgba(255, 255, 255, 0.65); }
+  &:hover { color: var(--text-1); }
 }
 
-// ── 提交按钮：靛蓝实色，沉稳不抢眼 ─────────────────────────
+// ── 提交按钮：热粉色胶囊 CTA（设计规范主行动色）─────────────
 .submit-btn {
   width: 100%;
-  height: 46px;
+  height: 48px;
   margin-top: 4px;
-  // 靛蓝单色，不用渐变
-  background: #4F46E5;
+  background: linear-gradient(135deg, #F43F7E 0%, #EC4899 100%);
   color: #fff;
   border: none;
-  border-radius: 10px;
+  border-radius: 9999px;
   font-size: 14px;
   font-weight: 600;
   font-family: inherit;
@@ -418,26 +409,26 @@ async function handleVerify() {
   justify-content: center;
   letter-spacing: 0.02em;
   box-shadow:
-    0 4px 16px rgba(79, 70, 229, 0.40),
-    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    0 4px 16px rgba(244, 63, 126, 0.40),
+    inset 0 1px 0 rgba(255, 255, 255, 0.20);
   transition: all 0.16s cubic-bezier(0.16, 1, 0.3, 1);
 
   &:hover {
-    background: #4338CA;
+    background: linear-gradient(135deg, #E11D63 0%, #DB2777 100%);
     box-shadow:
-      0 6px 22px rgba(79, 70, 229, 0.52),
-      inset 0 1px 0 rgba(255, 255, 255, 0.15);
+      0 6px 24px rgba(244, 63, 126, 0.54),
+      inset 0 1px 0 rgba(255, 255, 255, 0.20);
     transform: translateY(-1px);
   }
 
-  &:active { transform: scale(0.98) translateY(0); }
+  &:active  { transform: scale(0.98) translateY(0); }
   &.loading { opacity: 0.65; pointer-events: none; }
 }
 
 .spinner {
   width: 16px;
   height: 16px;
-  border: 2px solid rgba(255, 255, 255, 0.30);
+  border: 2px solid rgba(255, 255, 255, 0.35);
   border-top-color: #fff;
   border-radius: 50%;
   animation: spin 0.65s linear infinite;
@@ -447,7 +438,7 @@ async function handleVerify() {
 
 .hint-text {
   font-size: 11.5px;
-  color: rgba(255, 255, 255, 0.24);
+  color: var(--text-3);
   text-align: center;
   margin-top: -2px;
 }
@@ -457,24 +448,25 @@ async function handleVerify() {
   display: flex;
   align-items: center;
   gap: 12px;
-  background: rgba(79, 70, 229, 0.12);
-  border: 1px solid rgba(79, 70, 229, 0.25);
+  background: rgba(79, 70, 229, 0.06);
+  border: 1px solid rgba(79, 70, 229, 0.16);
   border-radius: 10px;
   padding: 12px 14px;
 
   &__icon {
     width: 30px;
     height: 30px;
-    background: rgba(79, 70, 229, 0.20);
+    background: rgba(79, 70, 229, 0.12);
     border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    color: var(--indigo);
   }
 
-  &__title { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.85); }
-  &__sub   { font-size: 11.5px; color: rgba(255,255,255,0.38); margin-top: 2px; }
+  &__title { font-size: 13px; font-weight: 600; color: var(--text-1); }
+  &__sub   { font-size: 11.5px; color: var(--text-3); margin-top: 2px; }
 }
 
 // ── 返回链接 ─────────────────────────────────────────────────
@@ -487,17 +479,17 @@ async function handleVerify() {
   border: none;
   font-size: 13px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.30);
+  color: var(--text-3);
   cursor: pointer;
   font-family: inherit;
   width: 100%;
   padding: 4px;
   transition: color 0.12s;
 
-  &:hover { color: rgba(255, 255, 255, 0.70); }
+  &:hover { color: var(--text-1); }
 }
 
-// ── 版权 ─────────────────────────────────────────────────────
+// ── 版权（卡片外，保持白色可读）─────────────────────────────
 .page-footer {
   position: absolute;
   bottom: 20px;
@@ -505,7 +497,7 @@ async function handleVerify() {
   right: 0;
   text-align: center;
   font-size: 11.5px;
-  color: rgba(255, 255, 255, 0.22);
+  color: rgba(255, 255, 255, 0.35);
   pointer-events: none;
   z-index: 2;
   letter-spacing: 0.06em;
@@ -521,8 +513,8 @@ async function handleVerify() {
 @media (max-width: 520px) {
   .login-stage    { padding-right: 0; padding: 0 16px; }
   .login-card     { width: 100%; }
-  .card-brand     { padding: 28px 24px 22px; }
-  .card-glass     { padding: 24px 24px 28px; }
+  .card-brand     { padding: 28px 24px 20px; }
+  .card-glass     { padding: 20px 24px 28px; }
   .brand-headline { font-size: 24px; }
 }
 </style>

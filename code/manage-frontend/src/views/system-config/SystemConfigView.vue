@@ -150,7 +150,8 @@ onMounted(loadData)
 
 <style lang="scss" scoped>
 .live-pill {
-  font-size: 12px; font-weight: 700;
+  font-size: 12px;
+  font-weight: 700;
   color: var(--green);
   background: var(--green-dim);
   border: 1.5px solid var(--green-border);
@@ -160,13 +161,16 @@ onMounted(loadData)
 }
 
 .panel-hd {
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 16px 20px 0;
   margin-bottom: 4px;
 }
 
 .count-badge {
-  font-size: 12px; color: var(--text-3);
+  font-size: 12px;
+  color: var(--text-3);
   background: var(--bg-muted);
   border-radius: var(--r-pill);
   padding: 2px 8px;
@@ -174,77 +178,111 @@ onMounted(loadData)
 
 .help-tip { font-size: 12.5px; color: var(--text-3); cursor: help; }
 
-/* Config list */
+// Config list
 .config-list { padding-bottom: 8px; }
+
 .config-row {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 12px; padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 20px;
   border-bottom: 1px solid var(--border);
   transition: background var(--t-fast);
+
+  &:hover      { background: var(--bg-muted); }
+  &--last      { border-bottom: none; }
+
+  &__main  { flex: 1; min-width: 0; }
+  &__right { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
 }
-.config-row:hover { background: var(--bg-muted); }
-.config-row--last { border-bottom: none; }
-.config-row__main { flex: 1; min-width: 0; }
-.config-key { font-size: 13px; color: var(--indigo); font-weight: 500; margin-bottom: 3px; }
+
+.config-key  { font-size: 13px; color: var(--indigo); font-weight: 500; margin-bottom: 3px; }
 .config-desc { font-size: 12px; color: var(--text-3); line-height: 1.4; }
-.config-row__right { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+
 .config-val {
   font-family: var(--font-mono);
-  font-size: 13px; font-weight: 600;
+  font-size: 13px;
+  font-weight: 600;
   color: var(--text-1);
   background: var(--bg-muted);
   padding: 3px 10px;
   border-radius: var(--r-md);
   border: 1px solid var(--border);
 }
-.edit-link {
-  background: none; border: none;
-  color: var(--text-3); cursor: pointer;
-  font-size: 13px; font-weight: 500;
-  font-family: var(--font-sans);
-  padding: 4px 8px; border-radius: var(--r-sm);
-  transition: all var(--t-fast);
-}
-.edit-link:hover { background: var(--indigo-light); color: var(--indigo); }
 
-/* Strategy list */
+.edit-link {
+  background: none;
+  border: none;
+  color: var(--text-3);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  padding: 4px 8px;
+  border-radius: var(--r-sm);
+  transition: all var(--t-fast);
+
+  &:hover { background: var(--indigo-light); color: var(--indigo); }
+}
+
+// Strategy list
 .strategy-list { padding-bottom: 8px; }
+
 .strategy-row {
-  display: flex; align-items: center; gap: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   padding: 12px 20px;
   border-bottom: 1px solid var(--border);
   transition: background var(--t-fast);
+
+  &:hover   { background: var(--bg-muted); }
+  &--last   { border-bottom: none; }
+  &--off    { opacity: 0.45; }
 }
-.strategy-row:hover { background: var(--bg-muted); }
-.strategy-row--last { border-bottom: none; }
-.strategy-row--off { opacity: 0.45; }
+
 .priority-num {
-  width: 24px; height: 24px;
+  width: 24px;
+  height: 24px;
   background: var(--indigo-light);
   color: var(--indigo);
   border: 1.5px solid var(--indigo-border);
   border-radius: var(--r-full);
-  font-size: 11.5px; font-weight: 700; font-family: var(--font-mono);
-  display: flex; align-items: center; justify-content: center;
+  font-size: 11.5px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
 }
-.strategy-info { flex: 1; min-width: 0; }
-.strategy-name { font-size: 13.5px; font-weight: 500; color: var(--text-1); }
+
+.strategy-info   { flex: 1; min-width: 0; }
+.strategy-name   { font-size: 13.5px; font-weight: 500; color: var(--text-1); }
 .strategy-powers { font-size: 12px; color: var(--text-3); margin-top: 2px; }
 
-/* Dialog */
+// Dialog
 .edit-body { display: flex; flex-direction: column; gap: 14px; }
+
 .param-info {
   background: var(--bg-muted);
   border-radius: var(--r-lg);
   padding: 14px 16px;
-  display: flex; flex-direction: column; gap: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
+
 .param-info-row { display: flex; align-items: flex-start; gap: 10px; }
 .param-info-lbl { font-size: 12.5px; color: var(--text-3); min-width: 52px; padding-top: 1px; }
+
 .live-warning {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 13px; color: var(--amber);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--amber);
   background: var(--amber-dim);
   border-radius: var(--r-lg);
   padding: 10px 14px;

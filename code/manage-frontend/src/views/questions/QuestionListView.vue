@@ -213,7 +213,7 @@ onMounted(loadData)
 .stem-cell { display: flex; flex-direction: column; gap: 5px; padding: 2px 0; }
 .stem-text { font-size: 13.5px; color: var(--text-1); line-height: 1.5; }
 .stem-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.meta-num { font-size: 11.5px; color: var(--text-3); }
+.meta-num  { font-size: 11.5px; color: var(--text-3); }
 
 .embed-badge {
   font-size: 11.5px;
@@ -221,36 +221,45 @@ onMounted(loadData)
   padding: 2px 8px;
   border-radius: var(--r-pill);
   border: 1px solid;
+
+  &.embed--ok      { background: var(--green-dim); color: var(--green); border-color: var(--green-border); }
+  &.embed--fail    { background: var(--red-dim);   color: var(--red);   border-color: var(--red-border); }
+  &.embed--pending { background: var(--bg-muted);  color: var(--text-3); border-color: var(--border-hover); }
 }
-.embed--ok   { background: var(--green-dim); color: var(--green); border-color: var(--green-border); }
-.embed--fail { background: var(--red-dim);   color: var(--red);   border-color: var(--red-border); }
-.embed--pending { background: var(--bg-muted); color: var(--text-3); border-color: var(--border-hover); }
 
 .diff-badge {
-  font-size: 11.5px; font-weight: 500;
+  font-size: 11.5px;
+  font-weight: 500;
   padding: 3px 10px;
   border-radius: var(--r-pill);
   border: 1.5px solid;
+
+  &.diff--basic    { background: var(--teal-dim);  color: var(--teal);  border-color: var(--teal-border); }
+  &.diff--advanced { background: var(--amber-dim); color: var(--amber); border-color: var(--amber-border); }
+  &.diff--challenge { background: var(--red-dim);  color: var(--red);   border-color: var(--red-border); }
 }
-.diff--basic    { background: var(--teal-dim);    color: var(--teal);    border-color: var(--teal-border); }
-.diff--advanced { background: var(--amber-dim);   color: var(--amber);   border-color: var(--amber-border); }
-.diff--challenge{ background: var(--red-dim);     color: var(--red);     border-color: var(--red-border); }
 
 .status-pill {
-  font-size: 11.5px; font-weight: 500;
+  font-size: 11.5px;
+  font-weight: 500;
   padding: 3px 10px;
   border-radius: var(--r-pill);
   border: 1.5px solid;
-}
-.status--published { background: var(--green-dim); color: var(--green); border-color: var(--green-border); }
-.status--draft     { background: var(--amber-dim); color: var(--amber); border-color: var(--amber-border); }
-.status--archived  { background: var(--bg-muted);  color: var(--text-3); border-color: var(--border-hover); }
 
-.op-btn { font-size: 13px !important; color: var(--text-2) !important; }
-.op-btn:hover { color: var(--indigo) !important; }
-.op-btn--green:hover { color: var(--green) !important; }
-.op-btn--amber:hover { color: var(--amber) !important; }
-.op-btn--red:hover   { color: var(--red)   !important; }
+  &.status--published { background: var(--green-dim); color: var(--green); border-color: var(--green-border); }
+  &.status--draft     { background: var(--amber-dim); color: var(--amber); border-color: var(--amber-border); }
+  &.status--archived  { background: var(--bg-muted);  color: var(--text-3); border-color: var(--border-hover); }
+}
+
+.op-btn {
+  font-size: 13px !important;
+  color: var(--text-2) !important;
+
+  &:hover           { color: var(--indigo) !important; }
+  &--green:hover    { color: var(--green)  !important; }
+  &--amber:hover    { color: var(--amber)  !important; }
+  &--red:hover      { color: var(--red)    !important; }
+}
 
 .import-hint {
   font-size: 13.5px;
@@ -260,6 +269,7 @@ onMounted(loadData)
   border-radius: var(--r-lg);
   padding: 12px 16px;
 }
+
 .inline-code {
   font-family: var(--font-mono);
   font-size: 12.5px;

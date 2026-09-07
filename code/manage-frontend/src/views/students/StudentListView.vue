@@ -134,7 +134,8 @@ onMounted(loadData)
 
 <style lang="scss" scoped>
 .student-avatar {
-  width: 34px; height: 34px;
+  width: 34px;
+  height: 34px;
   border-radius: 10px;
   background: var(--indigo-light);
   color: var(--indigo);
@@ -145,16 +146,20 @@ onMounted(loadData)
   justify-content: center;
   flex-shrink: 0;
 }
+
 .subject-tag {
-  font-size: 11.5px; font-weight: 500;
+  font-size: 11.5px;
+  font-weight: 500;
   padding: 2px 8px;
   border-radius: var(--r-pill);
   background: var(--indigo-light);
   color: var(--indigo);
   border: 1px solid var(--indigo-border);
 }
+
 .no-test-tag {
-  font-size: 11.5px; padding: 3px 10px;
+  font-size: 11.5px;
+  padding: 3px 10px;
   border-radius: var(--r-pill);
   background: var(--bg-muted);
   color: var(--text-3);

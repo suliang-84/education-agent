@@ -166,15 +166,23 @@ async function handleCommand(cmd: string) {
 </script>
 
 <style lang="scss" scoped>
-/* ── Shell ── */
+// ── Shell ──────────────────────────────────────────────────
 .admin-shell {
   display: flex;
   height: 100dvh;
   overflow: hidden;
   background: var(--bg-page);
+
+  // Collapsed state — controls nested element visibility
+  &.collapsed {
+    .sidebar          { width: var(--sidebar-w-collapsed); }
+    .sidebar-logo__name { opacity: 0; pointer-events: none; }
+    .nav-section__label { opacity: 0; }
+    .nav-item__label    { opacity: 0; pointer-events: none; }
+  }
 }
 
-/* ── Sidebar ── */
+// ── Sidebar ─────────────────────────────────────────────────
 .sidebar {
   width: var(--sidebar-w);
   height: 100%;
@@ -185,11 +193,10 @@ async function handleCommand(cmd: string) {
   flex-shrink: 0;
   overflow: hidden;
   transition: width var(--t-slow) var(--ease-out);
-  box-shadow: 2px 0 12px rgba(79,70,229,0.05);
+  box-shadow: 2px 0 12px rgba(79, 70, 229, 0.05);
 }
-.admin-shell.collapsed .sidebar { width: var(--sidebar-w-collapsed); }
 
-/* Logo */
+// Logo
 .sidebar-logo {
   display: flex;
   align-items: center;
@@ -199,28 +206,30 @@ async function handleCommand(cmd: string) {
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   overflow: hidden;
-}
-.sidebar-logo__icon {
-  width: 32px;
-  height: 32px;
-  background: var(--indigo);
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  box-shadow: 0 2px 8px rgba(79,70,229,0.35);
-}
-.sidebar-logo__name {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--text-1);
-  letter-spacing: -0.02em;
-  white-space: nowrap;
-}
-.admin-shell.collapsed .sidebar-logo__name { opacity: 0; pointer-events: none; }
 
-/* Nav */
+  &__icon {
+    width: 32px;
+    height: 32px;
+    background: var(--indigo);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(79, 70, 229, 0.35);
+  }
+
+  &__name {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-1);
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+    transition: opacity var(--t-base);
+  }
+}
+
+// Nav
 .sidebar-nav {
   flex: 1;
   overflow-y: auto;
@@ -231,19 +240,22 @@ async function handleCommand(cmd: string) {
   gap: 18px;
 }
 
-.nav-section { display: flex; flex-direction: column; gap: 2px; }
+.nav-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 
-.nav-section__label {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-3);
-  padding: 0 8px 6px;
-  white-space: nowrap;
-  transition: opacity var(--t-base);
+  &__label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-3);
+    padding: 0 8px 6px;
+    white-space: nowrap;
+    transition: opacity var(--t-base);
+  }
 }
-.admin-shell.collapsed .nav-section__label { opacity: 0; }
 
 .nav-item {
   display: flex;
@@ -259,24 +271,32 @@ async function handleCommand(cmd: string) {
   white-space: nowrap;
   overflow: hidden;
   position: relative;
-}
-.nav-item:hover { background: var(--bg-muted); color: var(--text-1); }
-.nav-item.active {
-  background: var(--indigo-light);
-  color: var(--indigo);
-  font-weight: 600;
-}
 
-.nav-item__icon {
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
+  &:hover {
+    background: var(--bg-muted);
+    color: var(--text-1);
+  }
+
+  &.active {
+    background: var(--indigo-light);
+    color: var(--indigo);
+    font-weight: 600;
+  }
+
+  &__icon {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  &__label {
+    flex: 1;
+    transition: opacity var(--t-base);
+  }
 }
-.nav-item__label { flex: 1; transition: opacity var(--t-base); }
-.admin-shell.collapsed .nav-item__label { opacity: 0; pointer-events: none; }
 
 .nav-badge {
   background: var(--pink-light);
@@ -291,7 +311,7 @@ async function handleCommand(cmd: string) {
   font-family: var(--font-mono);
 }
 
-/* Collapse button */
+// Collapse button
 .collapse-btn {
   margin: 8px 10px;
   padding: 8px;
@@ -305,10 +325,14 @@ async function handleCommand(cmd: string) {
   justify-content: center;
   transition: all var(--t-fast);
   flex-shrink: 0;
-}
-.collapse-btn:hover { background: var(--indigo-light); color: var(--indigo); }
 
-/* User */
+  &:hover {
+    background: var(--indigo-light);
+    color: var(--indigo);
+  }
+}
+
+// User
 .sidebar-user {
   display: flex;
   align-items: center;
@@ -318,6 +342,7 @@ async function handleCommand(cmd: string) {
   flex-shrink: 0;
   overflow: hidden;
 }
+
 .user-avatar {
   width: 32px;
   height: 32px;
@@ -330,17 +355,37 @@ async function handleCommand(cmd: string) {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  box-shadow: 0 2px 8px rgba(79,70,229,0.3);
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
+
+  &--sm {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    font-size: 11.5px;
+  }
 }
-.user-avatar--sm {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
+
+.user-info {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.user-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-role {
   font-size: 11.5px;
+  color: var(--text-3);
+  margin-top: 1px;
 }
-.user-info { flex: 1; min-width: 0; overflow: hidden; }
-.user-name { font-size: 13px; font-weight: 600; color: var(--text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.user-role { font-size: 11.5px; color: var(--text-3); margin-top: 1px; }
+
 .user-menu-btn {
   background: transparent;
   border: none;
@@ -352,10 +397,14 @@ async function handleCommand(cmd: string) {
   border-radius: var(--r-sm);
   transition: all var(--t-fast);
   flex-shrink: 0;
-}
-.user-menu-btn:hover { background: var(--bg-muted); color: var(--text-1); }
 
-/* ── Main ── */
+  &:hover {
+    background: var(--bg-muted);
+    color: var(--text-1);
+  }
+}
+
+// ── Main ────────────────────────────────────────────────────
 .main-wrap {
   flex: 1;
   display: flex;
@@ -364,7 +413,7 @@ async function handleCommand(cmd: string) {
   min-width: 0;
 }
 
-/* Content */
+// Content area
 .content-area {
   flex: 1;
   overflow-y: auto;

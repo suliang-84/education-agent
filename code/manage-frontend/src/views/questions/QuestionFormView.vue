@@ -208,6 +208,7 @@ onMounted(async () => {
   padding: 22px 24px;
   margin-bottom: 16px;
 }
+
 .section-badge {
   font-size: 12px;
   color: var(--indigo);
@@ -216,6 +217,7 @@ onMounted(async () => {
   border-radius: var(--r-pill);
   font-weight: 500;
 }
+
 .form-hint { font-size: 12.5px; color: var(--text-3); margin-top: 6px; }
 
 .tag-area {
@@ -225,6 +227,7 @@ onMounted(async () => {
   gap: 8px;
   min-height: 34px;
 }
+
 .migration-tag {
   display: inline-flex;
   align-items: center;
@@ -237,12 +240,21 @@ onMounted(async () => {
   font-size: 13px;
   font-weight: 500;
 }
+
 .tag-close {
-  background: none; border: none; color: var(--purple);
-  cursor: pointer; font-size: 14px; line-height: 1; padding: 0;
-  opacity: 0.7; transition: opacity 0.1s;
+  background: none;
+  border: none;
+  color: var(--purple);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0;
+  opacity: 0.7;
+  transition: opacity 0.1s;
+
+  &:hover { opacity: 1; }
 }
-.tag-close:hover { opacity: 1; }
+
 .tag-add-btn {
   background: none;
   border: 1.5px dashed var(--border-hover);
@@ -253,6 +265,11 @@ onMounted(async () => {
   padding: 3px 14px;
   transition: all 0.15s;
   font-family: var(--font-sans);
+
+  &:hover {
+    border-color: var(--indigo);
+    color: var(--indigo);
+    background: var(--indigo-light);
+  }
 }
-.tag-add-btn:hover { border-color: var(--indigo); color: var(--indigo); background: var(--indigo-light); }
 </style>
