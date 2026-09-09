@@ -2,7 +2,7 @@
   <div class="login-root">
 
     <!-- ── 背景视频 ── -->
-    <video class="bg-video" autoplay muted playsinline >
+    <video class="bg-video" autoplay muted playsinline loop >
       <source src="@/assets/login-background.mp4" type="video/mp4" />
     </video>
     <div class="bg-overlay" />
@@ -20,8 +20,8 @@
 
         <!-- 上半：品牌区（透明，文字叠在视频上） -->
         <div class="card-brand">
-          <p class="brand-sys-name">MESH · 五力认知训练平台</p>
-          <h1 class="brand-headline">智能教学数据<br>尽在掌握</h1>
+          <p class="brand-sys-name">MESH · 后台管理系统</p>
+          <div class="brand-headline">智能教学数据尽在掌握</div>
           <div class="brand-pills">
             <span class="brand-pill">五力认知诊断</span>
             <span class="brand-pill">个性化训练</span>
@@ -244,7 +244,7 @@ async function handleVerify() {
 }
 
 .brand-sys-name {
-  font-size: 10.5px;
+  font-size: 18px;
   font-weight: 700;
   color: var(--indigo);
   letter-spacing: 0.14em;
@@ -254,8 +254,8 @@ async function handleVerify() {
 }
 
 .brand-headline {
-  font-size: 28px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 600;
   color: var(--text-1);
   line-height: 1.22;
   letter-spacing: -0.025em;
