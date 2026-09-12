@@ -1,0 +1,889 @@
+// ============================================================
+//  MESH Admin Design System
+//  Soft Vibrant — Lavender base · Indigo brand · Pink CTA
+//  SCSS 规范：变量 → Mixin → :root token → 基础 → EP 覆盖 → 工具类
+// ============================================================
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+// ── SCSS 变量（编译期，用于生成 CSS 自定义属性）─────────────
+
+// 背景
+$bg-page:    #E8ECF8;
+$bg-surface: #FFFFFF;
+$bg-muted:   #F0F2FA;
+
+// 品牌色
+$indigo:        #4F46E5;
+$indigo-hover:  #4338CA;
+$indigo-light:  #EEF2FF;
+$indigo-border: rgba(79, 70, 229, 0.20);
+$indigo-dim:    rgba(79, 70, 229, 0.08);
+
+$pink:        #F43F7E;
+$pink-hover:  #E11D63;
+$pink-shadow: rgba(244, 63, 126, 0.35);
+$pink-light:  #FFF0F5;
+
+// 语义色
+$green:        #10B981;
+$green-dim:    #ECFDF5;
+$green-border: rgba(16, 185, 129, 0.25);
+
+$amber:        #D97706;
+$amber-dim:    #FFFBEB;
+$amber-border: rgba(217, 119, 6, 0.25);
+
+$red:        #EF4444;
+$red-dim:    #FEF2F2;
+$red-border: rgba(239, 68, 68, 0.22);
+
+$purple:        #7C3AED;
+$purple-dim:    #F5F3FF;
+$purple-border: rgba(124, 58, 237, 0.22);
+
+$teal:        #0D9488;
+$teal-dim:    #F0FDFA;
+$teal-border: rgba(13, 148, 136, 0.22);
+
+// 五力颜色
+$power-insight:   $teal;
+$power-construct: #E11D48;
+$power-deduce:    $indigo;
+$power-adapt:     $amber;
+$power-migrate:   $purple;
+
+// 文字
+$text-1: #1E293B;
+$text-2: #64748B;
+$text-3: #94A3B8;
+$text-disabled: #CBD5E1;
+
+// 边框
+$border:        rgba(79, 70, 229, 0.08);
+$border-hover:  rgba(79, 70, 229, 0.15);
+$border-strong: rgba(79, 70, 229, 0.22);
+
+// 阴影
+$shadow-sm: 0 2px 8px rgba(79,70,229,0.06), 0 1px 3px rgba(0,0,0,0.04);
+$shadow-md: 0 4px 20px rgba(79,70,229,0.10), 0 2px 8px rgba(0,0,0,0.05);
+$shadow-lg: 0 12px 40px rgba(79,70,229,0.14), 0 4px 16px rgba(0,0,0,0.07);
+$shadow-pink: 0 4px 14px #{$pink-shadow};
+
+// 圆角
+$r-xs:   4px;
+$r-sm:   8px;
+$r-md:   10px;
+$r-lg:   14px;
+$r-xl:   18px;
+$r-2xl:  24px;
+$r-pill: 9999px;
+
+// 字体
+$font-sans: 'Inter', 'PingFang SC', 'Hiragino Sans GB', system-ui, sans-serif;
+$font-mono: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+
+// 布局
+$sidebar-w:           240px;
+$sidebar-w-collapsed: 64px;
+$header-h:            60px;
+
+// 过渡
+$ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+$t-fast:   130ms;
+$t-base:   220ms;
+$t-slow:   350ms;
+
+// ── Mixins ──────────────────────────────────────────────────
+
+// 卡片表面
+@mixin surface($radius: $r-xl, $shadow: $shadow-sm) {
+  background: var(--bg-surface);
+  border-radius: $radius;
+  box-shadow: $shadow;
+  border: none;
+}
+
+// Badge 颜色
+@mixin badge-color($bg, $color, $border-color) {
+  background: $bg;
+  color: $color;
+  border-color: $border-color;
+}
+
+// 平滑过渡
+@mixin transition($props...) {
+  transition-property: $props;
+  transition-duration: $t-fast;
+  transition-timing-function: $ease-out;
+}
+
+// 输入框焦点环
+@mixin focus-ring($color: $indigo) {
+  box-shadow: 0 0 0 2px $color, 0 0 0 4px rgba(79,70,229,0.10) !important;
+}
+
+// ── :root CSS 自定义属性（运行时，供 Element Plus 等消费）────
+
+:root {
+  // 背景
+  --bg-page:    #{$bg-page};
+  --bg-surface: #{$bg-surface};
+  --bg-muted:   #{$bg-muted};
+
+  // 品牌色
+  --indigo:        #{$indigo};
+  --indigo-hover:  #{$indigo-hover};
+  --indigo-light:  #{$indigo-light};
+  --indigo-border: #{$indigo-border};
+  --indigo-dim:    #{$indigo-dim};
+  --pink:          #{$pink};
+  --pink-hover:    #{$pink-hover};
+  --pink-shadow:   #{$pink-shadow};
+  --pink-light:    #{$pink-light};
+
+  // 语义色
+  --green:        #{$green};
+  --green-dim:    #{$green-dim};
+  --green-border: #{$green-border};
+  --amber:        #{$amber};
+  --amber-dim:    #{$amber-dim};
+  --amber-border: #{$amber-border};
+  --red:          #{$red};
+  --red-dim:      #{$red-dim};
+  --red-border:   #{$red-border};
+  --purple:       #{$purple};
+  --purple-dim:   #{$purple-dim};
+  --purple-border:#{$purple-border};
+  --teal:         #{$teal};
+  --teal-dim:     #{$teal-dim};
+  --teal-border:  #{$teal-border};
+
+  // 五力颜色
+  --power-insight:   #{$power-insight};
+  --power-construct: #{$power-construct};
+  --power-deduce:    #{$power-deduce};
+  --power-adapt:     #{$power-adapt};
+  --power-migrate:   #{$power-migrate};
+
+  // 文字
+  --text-1:        #{$text-1};
+  --text-2:        #{$text-2};
+  --text-3:        #{$text-3};
+  --text-disabled: #{$text-disabled};
+
+  // 边框
+  --border:        #{$border};
+  --border-hover:  #{$border-hover};
+  --border-strong: #{$border-strong};
+
+  // 阴影
+  --shadow-sm:   #{$shadow-sm};
+  --shadow-md:   #{$shadow-md};
+  --shadow-lg:   #{$shadow-lg};
+  --shadow-pink: #{$shadow-pink};
+
+  // 圆角
+  --r-xs:   #{$r-xs};
+  --r-sm:   #{$r-sm};
+  --r-md:   #{$r-md};
+  --r-lg:   #{$r-lg};
+  --r-xl:   #{$r-xl};
+  --r-2xl:  #{$r-2xl};
+  --r-pill: #{$r-pill};
+
+  // 字体
+  --font-sans: #{$font-sans};
+  --font-mono: #{$font-mono};
+
+  // 布局
+  --sidebar-w:           #{$sidebar-w};
+  --sidebar-w-collapsed: #{$sidebar-w-collapsed};
+  --header-h:            #{$header-h};
+
+  // 过渡
+  --ease-out: #{$ease-out};
+  --t-fast:   #{$t-fast};
+  --t-base:   #{$t-base};
+  --t-slow:   #{$t-slow};
+
+  // Element Plus 主色映射
+  --el-color-primary:         #{$indigo};
+  --el-color-primary-light-3: rgba(79,70,229,0.28);
+  --el-color-primary-light-5: rgba(79,70,229,0.18);
+  --el-color-primary-light-7: rgba(79,70,229,0.10);
+  --el-color-primary-light-8: rgba(79,70,229,0.07);
+  --el-color-primary-light-9: rgba(79,70,229,0.04);
+  --el-color-primary-dark-2:  #{$indigo-hover};
+  --el-border-color:          rgba(79,70,229,0.15);
+  --el-border-color-light:    rgba(79,70,229,0.10);
+  --el-border-color-lighter:  rgba(79,70,229,0.07);
+  --el-fill-color:            #{$bg-muted};
+  --el-fill-color-light:      #F8F9FD;
+  --el-bg-color:              #{$bg-surface};
+  --el-bg-color-page:         #{$bg-page};
+  --el-bg-color-overlay:      #{$bg-surface};
+  --el-text-color-primary:    #{$text-1};
+  --el-text-color-regular:    #{$text-2};
+  --el-text-color-secondary:  #{$text-3};
+  --el-text-color-placeholder:#{$text-3};
+  --el-box-shadow:            #{$shadow-md};
+  --el-box-shadow-light:      #{$shadow-sm};
+  --el-overlay-color:         rgba(30,41,59,0.4);
+}
+
+// ── Base Reset ───────────────────────────────────────────────
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  font-family: $font-sans;
+  font-size: 14px;
+  line-height: 1.5;
+  color: $text-1;
+  background: $bg-page;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+// ── Element Plus 覆盖（使用 SCSS BEM 嵌套）──────────────────
+
+// Card
+.el-card {
+  background: $bg-surface;
+  border: none;
+  border-radius: $r-xl !important;
+  box-shadow: $shadow-sm;
+
+  &__header {
+    border-bottom: 1px solid $border;
+    padding: 16px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    color: $text-1;
+  }
+
+  &__body {
+    padding: 20px;
+  }
+}
+
+// Button
+.el-button {
+  font-family: $font-sans;
+  font-size: 13.5px;
+  font-weight: 500;
+  border-radius: $r-lg;
+  transition: all $t-fast $ease-out;
+  border: 1.5px solid;
+
+  &:active { transform: scale(0.97); }
+
+  &--default {
+    background: $bg-surface;
+    border-color: $border-hover;
+    color: $text-2;
+
+    &:hover {
+      background: $bg-muted;
+      border-color: $border-strong;
+      color: $text-1;
+    }
+  }
+
+  &--primary {
+    background: $indigo;
+    border-color: $indigo;
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(79,70,229,0.25);
+
+    &:hover {
+      background: $indigo-hover;
+      border-color: $indigo-hover;
+      box-shadow: 0 4px 12px rgba(79,70,229,0.35);
+    }
+  }
+
+  &--danger {
+    background: $red;
+    border-color: $red;
+    color: #fff;
+
+    &:hover {
+      background: #DC2626;
+      border-color: #DC2626;
+    }
+  }
+}
+
+// Table
+.el-table {
+  font-size: 13.5px;
+  background: transparent;
+
+  .el-table__inner-wrapper { border-radius: 0; }
+
+  th.el-table__cell {
+    background: #F8F9FD;
+    color: $text-3;
+    font-weight: 600;
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border-bottom: 1px solid $border;
+  }
+
+  td.el-table__cell {
+    border-bottom: 1px solid rgba(79,70,229,0.05);
+    color: $text-1;
+    font-size: 13.5px;
+  }
+
+  .el-table__row:hover > td { background: #F5F7FF !important; }
+  .el-table__body-wrapper   { background: transparent; }
+
+  &--striped .el-table__body tr.el-table__row--striped td {
+    background: #FAFBFF;
+  }
+}
+
+// Input
+.el-input {
+  &__wrapper {
+    background: $bg-surface !important;
+    box-shadow: 0 0 0 1.5px $border !important;
+    border-radius: $r-md !important;
+    transition: box-shadow $t-fast !important;
+
+    &:hover { box-shadow: 0 0 0 1.5px $border-hover !important; }
+
+    &.is-focus { @include focus-ring; }
+  }
+
+  &__inner {
+    font-family: $font-sans;
+    font-size: 13.5px;
+    color: $text-1;
+
+    &::placeholder { color: $text-3; }
+  }
+}
+
+// Textarea
+.el-textarea__inner {
+  font-family: $font-sans !important;
+  font-size: 13.5px !important;
+  background: $bg-surface !important;
+  color: $text-1 !important;
+  border-radius: $r-md !important;
+  box-shadow: 0 0 0 1.5px $border !important;
+
+  &:focus { @include focus-ring; }
+}
+
+// Select dropdown
+.el-select-dropdown {
+  background: $bg-surface !important;
+  border: none !important;
+  border-radius: $r-lg !important;
+  box-shadow: $shadow-md !important;
+  overflow: hidden;
+
+  &__item {
+    font-size: 13.5px;
+    color: $text-2;
+    padding: 9px 14px;
+
+    &.is-selected,
+    &.selected {
+      color: $indigo;
+      font-weight: 500;
+      background: $indigo-light;
+    }
+
+    &:hover {
+      background: $bg-muted;
+      color: $text-1;
+    }
+  }
+}
+
+// Form
+.el-form-item__label {
+  font-size: 13px;
+  font-weight: 500;
+  color: $text-2;
+}
+
+// Tag
+.el-tag {
+  border-radius: $r-pill;
+  font-size: 12px;
+  font-weight: 500;
+  height: 22px;
+  line-height: 20px;
+  padding: 0 10px;
+  border-width: 1.5px;
+
+  &--success { @include badge-color($green-dim,  $green,  $green-border); }
+  &--warning { @include badge-color($amber-dim,  $amber,  $amber-border); }
+  &--danger  { @include badge-color($red-dim,    $red,    $red-border); }
+  &--info    { @include badge-color($bg-muted,   $text-2, $border-hover); }
+  &--primary { @include badge-color($indigo-light, $indigo, $indigo-border); }
+}
+
+// Dialog
+.el-dialog {
+  background: $bg-surface;
+  border-radius: $r-2xl !important;
+  box-shadow: $shadow-lg !important;
+  border: none;
+
+  &__header { border-bottom: 1px solid $border; padding: 20px 24px 18px; }
+  &__title  { font-size: 16px; font-weight: 700; color: $text-1; }
+  &__footer { border-top: 1px solid $border; padding: 16px 24px; }
+}
+
+.el-overlay {
+  background: rgba(30,41,59,0.4);
+  backdrop-filter: blur(4px);
+}
+
+// Descriptions
+.el-descriptions {
+  font-size: 13.5px;
+
+  &__label   { color: $text-2; font-weight: 500; font-size: 12.5px; background: #F8F9FD; }
+  &__content { color: $text-1; background: $bg-surface; }
+
+  &.is-bordered .el-descriptions__cell { border-color: $border; }
+}
+
+// Alert
+.el-alert {
+  border-radius: $r-lg;
+  border: none;
+
+  &--info.is-light    { background: $indigo-light; color: $indigo; }
+  &--warning.is-light { background: $amber-dim; color: $amber; }
+  &--error.is-light   { background: $red-dim; color: $red; }
+}
+
+// Divider
+.el-divider {
+  border-color: $border;
+
+  &__text { background: $bg-surface; color: $text-3; font-size: 12px; }
+}
+
+// Switch
+.el-switch {
+  &.is-checked .el-switch__core {
+    background: $indigo;
+    border-color: $indigo;
+  }
+}
+
+// Dropdown
+.el-dropdown-menu {
+  background: $bg-surface;
+  border: none;
+  border-radius: $r-lg;
+  padding: 6px;
+  box-shadow: $shadow-md;
+
+  &__item {
+    font-size: 13.5px;
+    color: $text-2;
+    border-radius: $r-sm;
+    padding: 8px 12px;
+
+    &:hover {
+      background: $indigo-light;
+      color: $indigo;
+    }
+  }
+}
+
+// Breadcrumb
+.el-breadcrumb {
+  &__inner      { color: $text-3 !important; font-size: 13px; }
+  &__separator  { color: $text-disabled !important; }
+
+  .el-breadcrumb__item:last-child .el-breadcrumb__inner {
+    color: $text-1 !important;
+    font-weight: 500;
+  }
+}
+
+// Radio button
+.el-radio-button {
+  &__inner {
+    background: $bg-surface;
+    border-color: $border;
+    color: $text-2;
+    font-size: 12.5px;
+    font-weight: 500;
+  }
+
+  &__original-radio:checked + .el-radio-button__inner {
+    background: $indigo;
+    border-color: $indigo;
+    box-shadow: none;
+    color: #fff;
+  }
+}
+
+// Slider
+.el-slider {
+  &__runway { background: $bg-muted; }
+  &__bar    { background: $indigo; }
+  &__button {
+    border-color: $indigo;
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(79,70,229,0.3);
+  }
+}
+
+// Pagination
+.el-pagination {
+  font-size: 13px;
+
+  .el-pager li {
+    background: transparent;
+    color: $text-2;
+    border-radius: $r-sm;
+
+    &:hover        { background: $indigo-light; color: $indigo; }
+    &.is-active    { background: $indigo; color: #fff; border-radius: $r-sm; }
+  }
+}
+
+// Date picker
+.el-date-picker {
+  background: $bg-surface;
+  border: none;
+  border-radius: $r-lg;
+  box-shadow: $shadow-md;
+}
+
+.el-date-table {
+  td.today .el-date-table-cell__text { color: $indigo; font-weight: 700; }
+  td.current:not(.disabled) .el-date-table-cell { background: $indigo; }
+}
+
+// Message box
+.el-message-box {
+  background: $bg-surface;
+  border: none;
+  border-radius: $r-2xl;
+  box-shadow: $shadow-lg;
+
+  &__title { font-weight: 700; color: $text-1; }
+}
+
+// Upload
+.el-upload-dragger {
+  background: #FAFBFF;
+  border: 2px dashed $border-hover;
+  border-radius: $r-lg;
+
+  &:hover {
+    border-color: $indigo;
+    background: $indigo-light;
+  }
+}
+
+// Input number
+.el-input-number .el-input__wrapper { border-radius: $r-md !important; }
+
+// ── 工具类 ───────────────────────────────────────────────────
+
+.mono { font-family: $font-mono; }
+.num  { font-family: $font-mono; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+
+// ── 五力 Badge ───────────────────────────────────────────────
+
+.power-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: $r-sm;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1.5px solid;
+
+  &--INSIGHT   { @include badge-color($teal-dim,    $power-insight,   $teal-border); }
+  &--CONSTRUCT { @include badge-color($red-dim,     $power-construct, $red-border); }
+  &--DEDUCE    { @include badge-color($indigo-light,$power-deduce,    $indigo-border); }
+  &--ADAPT     { @include badge-color($amber-dim,   $power-adapt,     $amber-border); }
+  &--MIGRATE   { @include badge-color($purple-dim,  $power-migrate,   $purple-border); }
+}
+
+// ── 置信度 Badge ─────────────────────────────────────────────
+
+.conf-badge {
+  padding: 3px 10px;
+  border-radius: $r-pill;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: $font-mono;
+  border: 1.5px solid;
+
+  &--high { @include badge-color($green-dim, $green, $green-border); }
+  &--mid  { @include badge-color($amber-dim, $amber, $amber-border); }
+  &--low  { @include badge-color($red-dim,   $red,   $red-border); }
+}
+
+// ── Surface 卡片 ─────────────────────────────────────────────
+
+.surface {
+  @include surface;
+}
+
+.surface-elevated {
+  @include surface($r-xl, $shadow-md);
+}
+
+// ── Pink CTA ─────────────────────────────────────────────────
+
+.btn-pink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: $pink;
+  color: #fff;
+  border: none;
+  border-radius: $r-pill;
+  padding: 10px 28px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: $font-sans;
+  cursor: pointer;
+  box-shadow: $shadow-pink;
+  transition: all $t-fast $ease-out;
+
+  &:hover {
+    background: $pink-hover;
+    box-shadow: 0 6px 20px rgba(244,63,126,0.45);
+  }
+
+  &:active { transform: scale(0.97); }
+}
+
+// ── 页面布局 Helper ──────────────────────────────────────────
+
+.page-root {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 1440px;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.page-title    { font-size: 20px; font-weight: 700; color: $text-1; letter-spacing: -0.025em; }
+.page-subtitle { font-size: 13px; color: $text-3; margin-top: 3px; }
+
+// ── Filter Bar ───────────────────────────────────────────────
+
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 14px 18px;
+  background: $bg-surface;
+  border-radius: $r-xl;
+  box-shadow: $shadow-sm;
+}
+
+// ── Stat Card ────────────────────────────────────────────────
+
+.stat-card {
+  background: $bg-surface;
+  border-radius: $r-xl;
+  padding: 20px 22px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: $shadow-sm;
+  transition: box-shadow $t-fast, transform $t-fast;
+
+  &:hover {
+    box-shadow: $shadow-md;
+    transform: translateY(-2px);
+  }
+
+  &__header { display: flex; align-items: center; justify-content: space-between; }
+
+  &__label {
+    font-size: 12px;
+    font-weight: 600;
+    color: $text-3;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  &__icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__value {
+    font-size: 32px;
+    font-weight: 700;
+    color: $text-1;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    font-family: $font-mono;
+  }
+
+  &__sub {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    color: $text-3;
+    flex-wrap: wrap;
+  }
+
+  &__trend {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: $r-pill;
+    padding: 2px 8px;
+
+    &--up   { background: $green-dim; color: $green; }
+    &--down { background: $red-dim;   color: $red; }
+  }
+}
+
+// ── Section Header ───────────────────────────────────────────
+
+.section-hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.section-title { font-size: 14px; font-weight: 600; color: $text-1; }
+
+// ── Review Card ──────────────────────────────────────────────
+
+.review-card {
+  background: $bg-surface;
+  border-radius: $r-xl;
+  padding: 20px;
+  box-shadow: $shadow-sm;
+  transition: box-shadow $t-fast;
+
+  &:hover { box-shadow: $shadow-md; }
+  &--confirmed { opacity: 0.55; }
+}
+
+// ── 杂项 ─────────────────────────────────────────────────────
+
+.id-chip {
+  font-family: $font-mono;
+  font-size: 12px;
+  color: $indigo;
+  background: $indigo-light;
+  border-radius: $r-sm;
+  padding: 2px 8px;
+  font-weight: 500;
+}
+
+.paginator {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 2px 2px;
+  color: $text-3;
+  font-size: 12.5px;
+}
+
+.row-divider {
+  height: 1px;
+  background: $border;
+  margin: 14px 0;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 56px 24px;
+  color: $text-3;
+  font-size: 13.5px;
+}
+
+// ── JSON Viewer ──────────────────────────────────────────────
+
+.json-viewer {
+  background: #F8F9FD;
+  border-radius: $r-lg;
+  padding: 12px 14px;
+  font-family: $font-mono;
+  font-size: 12px;
+  color: $text-2;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 180px;
+  overflow-y: auto;
+  line-height: 1.6;
+}
+
+// ── Text Link ────────────────────────────────────────────────
+
+.text-link {
+  font-size: 13px;
+  color: $indigo;
+  text-decoration: none;
+  font-weight: 500;
+
+  &:hover {
+    color: $indigo-hover;
+    text-decoration: underline;
+  }
+}
+
+// ── Scrollbar ────────────────────────────────────────────────
+
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track { background: transparent; }
+
+::-webkit-scrollbar-thumb {
+  background: rgba(79,70,229,0.18);
+  border-radius: 99px;
+
+  &:hover { background: rgba(79,70,229,0.32); }
+}
