@@ -86,16 +86,26 @@ export const CognitiveQuestionStatusLabels: Record<CognitiveQuestionStatus, stri
   archived: '已下架',
 }
 
-// 五力测试题
+// 五力测试题答案（v1.4.0）
+// key 由后端按序自动生成（A/B/C/D…），前端提交时无需传 key
+export interface CognitiveAnswer {
+  key?: string
+  text: string
+  force_weights: Record<FivePower, number>
+}
+
+// 五力测试题（v1.4.0）
+// 移除 question_type / target_power / option_scores / option_force_weights
+// 新增 description（管理员元数据）/ answers（统一答案+权重）/ display_order
 export interface CognitiveQuestion {
   id: number
-  order_num: number
+  question_no: number
+  display_order: number
+  description?: string
   stem: string
-  question_type: 'STANDARD' | 'OPEN'
-  target_power: FivePower
+  image_url?: string
+  answers: CognitiveAnswer[]
   reference_time_sec: number
-  option_scores: Record<string, number>
-  option_force_weights?: Record<string, Record<FivePower, number>>
   status: CognitiveQuestionStatus
   created_at: string
   updated_at: string

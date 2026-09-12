@@ -16,10 +16,10 @@
     </div>
 
     <!-- ── 测试状态看板 ── -->
-    <div class="status-board" :class="publishedCount === 20 ? 'status-board--ok' : 'status-board--warn'">
+    <div class="status-board" :class="publishedCount >= 10 ? 'status-board--ok' : 'status-board--warn'">
       <div class="status-board__left">
         <div class="status-icon">
-          <svg v-if="publishedCount === 20" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <svg v-if="publishedCount >= 10" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>
           <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -28,8 +28,8 @@
         </div>
         <div>
           <div class="status-board__label">测试状态</div>
-          <div class="status-board__text" v-if="publishedCount === 20">● 已发布 <strong>{{ publishedCount }}/20</strong> 道 — 测试功能已就绪，学生可正常参加测试</div>
-          <div class="status-board__text" v-else>● 已发布 <strong>{{ publishedCount }}/20</strong> 道 — ⚠ 未达20道，测试功能已暂停</div>
+          <div class="status-board__text" v-if="publishedCount >= 10">● 已发布 <strong>{{ publishedCount }}</strong> 道 — 测试功能已就绪，学生可正常参加测试</div>
+          <div class="status-board__text" v-else>● 已发布 <strong>{{ publishedCount }}</strong> 道 — ⚠ 不足10道，测试功能已暂停（至少需发布10道）</div>
         </div>
       </div>
       <div class="status-board__counts">
@@ -57,14 +57,7 @@
           </button>
         </div>
         <div class="filter-group">
-          <el-select v-model="filterPower" placeholder="目标维度" clearable size="small" style="width:120px">
-            <el-option v-for="(label, key) in FivePowerLabels" :key="key" :label="label" :value="key" />
-          </el-select>
-          <el-select v-model="filterType" placeholder="题目类型" clearable size="small" style="width:120px">
-            <el-option label="标准题" value="STANDARD" />
-            <el-option label="开放题" value="OPEN" />
-          </el-select>
-          <el-input v-model="searchText" placeholder="搜索题干..." clearable size="small" style="width:180px">
+          <el-input v-model="searchText" placeholder="搜索题干..." clearable size="small" style="width:220px">
             <template #prefix>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/>
@@ -77,43 +70,47 @@
       <!-- ── 列表表格 ── -->
       <el-table :data="filteredQuestions" row-key="id" style="width:100%">
 
-        <!-- 展开行 -->
+        <!-- 展开行：题干 + 答案 + 权重 -->
         <el-table-column type="expand">
           <template #default="{ row }">
             <div class="expand-panel">
-              <p style="font-size:13.5px;color:var(--text-1);line-height:1.6;margin-bottom:14px">{{ row.stem }}</p>
-              <div class="score-pills">
-                <span v-for="opt in ['A','B','C','D']" :key="opt"
-                  class="score-pill" :class="{ 'score-pill--max': isMaxScore(row, opt) }">
-                  <span class="score-pill__opt">{{ opt }}</span>
-                  <span class="score-pill__val num">{{ row.option_scores?.[opt] ?? 0 }}</span>
-                  <span class="score-pill__unit">分</span>
-                </span>
-                <span class="ref-time-pill">⏱ {{ row.reference_time_sec }} 秒</span>
-              </div>
-              <div v-if="row.question_type === 'OPEN' && row.option_force_weights" style="margin-top:14px">
-                <p style="font-size:12px;font-weight:600;color:var(--text-3);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.05em">五力权重分布</p>
-                <el-table :data="['A','B','C','D'].map(o => ({ opt: o }))" border size="small" style="max-width:560px">
-                  <el-table-column label="选项" prop="opt" width="58" align="center">
-                    <template #default="{ row: wr }">
-                      <span style="font-weight:700;color:var(--indigo)">{{ wr.opt }}</span>
-                    </template>
-                  </el-table-column>
-                  <el-table-column v-for="p in powers" :key="p" :label="FivePowerLabels[p as FivePower]" width="84" align="center">
-                    <template #default="{ row: wr }">
-                      <span class="num" style="font-size:12px;color:var(--text-2)">{{ row.option_force_weights?.[wr.opt]?.[p as FivePower]?.toFixed(2) }}</span>
-                    </template>
-                  </el-table-column>
-                </el-table>
+              <!-- 题干 -->
+              <p class="expand-stem">{{ row.stem }}</p>
+              <!-- 题目描述（管理员元数据） -->
+              <p v-if="row.description" class="expand-desc">
+                <span class="expand-desc__label">题目描述：</span>{{ row.description }}
+              </p>
+              <!-- 答案列表 -->
+              <div class="expand-answers">
+                <div v-for="(answer, idx) in row.answers" :key="idx" class="expand-answer">
+                  <div class="expand-answer__header">
+                    <span class="expand-key">{{ answer.key || String.fromCharCode(65 + idx) }}</span>
+                    <span class="expand-text">{{ answer.text }}</span>
+                    <span class="expand-time" v-if="idx === 0">⏱ {{ row.reference_time_sec }} 秒</span>
+                  </div>
+                  <div class="expand-weights">
+                    <span v-for="p in powers" :key="p" class="expand-weight-chip">
+                      <span class="power-dot-xs" :class="`power-dot-xs--${p}`" />
+                      {{ FivePowerLabels[p as FivePower] }}
+                      <strong class="num">{{ (answer.force_weights?.[p as FivePower] ?? 0).toFixed(2) }}</strong>
+                    </span>
+                    <span
+                      class="expand-sum num"
+                      :class="Math.abs(Object.values(answer.force_weights || {}).reduce((s: number, v: number) => s + v, 0) - 1) < 0.02 ? 'expand-sum--ok' : 'expand-sum--err'"
+                    >
+                      合计 {{ Object.values(answer.force_weights || {}).reduce((s: number, v: number) => s + v, 0).toFixed(2) }}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
           </template>
         </el-table-column>
 
         <!-- 题号 -->
-        <el-table-column label="#" prop="order_num" width="60" align="center">
+        <el-table-column label="#" prop="question_no" width="60" align="center">
           <template #default="{ row }">
-            <span class="num" style="font-weight:600;color:var(--indigo)">{{ row.order_num }}</span>
+            <span class="num" style="font-weight:600;color:var(--indigo)">{{ row.question_no }}</span>
           </template>
         </el-table-column>
 
@@ -126,30 +123,25 @@
           </template>
         </el-table-column>
 
-        <!-- 类型 -->
-        <el-table-column label="类型" width="90">
+        <!-- 答案数 -->
+        <el-table-column label="答案数" width="80" align="center">
           <template #default="{ row }">
-            <span class="type-badge" :class="row.question_type === 'OPEN' ? 'type--open' : 'type--std'">
-              {{ row.question_type === 'OPEN' ? '开放题' : '标准题' }}
-            </span>
+            <span class="num" style="color:var(--text-2)">{{ row.answers?.length ?? 0 }}</span>
+            <span style="color:var(--text-3);font-size:12px"> 项</span>
           </template>
         </el-table-column>
 
         <!-- 题干摘要 -->
-        <el-table-column label="题干摘要" min-width="320">
+        <el-table-column label="题干摘要" min-width="360">
           <template #default="{ row }">
-            <span style="color:var(--text-1);font-size:13.5px;line-height:1.5">
-              {{ row.stem?.substring(0, 55) }}{{ row.stem?.length > 55 ? '…' : '' }}
-            </span>
-          </template>
-        </el-table-column>
-
-        <!-- 目标维度 -->
-        <el-table-column label="目标维度" width="100">
-          <template #default="{ row }">
-            <span class="power-badge" :class="`power-badge--${row.target_power}`">
-              {{ FivePowerLabels[row.target_power as FivePower] }}
-            </span>
+            <div>
+              <p style="color:var(--text-1);font-size:13.5px;line-height:1.5;margin:0">
+                {{ row.stem?.substring(0, 60) }}{{ (row.stem?.length ?? 0) > 60 ? '…' : '' }}
+              </p>
+              <p v-if="row.description" style="color:var(--text-3);font-size:12px;margin:3px 0 0">
+                {{ row.description?.substring(0, 40) }}{{ (row.description?.length ?? 0) > 40 ? '…' : '' }}
+              </p>
+            </div>
           </template>
         </el-table-column>
 
@@ -192,13 +184,9 @@
     <el-dialog v-model="publishDialogVisible" title="确认发布此题目？" width="440px">
       <div style="line-height:1.8;font-size:14px;color:var(--text-2)">
         <p>发布后该题将加入测试题池。</p>
-        <p>当前已发布：<strong class="num">{{ publishedCount }}</strong> / 20 道</p>
-        <p>发布后将达：<strong class="num">{{ publishedCount + 1 }}</strong> / 20 道</p>
-        <div v-if="publishedCount + 1 === 20" style="margin-top:12px;padding:10px 14px;background:var(--green-dim);border:1px solid var(--green-border);border-radius:var(--r-lg);color:var(--green);font-size:13px">
-          🎉 发布后题目数将达到20道，测试功能将自动开启！
-        </div>
-        <div v-else-if="publishedCount >= 20" style="margin-top:12px;padding:10px 14px;background:var(--red-dim);border:1px solid var(--red-border);border-radius:var(--r-lg);color:var(--red);font-size:13px">
-          ⚠ 已发布题目数已达20道，请先下架一道题后再发布新题。
+        <p>当前已发布：<strong class="num">{{ publishedCount }}</strong> 道，发布后将达：<strong class="num">{{ publishedCount + 1 }}</strong> 道</p>
+        <div v-if="publishedCount + 1 === 10" style="margin-top:12px;padding:10px 14px;background:var(--green-dim);border:1px solid var(--green-border);border-radius:var(--r-lg);color:var(--green);font-size:13px">
+          🎉 发布后将达到10道，测试功能将自动开启！
         </div>
         <div v-else style="margin-top:12px;padding:10px 14px;background:var(--amber-dim);border:1px solid var(--amber-border);border-radius:var(--r-lg);color:var(--amber);font-size:13px">
           ⚠ 发布后题目内容的修改将立即影响新测试会话的评分计算。
@@ -206,7 +194,7 @@
       </div>
       <template #footer>
         <el-button @click="publishDialogVisible = false">取消</el-button>
-        <el-button type="primary" :disabled="publishedCount >= 20" :loading="saving" @click="doPublish">确认发布</el-button>
+        <el-button type="primary" :loading="saving" @click="doPublish">确认发布</el-button>
       </template>
     </el-dialog>
 
@@ -214,10 +202,12 @@
     <el-dialog v-model="archiveDialogVisible" title="确认下架此题目？" width="440px">
       <div style="line-height:1.8;font-size:14px;color:var(--text-2)">
         <p>下架后该题不再参与新测试组卷。</p>
-        <p>当前已发布：<strong class="num">{{ publishedCount }}</strong> / 20 道</p>
-        <p>下架后将剩：<strong class="num">{{ publishedCount - 1 }}</strong> / 20 道</p>
-        <div style="margin-top:12px;padding:10px 14px;background:var(--amber-dim);border:1px solid var(--amber-border);border-radius:var(--r-lg);color:var(--amber);font-size:13px">
-          ⚠ 下架后测试功能将暂停，请尽快补充新题目并发布至20道。
+        <p>当前已发布：<strong class="num">{{ publishedCount }}</strong> 道，下架后将剩：<strong class="num">{{ publishedCount - 1 }}</strong> 道</p>
+        <div v-if="publishedCount - 1 < 10" style="margin-top:12px;padding:10px 14px;background:var(--amber-dim);border:1px solid var(--amber-border);border-radius:var(--r-lg);color:var(--amber);font-size:13px">
+          ⚠ 下架后已发布题目将不足10道，测试功能将暂停，请尽快补充发布。
+        </div>
+        <div v-else style="margin-top:12px;padding:10px 14px;background:var(--indigo-light);border:1px solid var(--indigo-border);border-radius:var(--r-lg);color:var(--indigo);font-size:13px">
+          下架后仍有 {{ publishedCount - 1 }} 道题目，测试功能保持正常。
         </div>
       </div>
       <template #footer>
@@ -250,8 +240,6 @@ import type { CognitiveQuestion, FivePower, CognitiveQuestionStatus } from '@/ty
 import { FivePowerLabels, CognitiveQuestionStatusLabels } from '@/types'
 
 const router = useRouter()
-
-// ── 常量 ──────────────────────────────────────────────────────
 const powers = ['INSIGHT', 'CONSTRUCT', 'DEDUCE', 'ADAPT', 'MIGRATE'] as const
 
 // ── 状态 ──────────────────────────────────────────────────────
@@ -284,16 +272,6 @@ const filteredQuestions = computed(() => {
     list = list.filter(q => q.status === activeTab.value)
   }
 
-  // 维度筛选
-  if (filterPower.value) {
-    list = list.filter(q => q.target_power === filterPower.value)
-  }
-
-  // 类型筛选
-  if (filterType.value) {
-    list = list.filter(q => q.question_type === filterType.value)
-  }
-
   // 搜索
   if (searchText.value.trim()) {
     const kw = searchText.value.toLowerCase()
@@ -302,13 +280,6 @@ const filteredQuestions = computed(() => {
 
   return list
 })
-
-// ── 工具函数 ──────────────────────────────────────────────────
-function isMaxScore(row: CognitiveQuestion, opt: string) {
-  if (!row.option_scores) return false
-  const max = Math.max(...Object.values(row.option_scores))
-  return row.option_scores[opt] === max
-}
 
 // ── 初始化 ────────────────────────────────────────────────────
 onMounted(async () => {
@@ -360,10 +331,6 @@ async function doArchive() {
 
 // ── 重新发布 ──────────────────────────────────────────────────
 function confirmRepublish(row: CognitiveQuestion) {
-  if (publishedCount.value >= 20) {
-    ElMessage.error('已发布题目数已达20道，请先下架一道题后再重新发布')
-    return
-  }
   actionTarget.value = row
   publishDialogVisible.value = true
 }
@@ -524,38 +491,124 @@ async function doDelete() {
   border-top: 1px solid var(--border);
 }
 
-.score-pills { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-
-.score-pill {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 5px 12px;
-  border-radius: var(--r-pill);
-  background: var(--bg-surface);
-  border: 1.5px solid var(--border);
-  font-size: 13px;
-
-  &--max {
-    background: var(--green-dim);
-    border-color: var(--green-border);
-
-    .score-pill__val { color: var(--green); }
-  }
-
-  &__opt  { font-weight: 700; color: var(--text-2); }
-  &__val  { font-weight: 700; color: var(--text-1); margin-left: 2px; }
-  &__unit { font-size: 11px; color: var(--text-3); }
+.expand-stem {
+  font-size: 13.5px;
+  color: var(--text-1);
+  line-height: 1.65;
+  margin: 0 0 10px;
 }
 
-.ref-time-pill {
-  padding: 5px 12px;
-  border-radius: var(--r-pill);
-  background: var(--indigo-light);
-  color: var(--indigo);
-  border: 1.5px solid var(--indigo-border);
+.expand-desc {
+  font-size: 12px;
+  color: var(--text-3);
+  margin: 0 0 14px;
+  padding: 6px 10px;
+  background: rgba(79, 70, 229, 0.04);
+  border-radius: var(--r-md);
+  border-left: 2px solid var(--indigo-border);
+
+  &__label { font-weight: 600; color: var(--text-2); }
+}
+
+.expand-answers {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.expand-answer {
+  background: var(--bg-surface);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border);
+  overflow: hidden;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: var(--bg-surface);
+  }
+}
+
+.expand-key {
+  width: 26px;
+  height: 26px;
+  border-radius: var(--r-sm);
+  background: var(--indigo);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.expand-text {
+  flex: 1;
   font-size: 13px;
-  font-weight: 500;
+  color: var(--text-1);
+  line-height: 1.5;
+}
+
+.expand-time {
+  font-size: 12px;
+  color: var(--indigo);
+  background: var(--indigo-light);
+  border: 1px solid var(--indigo-border);
+  padding: 2px 9px;
+  border-radius: var(--r-pill);
+  flex-shrink: 0;
+}
+
+.expand-weights {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 8px 14px;
+  background: #F8F9FD;
+  border-top: 1px solid var(--border);
+}
+
+.expand-weight-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  color: var(--text-2);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  padding: 2px 8px;
+
+  strong { color: var(--text-1); }
+}
+
+.expand-sum {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: var(--r-pill);
+
+  &--ok { background: var(--green-dim); color: var(--green); }
+  &--err { background: var(--red-dim);  color: var(--red); }
+}
+
+// 五力维度小圆点
+.power-dot-xs {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+
+  &--INSIGHT   { background: var(--power-insight); }
+  &--CONSTRUCT { background: var(--power-construct); }
+  &--DEDUCE    { background: var(--power-deduce); }
+  &--ADAPT     { background: var(--power-adapt); }
+  &--MIGRATE   { background: var(--power-migrate); }
 }
 
 // ── 状态 Badge ───────────────────────────────────────────────
@@ -566,21 +619,9 @@ async function doDelete() {
   border-radius: var(--r-pill);
   border: 1.5px solid;
 
-  &--draft     { background: var(--bg-muted);   color: var(--text-2); border-color: var(--border-hover); }
-  &--published { background: var(--green-dim);  color: var(--green);  border-color: var(--green-border); }
-  &--archived  { background: var(--bg-muted);   color: var(--text-3); border-color: var(--border); }
-}
-
-// ── 类型 Badge ───────────────────────────────────────────────
-.type-badge {
-  font-size: 12px;
-  font-weight: 500;
-  padding: 3px 10px;
-  border-radius: var(--r-pill);
-  border: 1.5px solid;
-
-  &.type--open { background: var(--amber-dim);   color: var(--amber);  border-color: var(--amber-border); }
-  &.type--std  { background: var(--indigo-light); color: var(--indigo); border-color: var(--indigo-border); }
+  &--draft     { background: var(--bg-muted);  color: var(--text-2); border-color: var(--border-hover); }
+  &--published { background: var(--green-dim); color: var(--green);  border-color: var(--green-border); }
+  &--archived  { background: var(--bg-muted);  color: var(--text-3); border-color: var(--border); }
 }
 
 </style>

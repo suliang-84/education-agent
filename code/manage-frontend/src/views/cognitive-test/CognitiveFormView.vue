@@ -4,11 +4,11 @@
     <!-- ── 页头 ── -->
     <div class="page-header">
       <div style="display:flex;align-items:center;gap:12px">
-        <el-button size="small" @click="$router.push('/cognitive-test')">
+        <el-button size="small" @click="router.push('/cognitive-test')">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="margin-right:4px">
             <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/>
           </svg>
-          返回
+          返回列表
         </el-button>
         <div>
           <h1 class="page-title">{{ isEdit ? '编辑测试题目' : '新增测试题目' }}</h1>
@@ -16,8 +16,8 @@
         </div>
       </div>
       <div style="display:flex;gap:10px;align-items:center">
-        <el-button @click="handleSave('draft')" :loading="loading">保存草稿</el-button>
-        <button class="btn-pink" type="button" @click="handleSave('publish')" :disabled="loading">
+        <el-button @click="handleSave('draft')" :loading="saving">保存草稿</el-button>
+        <button class="btn-pink" type="button" @click="handleSave('publish')" :disabled="saving || loading">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:5px">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>
@@ -26,160 +26,182 @@
       </div>
     </div>
 
-    <!-- ── 已发布题目数量提示 ── -->
-    <div v-if="!isEdit" class="publish-tip" :class="publishedCount >= 20 ? 'publish-tip--full' : 'publish-tip--normal'">
+    <!-- ── 已发布状态提示 ── -->
+    <div class="publish-tip" :class="publishedCount >= 10 ? 'publish-tip--normal' : 'publish-tip--warn'">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0">
         <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"/>
       </svg>
-      <span v-if="publishedCount >= 20">
-        当前已发布 <strong class="num">{{ publishedCount }}/20</strong> 道，已达上限。若需发布新题，请先前往列表下架旧题。
+      <span v-if="publishedCount >= 10">
+        当前已发布 <strong class="num">{{ publishedCount }}</strong> 道，测试功能已就绪。题目数量无上限，可继续新增发布。
       </span>
       <span v-else>
-        当前已发布 <strong class="num">{{ publishedCount }}/20</strong> 道，还需发布 <strong class="num">{{ 20 - publishedCount }}</strong> 道测试功能方可启用。
+        当前已发布 <strong class="num">{{ publishedCount }}</strong> 道，还需发布 <strong class="num">{{ 10 - publishedCount }}</strong> 道，测试功能方可对学生开放。
       </span>
     </div>
 
-    <el-form ref="formRef" :model="form" :rules="rules" label-width="110px" v-loading="loading">
+    <div v-loading="loading">
 
       <!-- ── 基础信息 ── -->
       <div class="form-section surface">
         <div class="section-hd">
           <span class="section-title">基础信息</span>
         </div>
-        <el-row :gutter="24">
-          <el-col :span="8">
-            <el-form-item label="题目类型" prop="question_type">
-              <el-radio-group v-model="form.question_type">
-                <el-radio-button value="STANDARD">标准题</el-radio-button>
-                <el-radio-button value="OPEN">开放题</el-radio-button>
-              </el-radio-group>
-              <div class="form-hint">
-                {{ form.question_type === 'STANDARD' ? 'STANDARD：有唯一正确答案，以选项得分判断' : 'OPEN：无唯一答案，以五力权重分布评估认知偏好' }}
-              </div>
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item label="目标维度" prop="target_power">
-              <el-select v-model="form.target_power" style="width:100%" placeholder="选择目标五力维度">
-                <el-option v-for="(label, key) in FivePowerLabels" :key="key" :label="label" :value="key">
-                  <span class="power-badge" :class="`power-badge--${key}`" style="padding:2px 8px;font-size:11px">{{ label }}</span>
-                </el-option>
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item label="参考时间" prop="reference_time_sec">
-              <div style="display:flex;align-items:center;gap:8px">
-                <el-input-number v-model="form.reference_time_sec" :min="30" :max="300" :step="10" style="width:130px" />
-                <span style="color:var(--text-3);font-size:13px">秒（建议 60~180 秒）</span>
-              </div>
-            </el-form-item>
-          </el-col>
-        </el-row>
+        <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
+          <el-row :gutter="24">
+            <el-col :span="8">
+              <el-form-item label="参考时间" prop="reference_time_sec">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <el-input-number
+                    v-model="form.reference_time_sec"
+                    :min="30" :max="600" :step="15"
+                    style="width:130px"
+                  />
+                  <span style="color:var(--text-3);font-size:13px">秒（建议 60~180）</span>
+                </div>
+              </el-form-item>
+            </el-col>
+            <el-col :span="16">
+              <el-form-item label="题目描述">
+                <el-input
+                  v-model="form.description"
+                  placeholder="管理员内部元数据，不展示给学生。如：测量学生在面对冲突证据时的洞察力倾向"
+                  maxlength="200"
+                  show-word-limit
+                />
+                <div class="form-hint">用于记录该题的测量意图，便于题库管理，学生不可见。</div>
+              </el-form-item>
+            </el-col>
+          </el-row>
+        </el-form>
       </div>
 
       <!-- ── 题干内容 ── -->
       <div class="form-section surface">
         <div class="section-hd">
           <span class="section-title">题干内容</span>
+          <span class="section-badge">展示给学生，支持 Markdown / LaTeX</span>
         </div>
-        <el-form-item label="题干" prop="stem">
-          <el-input
-            v-model="form.stem"
-            type="textarea"
-            :rows="5"
-            placeholder="请输入题目题干，描述具体情境和问题..."
-            show-word-limit
-            maxlength="800"
-          />
-        </el-form-item>
+        <el-form ref="stemFormRef" :model="form" :rules="rules" label-width="0">
+          <el-form-item prop="stem" style="margin-bottom:0">
+            <el-input
+              v-model="form.stem"
+              type="textarea"
+              :rows="5"
+              placeholder="请输入题目题干，描述具体情境和问题..."
+              show-word-limit
+              maxlength="800"
+            />
+          </el-form-item>
+        </el-form>
       </div>
 
-      <!-- ── 选项配置（STANDARD 题：得分） ── -->
-      <div class="form-section surface" v-if="form.question_type === 'STANDARD'">
+      <!-- ── 答案配置 ── -->
+      <div class="form-section surface">
         <div class="section-hd">
-          <span class="section-title">选项得分配置</span>
-          <span class="section-badge">最高分选项视为正确答案</span>
+          <span class="section-title">答案配置</span>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span class="section-badge">每行合计需为 1.0（±0.01）</span>
+            <el-button
+              size="small"
+              :disabled="form.answers.length >= 8"
+              @click="addAnswer"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:3px">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+              </svg>
+              添加答案
+            </el-button>
+          </div>
         </div>
-        <div class="option-grid">
-          <div v-for="opt in ['A','B','C','D']" :key="opt" class="option-row">
-            <div class="option-label" :class="{ 'option-label--max': isMaxScore(opt) }">{{ opt }}</div>
-            <div class="option-score-wrap">
-              <el-input-number
-                v-model="form.option_scores[opt]"
-                :min="0"
-                :max="20"
-                controls-position="right"
-                style="width:110px"
-              />
-              <span class="score-unit">分</span>
-              <span v-if="isMaxScore(opt)" class="max-badge">← 正确答案</span>
+
+        <p class="answers-intro">
+          每个答案对应学生的一种认知倾向选择，通过五力权重分布评估其认知特征。
+          <strong>选项编号（A/B/C/D…）由系统自动生成，最少 2 个，最多 8 个。</strong>
+        </p>
+
+        <!-- 答案列表 -->
+        <div class="answer-list">
+          <div
+            v-for="(answer, idx) in form.answers"
+            :key="idx"
+            class="answer-card"
+            :class="{ 'answer-card--invalid': !isWeightValid(idx) }"
+          >
+            <!-- 答案头部 -->
+            <div class="answer-card__header">
+              <div class="answer-key-badge">{{ String.fromCharCode(65 + idx) }}</div>
+              <div class="answer-text-wrap">
+                <el-input
+                  v-model="answer.text"
+                  placeholder="输入该选项的答案文本..."
+                  maxlength="200"
+                  show-word-limit
+                />
+              </div>
+              <el-button
+                text
+                size="small"
+                style="color:var(--red);flex-shrink:0"
+                :disabled="form.answers.length <= 2"
+                @click="removeAnswer(idx)"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/>
+                </svg>
+                删除
+              </el-button>
+            </div>
+
+            <!-- 五力权重配置 -->
+            <div class="answer-card__weights">
+              <span class="weights-label">五力权重分布</span>
+              <div class="weights-row">
+                <div v-for="p in powers" :key="p" class="weight-item">
+                  <div class="weight-item__label">
+                    <span class="power-dot" :class="`power-dot--${p}`" />
+                    {{ FivePowerLabels[p as FivePower] }}
+                  </div>
+                  <el-input-number
+                    v-model="answer.force_weights[p as FivePower]"
+                    :min="0" :max="1" :step="0.05"
+                    :precision="2"
+                    controls-position="right"
+                    size="small"
+                    style="width:90px"
+                  />
+                </div>
+                <!-- 合计 -->
+                <div class="weight-sum" :class="isWeightValid(idx) ? 'weight-sum--ok' : 'weight-sum--err'">
+                  <span class="weight-sum__label">合计</span>
+                  <span class="weight-sum__val num">{{ answerWeightSum(idx).toFixed(2) }}</span>
+                  <svg v-if="isWeightValid(idx)" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+                  </svg>
+                  <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-        <div class="score-preview">
-          <span v-for="opt in ['A','B','C','D']" :key="opt" class="score-pill" :class="{ 'score-pill--max': isMaxScore(opt) }">
-            <span class="score-pill__opt">{{ opt }}</span>
-            <span class="score-pill__val num">{{ form.option_scores[opt] }}</span>
-            <span class="score-pill__unit">分</span>
+
+        <!-- 答案数量提示 -->
+        <div class="answers-footer">
+          <span class="answers-count">
+            当前 <strong class="num">{{ form.answers.length }}</strong> 个答案
+            <span style="color:var(--text-3)">（最少 2 个，最多 8 个）</span>
           </span>
+          <div v-if="!allWeightsValid" class="weights-error">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/>
+            </svg>
+            存在答案权重合计不等于 1.0，请调整后再保存。
+          </div>
         </div>
       </div>
 
-      <!-- ── 选项配置（OPEN 题：五力权重矩阵） ── -->
-      <div class="form-section surface" v-else>
-        <div class="section-hd">
-          <span class="section-title">选项五力权重配置</span>
-          <span class="section-badge">每行合计建议为 1.0</span>
-        </div>
-        <p style="font-size:13px;color:var(--text-2);margin-bottom:18px;line-height:1.6">
-          为每个选项配置五力维度权重分布，表示选择该选项的学生在各维度上的认知倾向强度。
-        </p>
-        <div class="weight-table-wrap">
-          <table class="weight-table">
-            <thead>
-              <tr>
-                <th style="width:60px">选项</th>
-                <th v-for="p in powers" :key="p">
-                  <span class="power-badge" :class="`power-badge--${p}`" style="font-size:11px;padding:2px 8px">
-                    {{ FivePowerLabels[p as FivePower] }}
-                  </span>
-                </th>
-                <th style="width:80px;color:var(--text-3)">合计</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="opt in ['A','B','C','D']" :key="opt">
-                <td class="opt-cell">
-                  <span class="opt-badge">{{ opt }}</span>
-                </td>
-                <td v-for="p in powers" :key="p" class="num-cell">
-                  <el-input-number
-                    v-model="form.option_force_weights[opt][p]"
-                    :min="0" :max="1" :step="0.05"
-                    controls-position="right"
-                    size="small"
-                    style="width:84px"
-                  />
-                </td>
-                <td class="sum-cell">
-                  <span class="num" :class="isSumValid(opt) ? 'sum--ok' : 'sum--err'">
-                    {{ rowSum(opt).toFixed(2) }}
-                  </span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div v-if="!allSumsValid" class="sum-error-tip">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/>
-          </svg>
-          存在行权重合计不等于 1.0，请检查后再保存（允许 ±0.01 误差）。
-        </div>
-      </div>
-
-    </el-form>
+    </div>
 
   </div>
 </template>
@@ -193,58 +215,64 @@ import { cognitiveApi } from '@/api'
 import type { FivePower } from '@/types'
 import { FivePowerLabels } from '@/types'
 
-const route = useRoute()
+const route  = useRoute()
 const router = useRouter()
-const formRef = ref<FormInstance>()
+const formRef     = ref<FormInstance>()
+const stemFormRef = ref<FormInstance>()
 const loading = ref(false)
+const saving  = ref(false)
 const publishedCount = ref(0)
 
-const isEdit = computed(() => !!route.params.id)
-const powers = ['INSIGHT', 'CONSTRUCT', 'DEDUCE', 'ADAPT', 'MIGRATE'] as const
+const isEdit  = computed(() => !!route.params.id)
+const powers  = ['INSIGHT', 'CONSTRUCT', 'DEDUCE', 'ADAPT', 'MIGRATE'] as const
 
-function makeDefaultWeights() {
-  const result: Record<string, Record<string, number>> = {}
-  for (const opt of ['A', 'B', 'C', 'D']) {
-    result[opt] = { INSIGHT: 0.2, CONSTRUCT: 0.2, DEDUCE: 0.2, ADAPT: 0.2, MIGRATE: 0.2 }
+// ── 新建一个默认答案（均等权重）──────────────────────────────
+function makeAnswer(text = '') {
+  return {
+    text,
+    force_weights: { INSIGHT: 0.20, CONSTRUCT: 0.20, DEDUCE: 0.20, ADAPT: 0.20, MIGRATE: 0.20 } as Record<FivePower, number>,
   }
-  return result
 }
 
+// ── 表单状态 ─────────────────────────────────────────────────
 const form = reactive({
+  description: '',
   stem: '',
-  question_type: 'STANDARD' as 'STANDARD' | 'OPEN',
-  target_power: 'INSIGHT' as FivePower,
   reference_time_sec: 90,
-  option_scores: { A: 1, B: 10, C: 4, D: 1 } as Record<string, number>,
-  option_force_weights: makeDefaultWeights() as Record<string, Record<string, number>>,
+  answers: [makeAnswer(), makeAnswer(), makeAnswer(), makeAnswer()] as Array<{
+    text: string
+    force_weights: Record<FivePower, number>
+  }>,
 })
 
 const rules: FormRules = {
-  stem: [{ required: true, message: '请输入题干内容', trigger: 'blur' }],
-  target_power: [{ required: true, message: '请选择目标维度', trigger: 'change' }],
+  stem:               [{ required: true, message: '请输入题干内容', trigger: 'blur' }],
   reference_time_sec: [{ required: true, message: '请填写参考时间', trigger: 'change' }],
 }
 
-// ── 选项得分辅助 ──────────────────────────────────────────────
-function isMaxScore(opt: string) {
-  const max = Math.max(...Object.values(form.option_scores))
-  return form.option_scores[opt] === max
+// ── 权重验证辅助 ─────────────────────────────────────────────
+function answerWeightSum(idx: number) {
+  return Object.values(form.answers[idx].force_weights).reduce((s, v) => s + v, 0)
 }
 
-// ── 权重合计辅助 ──────────────────────────────────────────────
-function rowSum(opt: string) {
-  return Object.values(form.option_force_weights[opt] || {}).reduce((s, v) => s + v, 0)
+function isWeightValid(idx: number) {
+  return Math.abs(answerWeightSum(idx) - 1) < 0.02
 }
 
-function isSumValid(opt: string) {
-  return Math.abs(rowSum(opt) - 1) < 0.02
+const allWeightsValid = computed(() => form.answers.every((_, i) => isWeightValid(i)))
+
+// ── 答案增删 ─────────────────────────────────────────────────
+function addAnswer() {
+  if (form.answers.length >= 8) return
+  form.answers.push(makeAnswer())
 }
 
-const allSumsValid = computed(() =>
-  ['A', 'B', 'C', 'D'].every(o => isSumValid(o))
-)
+function removeAnswer(idx: number) {
+  if (form.answers.length <= 2) return
+  form.answers.splice(idx, 1)
+}
 
-// ── 初始化：加载已有数据（编辑模式）或读取发布计数 ──────────
+// ── 初始化 ───────────────────────────────────────────────────
 onMounted(async () => {
   loading.value = true
   try {
@@ -252,16 +280,16 @@ onMounted(async () => {
     publishedCount.value = list.filter(q => q.status === 'published').length
 
     if (isEdit.value) {
-      const question = list.find(q => q.id === Number(route.params.id))
-      if (question) {
-        form.stem = question.stem
-        form.question_type = question.question_type
-        form.target_power = question.target_power
-        form.reference_time_sec = question.reference_time_sec
-        form.option_scores = { ...question.option_scores }
-        if (question.option_force_weights) {
-          form.option_force_weights = JSON.parse(JSON.stringify(question.option_force_weights))
-        }
+      const q = list.find(q => q.id === Number(route.params.id))
+      if (q) {
+        form.description      = q.description ?? ''
+        form.stem             = q.stem
+        form.reference_time_sec = q.reference_time_sec
+        // 还原答案列表，去掉 key（前端按索引管理）
+        form.answers = q.answers.map(a => ({
+          text: a.text,
+          force_weights: { ...a.force_weights } as Record<FivePower, number>,
+        }))
       }
     }
   } finally {
@@ -269,40 +297,50 @@ onMounted(async () => {
   }
 })
 
-// ── 保存逻辑 ─────────────────────────────────────────────────
+// ── 保存 ─────────────────────────────────────────────────────
 async function handleSave(action: 'draft' | 'publish') {
-  const valid = await formRef.value?.validate().catch(() => false)
-  if (!valid) return
+  // 校验基础表单
+  const [v1, v2] = await Promise.all([
+    formRef.value?.validate().catch(() => false),
+    stemFormRef.value?.validate().catch(() => false),
+  ])
+  if (!v1 || !v2) return
 
-  if (action === 'publish' && form.question_type === 'OPEN' && !allSumsValid.value) {
-    ElMessage.warning('开放题各选项权重合计需为 1.0，请检查后再发布')
+  // 答案数量校验
+  if (form.answers.length < 2) {
+    ElMessage.warning('至少需要 2 个答案')
+    return
+  }
+  if (form.answers.some(a => !a.text.trim())) {
+    ElMessage.warning('存在答案文本为空，请填写后再保存')
     return
   }
 
-  if (action === 'publish' && publishedCount.value >= 20) {
-    ElMessage.error('已发布题目数已达 20 道，请先下架一道后再发布新题')
-    return
-  }
-
+  // 发布时的额外校验
   if (action === 'publish') {
+    if (!allWeightsValid.value) {
+      ElMessage.warning('存在答案权重合计不等于 1.0，请检查后再发布')
+      return
+    }
+    const willEnable = publishedCount.value < 10 && publishedCount.value + 1 >= 10
     await ElMessageBox.confirm(
-      `发布后该题将加入测试池。当前已发布 ${publishedCount.value}/20 道，发布后将达 ${publishedCount.value + 1}/20 道。`,
+      `发布后该题将加入测试池。当前已发布 ${publishedCount.value} 道，发布后将达 ${publishedCount.value + 1} 道。${willEnable ? '\n\n🎉 发布后将达到10道，测试功能将自动对学生开放！' : '\n\n⚠ 发布后题目内容的修改将立即影响新测试会话。'}`,
       '确认发布此题目？',
       { confirmButtonText: '确认发布', cancelButtonText: '取消', type: 'warning' }
     ).catch(() => { throw new Error('cancelled') })
   }
 
-  loading.value = true
+  saving.value = true
   try {
     const payload = {
+      description: form.description || undefined,
       stem: form.stem,
-      question_type: form.question_type,
-      target_power: form.target_power,
       reference_time_sec: form.reference_time_sec,
-      option_scores: { ...form.option_scores },
-      option_force_weights: form.question_type === 'OPEN'
-        ? JSON.parse(JSON.stringify(form.option_force_weights))
-        : undefined,
+      // key 由后端自动按序生成，前端不传
+      answers: form.answers.map(a => ({
+        text: a.text.trim(),
+        force_weights: { ...a.force_weights },
+      })),
     }
 
     if (isEdit.value) {
@@ -323,13 +361,13 @@ async function handleSave(action: 'draft' | 'publish') {
   } catch (e) {
     if ((e as Error).message !== 'cancelled') throw e
   } finally {
-    loading.value = false
+    saving.value = false
   }
 }
 </script>
 
 <style lang="scss" scoped>
-// ── 发布提示栏 ───────────────────────────────────────────────
+// ── 发布状态提示 ─────────────────────────────────────────────
 .publish-tip {
   display: flex;
   align-items: center;
@@ -345,7 +383,7 @@ async function handleSave(action: 'draft' | 'publish') {
     color: var(--indigo);
   }
 
-  &--full {
+  &--warn {
     background: var(--amber-dim);
     border-color: var(--amber-border);
     color: var(--amber);
@@ -376,157 +414,193 @@ async function handleSave(action: 'draft' | 'publish') {
   line-height: 1.5;
 }
 
-// ── STANDARD 选项得分 ────────────────────────────────────────
-.option-grid {
+// ── 答案区说明文字 ───────────────────────────────────────────
+.answers-intro {
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.7;
+  margin-bottom: 20px;
+  padding: 10px 14px;
+  background: var(--bg-muted);
+  border-radius: var(--r-lg);
+
+  strong { color: var(--text-1); font-weight: 600; }
+}
+
+// ── 答案列表 ─────────────────────────────────────────────────
+.answer-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin-bottom: 20px;
-}
-
-.option-row {
-  display: flex;
-  align-items: center;
   gap: 14px;
+  margin-bottom: 16px;
 }
 
-.option-label {
+.answer-card {
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-xl);
+  overflow: hidden;
+  transition: border-color 0.15s;
+
+  &:hover { border-color: var(--border-hover); }
+
+  &--invalid {
+    border-color: rgba(239, 68, 68, 0.40);
+    background: rgba(239, 68, 68, 0.02);
+  }
+
+  // ── 答案头部（编号 + 文本 + 删除）────────────────────────
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    background: var(--bg-surface);
+  }
+
+  // ── 权重区 ───────────────────────────────────────────────
+  &__weights {
+    padding: 12px 16px 14px;
+    background: var(--bg-muted);
+    border-top: 1px solid var(--border);
+  }
+}
+
+// 答案编号标牌（A/B/C/D…）
+.answer-key-badge {
   width: 32px;
   height: 32px;
   border-radius: var(--r-sm);
-  background: var(--bg-muted);
-  border: 1.5px solid var(--border-hover);
-  color: var(--text-2);
-  font-size: 13px;
+  background: var(--indigo);
+  color: #fff;
+  font-size: 14px;
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: all 0.15s;
+  letter-spacing: 0;
+}
 
-  &--max {
-    background: var(--green-dim);
-    border-color: var(--green-border);
-    color: var(--green);
+// 答案文本输入区（撑满剩余宽度）
+.answer-text-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+// ── 权重配置行 ───────────────────────────────────────────────
+.weights-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-3);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 10px;
+}
+
+.weights-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.weight-item {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: center;
+
+  &__label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--text-2);
+    white-space: nowrap;
   }
 }
 
-.option-score-wrap {
+// 五力维度彩色圆点
+.power-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+
+  &--INSIGHT   { background: var(--power-insight); }
+  &--CONSTRUCT { background: var(--power-construct); }
+  &--DEDUCE    { background: var(--power-deduce); }
+  &--ADAPT     { background: var(--power-adapt); }
+  &--MIGRATE   { background: var(--power-migrate); }
+}
+
+// 合计显示
+.weight-sum {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: var(--r-lg);
+  min-width: 64px;
+  font-size: 12px;
+
+  &--ok {
+    background: var(--green-dim);
+    color: var(--green);
+    border: 1px solid var(--green-border);
+  }
+
+  &--err {
+    background: var(--red-dim);
+    color: var(--red);
+    border: 1px solid var(--red-border);
+  }
+
+  &__label {
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    opacity: 0.7;
+  }
+
+  &__val {
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1;
+  }
+}
+
+// ── 答案区底部 ───────────────────────────────────────────────
+.answers-footer {
   display: flex;
   align-items: center;
-  gap: 8px;
-}
-
-.score-unit {
-  font-size: 13px;
-  color: var(--text-3);
-}
-
-.max-badge {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--green);
-  background: var(--green-dim);
-  padding: 2px 10px;
-  border-radius: var(--r-pill);
-  border: 1px solid var(--green-border);
-}
-
-// 得分预览
-.score-preview {
-  display: flex;
-  gap: 8px;
+  justify-content: space-between;
+  gap: 16px;
   flex-wrap: wrap;
-  padding-top: 16px;
+  padding-top: 14px;
   border-top: 1px solid var(--border);
 }
 
-.score-pill {
+.answers-count {
+  font-size: 13px;
+  color: var(--text-2);
+
+  strong { color: var(--indigo); }
+}
+
+.weights-error {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 5px 12px;
-  border-radius: var(--r-pill);
-  background: var(--bg-surface);
-  border: 1.5px solid var(--border);
-  font-size: 13px;
-
-  &--max {
-    background: var(--green-dim);
-    border-color: var(--green-border);
-
-    .score-pill__val { color: var(--green); }
-  }
-
-  &__opt  { font-weight: 700; color: var(--text-2); }
-  &__val  { font-weight: 700; color: var(--text-1); margin-left: 2px; }
-  &__unit { font-size: 11px; color: var(--text-3); }
-}
-
-// ── OPEN 权重矩阵 ────────────────────────────────────────────
-.weight-table-wrap {
-  overflow-x: auto;
-}
-
-.weight-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13.5px;
-
-  th {
-    padding: 10px 12px;
-    background: #F8F9FD;
-    color: var(--text-3);
-    font-size: 11.5px;
-    font-weight: 600;
-    text-align: center;
-    border-bottom: 1px solid var(--border);
-  }
-
-  td {
-    padding: 10px 12px;
-    text-align: center;
-    border-bottom: 1px solid var(--border);
-    vertical-align: middle;
-  }
-
-  tr:last-child td { border-bottom: none; }
-  tr:hover td { background: #F5F7FF; }
-}
-
-.opt-cell { text-align: center; }
-
-.opt-badge {
-  width: 28px;
-  height: 28px;
-  border-radius: var(--r-sm);
-  background: var(--indigo-light);
-  color: var(--indigo);
-  font-size: 13px;
-  font-weight: 700;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.num-cell { }
-
-.sum-cell { font-size: 13px; font-weight: 700; }
-
-.sum--ok { color: var(--green); }
-.sum--err { color: var(--red); }
-
-.sum-error-tip {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 14px;
-  padding: 10px 14px;
-  background: var(--red-dim);
-  border: 1px solid var(--red-border);
-  border-radius: var(--r-lg);
+  gap: 7px;
   font-size: 13px;
   color: var(--red);
+  background: var(--red-dim);
+  padding: 7px 12px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--red-border);
 }
 </style>
