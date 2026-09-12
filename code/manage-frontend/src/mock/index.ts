@@ -50,10 +50,45 @@ const students = Array.from({ length: 25 }, (_, i) => ({
   phone_masked: `138****${String(8000 + i).padStart(4, '0')}`,
   has_profile: i % 4 !== 0,
   weakest_power: ['CONSTRUCT', 'ADAPT', 'MIGRATE', 'DEDUCE', 'INSIGHT'][i % 5],
-  training_count: Math.floor(Math.random() * 30),
+  training_count: (i * 7) % 30,
   last_login_at: ['2026-08-30T09:00:00Z', '2026-08-29T14:00:00Z', '2026-08-27T10:00:00Z'][i % 3],
   created_at: '2026-07-01T00:00:00Z',
+  parent_count: [2, 1, 0, 1, 2][i % 5],
 }))
+
+// Mock 家长数据
+const parents = Array.from({ length: 18 }, (_, i) => ({
+  id: 2001 + i,
+  nickname: ['小明爸爸', '小红妈妈', '张父', '李母', '刚爸', '美妈', '强父', '李妈', '王父'][i % 9],
+  phone_masked: `139****${String(9000 + i).padStart(4, '0')}`,
+  is_confirmed: i % 5 !== 4,
+  last_login_at: ['2026-08-30T08:00:00Z', '2026-08-28T20:00:00Z', '2026-08-25T12:00:00Z'][i % 3],
+  created_at: '2026-07-05T00:00:00Z',
+  bound_students: [
+    {
+      id: 1001 + (i % 25),
+      nickname: ['小明', '小红', '小刚', '小美', '小强'][i % 5],
+      grade: ['初三', '高一', '初一', '高二', '初二'][i % 5],
+      bind_method: ['INVITE_CODE', 'PARENT_SELF', 'ADMIN'][i % 3],
+      bound_at: '2026-07-05T00:00:00Z',
+    },
+    ...(i % 3 === 0 ? [{
+      id: 1001 + ((i + 5) % 25),
+      nickname: ['小张', '小赵', '小陈'][i % 3],
+      grade: ['初二', '高一', '初三'][i % 3],
+      bind_method: 'ADMIN',
+      bound_at: '2026-08-01T00:00:00Z',
+    }] : []),
+  ],
+}))
+
+// Mock 管理员账号数据
+const adminUsers = [
+  { id: 1, username: 'admin001', display_name: '系统管理员', phone_masked: '138****1111', role: 'SUPER_ADMIN', is_active: true, last_login_at: '2026-09-07T09:00:00Z', created_at: '2026-01-01T00:00:00Z' },
+  { id: 2, username: 'ops001',   display_name: '运营专员',   phone_masked: '139****2222', role: 'ADMIN',       is_active: true, last_login_at: '2026-09-06T14:00:00Z', created_at: '2026-03-01T00:00:00Z' },
+  { id: 3, username: 'content01',display_name: '内容编辑',   phone_masked: '136****3333', role: 'ADMIN',       is_active: false, last_login_at: '2026-08-20T10:00:00Z', created_at: '2026-04-01T00:00:00Z' },
+  { id: 4, username: 'ops002',   display_name: '运营助理',   phone_masked: '135****4444', role: 'ADMIN',       is_active: true, last_login_at: '2026-09-05T16:00:00Z', created_at: '2026-06-01T00:00:00Z' },
+]
 
 // Mock 审计日志
 const auditLogs = Array.from({ length: 30 }, (_, i) => ({
@@ -384,11 +419,66 @@ const mockRoutes: MockMethod[] = [
         total_answers: 75,
         accuracy_rate: 0.65,
         parents: [
-          { id: 2001, nickname: '小明爸爸', bind_method: '邀请码', bound_at: '2026-07-05T00:00:00Z' },
-          { id: 2002, nickname: '小明妈妈', bind_method: '邀请码', bound_at: '2026-08-01T00:00:00Z' },
+          { id: 2001, nickname: '小明爸爸', phone_masked: '138****8888', bind_method: 'ADMIN',       bind_status: 'active', bound_at: '2026-07-05T00:00:00Z' },
+          { id: 2002, nickname: '小明妈妈', phone_masked: '139****9999', bind_method: 'INVITE_CODE',  bind_status: 'active', bound_at: '2026-08-01T00:00:00Z' },
         ],
       })
     },
+  },
+
+  // 解绑家长
+  {
+    url: /\/api\/v1\/admin\/students\/(\d+)\/unbind-parent$/,
+    method: 'post',
+    response: () => success(null),
+  },
+
+  // 家长管理
+  {
+    url: '/api/v1/admin/parents',
+    method: 'get',
+    response: ({ query }) => {
+      const kw = (query.keyword as string) || ''
+      const filtered = parents.filter(p =>
+        !kw || p.nickname.includes(kw) || p.phone_masked.includes(kw)
+      )
+      return paginated(filtered, filtered.length)
+    },
+  },
+  {
+    url: /\/api\/v1\/admin\/parents\/(\d+)\/unbind$/,
+    method: 'post',
+    response: () => success(null),
+  },
+
+  // 管理员账号管理
+  {
+    url: '/api/v1/admin/admin-users',
+    method: 'get',
+    response: () => success(adminUsers),
+  },
+  {
+    url: '/api/v1/admin/admin-users',
+    method: 'post',
+    response: ({ body }) => success({
+      ...body,
+      id: Math.floor(Math.random() * 900) + 100,
+      phone_masked: (body as Record<string, string>).phone?.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2') || '',
+      role: 'ADMIN',
+      is_active: true,
+      last_login_at: null,
+      created_at: new Date().toISOString(),
+    }),
+  },
+  {
+    url: /\/api\/v1\/admin\/admin-users\/(\d+)\/status$/,
+    method: 'put',
+    response: ({ body }) => success(body),
+  },
+  {
+    url: /\/api\/v1\/admin\/admin-users\/(\d+)\/reset-password$/,
+    method: 'post',
+    response: () => success({ message: '临时密码已发送至管理员手机号' }),
   },
 
   // 审计日志

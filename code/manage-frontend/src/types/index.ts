@@ -165,6 +165,7 @@ export interface Student {
   training_count: number
   last_login_at: string
   created_at: string
+  parent_count: number  // 已绑定家长数量
 }
 
 // 学生详情
@@ -177,9 +178,40 @@ export interface StudentDetail extends Student {
   parents: Array<{
     id: number
     nickname: string
+    phone_masked: string
+    bind_method: string
+    bind_status: string
+    bound_at: string
+  }>
+}
+
+// 家长
+export interface Parent {
+  id: number
+  nickname: string
+  phone_masked: string
+  is_confirmed: boolean          // 是否已激活（首次登录后 true）
+  last_login_at: string
+  created_at: string
+  bound_students: Array<{
+    id: number
+    nickname: string
+    grade: string
     bind_method: string
     bound_at: string
   }>
+}
+
+// 管理员账号
+export interface AdminUser {
+  id: number
+  username: string
+  display_name: string
+  phone_masked: string
+  role: 'SUPER_ADMIN' | 'ADMIN'
+  is_active: boolean
+  last_login_at: string
+  created_at: string
 }
 
 // 审计日志

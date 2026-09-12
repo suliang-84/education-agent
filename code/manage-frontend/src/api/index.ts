@@ -1,7 +1,7 @@
 import request from './request'
 import type {
   Question, Annotation, CognitiveQuestion, TrainingConfig,
-  SystemConfig, Strategy, Student, StudentDetail, AuditLog,
+  SystemConfig, Strategy, Student, StudentDetail, Parent, AdminUser, AuditLog,
   DashboardStats, TokenTrend, UserGrowthPoint, PaginatedResponse
 } from '@/types'
 
@@ -98,6 +98,28 @@ export const studentApi = {
     request.get<unknown, StudentDetail>(`/students/${id}`),
   bindParent: (studentId: number, data: { parent_phone: string }) =>
     request.post(`/students/${studentId}/bind-parent`, data),
+  unbindParent: (studentId: number, parentId: number) =>
+    request.post(`/students/${studentId}/unbind-parent`, { parent_id: parentId }),
+}
+
+// 家长管理
+export const parentApi = {
+  getList: (params: Record<string, unknown>) =>
+    request.get<unknown, PaginatedResponse<Parent>>('/parents', { params }),
+  unbind: (parentId: number, studentId: number) =>
+    request.post(`/parents/${parentId}/unbind`, { student_id: studentId }),
+}
+
+// 管理员账号管理
+export const adminUserApi = {
+  getList: () =>
+    request.get<unknown, AdminUser[]>('/admin-users'),
+  create: (data: { username: string; display_name: string; phone: string; email?: string }) =>
+    request.post<unknown, AdminUser>('/admin-users', data),
+  setActive: (id: number, is_active: boolean) =>
+    request.put(`/admin-users/${id}/status`, { is_active }),
+  resetPassword: (id: number) =>
+    request.post(`/admin-users/${id}/reset-password`),
 }
 
 // 审计日志

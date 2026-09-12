@@ -86,7 +86,6 @@
                   <div class="expand-answer__header">
                     <span class="expand-key">{{ answer.key || String.fromCharCode(65 + idx) }}</span>
                     <span class="expand-text">{{ answer.text }}</span>
-                    <span class="expand-time" v-if="idx === 0">⏱ {{ row.reference_time_sec }} 秒</span>
                   </div>
                   <div class="expand-weights">
                     <span v-for="p in powers" :key="p" class="expand-weight-chip">
