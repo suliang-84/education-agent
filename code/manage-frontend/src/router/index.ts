@@ -52,6 +52,18 @@ const router = createRouter({
           meta: { title: '五力测试题维护' },
         },
         {
+          path: 'cognitive-test/create',
+          name: 'CognitiveCreate',
+          component: () => import('@/views/cognitive-test/CognitiveFormView.vue'),
+          meta: { title: '新增测试题目' },
+        },
+        {
+          path: 'cognitive-test/:id/edit',
+          name: 'CognitiveEdit',
+          component: () => import('@/views/cognitive-test/CognitiveFormView.vue'),
+          meta: { title: '编辑测试题目' },
+        },
+        {
           path: 'training-config',
           name: 'TrainingConfig',
           component: () => import('@/views/training-config/TrainingConfigView.vue'),

@@ -48,10 +48,18 @@ export const annotationApi = {
 
 // 五力测试题维护
 export const cognitiveApi = {
-  getList: () =>
-    request.get<unknown, CognitiveQuestion[]>('/cognitive-questions'),
+  getList: (params?: Record<string, unknown>) =>
+    request.get<unknown, CognitiveQuestion[]>('/cognitive-questions', { params }),
+  create: (data: Partial<CognitiveQuestion>) =>
+    request.post<unknown, CognitiveQuestion>('/cognitive-questions', data),
   update: (id: number, data: Partial<CognitiveQuestion>) =>
     request.put<unknown, CognitiveQuestion>(`/cognitive-questions/${id}`, data),
+  publish: (id: number) =>
+    request.post<unknown, CognitiveQuestion>(`/cognitive-questions/${id}/publish`),
+  archive: (id: number) =>
+    request.post<unknown, CognitiveQuestion>(`/cognitive-questions/${id}/archive`),
+  delete: (id: number) =>
+    request.delete(`/cognitive-questions/${id}`),
 }
 
 // 训练配置

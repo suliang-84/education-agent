@@ -78,6 +78,14 @@ export interface Annotation {
   created_at: string
 }
 
+// 五力测试题状态
+export type CognitiveQuestionStatus = 'draft' | 'published' | 'archived'
+export const CognitiveQuestionStatusLabels: Record<CognitiveQuestionStatus, string> = {
+  draft: '草稿',
+  published: '已发布',
+  archived: '已下架',
+}
+
 // 五力测试题
 export interface CognitiveQuestion {
   id: number
@@ -88,6 +96,9 @@ export interface CognitiveQuestion {
   reference_time_sec: number
   option_scores: Record<string, number>
   option_force_weights?: Record<string, Record<FivePower, number>>
+  status: CognitiveQuestionStatus
+  created_at: string
+  updated_at: string
 }
 
 // 训练配置版本

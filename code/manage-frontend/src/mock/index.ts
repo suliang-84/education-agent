@@ -168,30 +168,72 @@ const mockRoutes: MockMethod[] = [
   {
     url: '/api/v1/admin/cognitive-questions',
     method: 'get',
-    response: () => success(Array.from({ length: 20 }, (_, i) => ({
-      id: i + 1,
-      order_num: i + 1,
-      stem: [
-        '有一个封闭房间，里面放着完全相同的三杯热水。实验记录如下：杯A敞口、杯B加盖、杯C加盖+毛巾。有人说："只要加盖，就能解释全部差异。" 以下哪一条最能说明这个结论有问题？',
-        '小明在解方程时，先把左边化简，得到一个结论，然后他说这个结论对所有整数都成立。你认为他的推理过程有什么问题？',
-        '科学家发现某湖泊鱼类突然减少，目前有四条线索：①水温升高 ②外来物种入侵 ③工厂排污 ④捕鱼量增加。哪条线索最需要优先调查？',
-      ][i % 3],
-      question_type: i % 4 === 0 ? 'OPEN' : 'STANDARD',
-      target_power: ['INSIGHT', 'CONSTRUCT', 'DEDUCE', 'ADAPT', 'MIGRATE'][i % 5],
-      reference_time_sec: [90, 120, 150, 60, 180][i % 5],
-      option_scores: { A: [1, 10, 5, 2][i % 4], B: [10, 1, 3, 8][i % 4], C: [4, 3, 10, 1][i % 4], D: [1, 2, 1, 4][i % 4] },
-      option_force_weights: i % 4 === 0 ? {
-        A: { INSIGHT: 0.6, CONSTRUCT: 0.2, DEDUCE: 0.1, ADAPT: 0.05, MIGRATE: 0.05 },
-        B: { INSIGHT: 0.1, CONSTRUCT: 0.6, DEDUCE: 0.15, ADAPT: 0.1, MIGRATE: 0.05 },
-        C: { INSIGHT: 0.2, CONSTRUCT: 0.1, DEDUCE: 0.5, ADAPT: 0.1, MIGRATE: 0.1 },
-        D: { INSIGHT: 0.1, CONSTRUCT: 0.1, DEDUCE: 0.1, ADAPT: 0.6, MIGRATE: 0.1 },
-      } : undefined,
-    }))),
+    response: () => success(Array.from({ length: 25 }, (_, i) => {
+      const isOpen = i % 4 === 0
+      // 前18道已发布，第19-20草稿，21-22已下架，23-24草稿
+      const status = i < 18 ? 'published' : i < 20 ? 'draft' : i < 22 ? 'archived' : 'draft'
+      return {
+        id: i + 1,
+        order_num: i + 1,
+        stem: [
+          '有一个封闭房间，里面放着完全相同的三杯热水。实验记录如下：杯A敞口、杯B加盖、杯C加盖+毛巾。有人说："只要加盖，就能解释全部差异。" 以下哪一条最能说明这个结论有问题？',
+          '小明在解方程时，先把左边化简，得到一个结论，然后他说这个结论对所有整数都成立。你认为他的推理过程有什么问题？',
+          '科学家发现某湖泊鱼类突然减少，目前有四条线索：①水温升高 ②外来物种入侵 ③工厂排污 ④捕鱼量增加。哪条线索最需要优先调查？',
+          '一位建筑师设计了一栋大楼，但施工方发现原材料成本超出预算30%。建筑师提出了三个方案：①减少楼层数 ②使用替代材料 ③延期施工等待价格下降。请分析哪个方案最合理？',
+          '实验报告中发现一处数据异常：对照组的数值比实验组还要高。以下哪种解释最能说明这个现象？',
+        ][i % 5],
+        question_type: isOpen ? 'OPEN' : 'STANDARD',
+        target_power: ['INSIGHT', 'CONSTRUCT', 'DEDUCE', 'ADAPT', 'MIGRATE'][i % 5],
+        reference_time_sec: [90, 120, 150, 60, 180][i % 5],
+        option_scores: { A: [1, 10, 5, 2][i % 4], B: [10, 1, 3, 8][i % 4], C: [4, 3, 10, 1][i % 4], D: [1, 2, 1, 4][i % 4] },
+        option_force_weights: isOpen ? {
+          A: { INSIGHT: 0.6, CONSTRUCT: 0.2, DEDUCE: 0.1, ADAPT: 0.05, MIGRATE: 0.05 },
+          B: { INSIGHT: 0.1, CONSTRUCT: 0.6, DEDUCE: 0.15, ADAPT: 0.1, MIGRATE: 0.05 },
+          C: { INSIGHT: 0.2, CONSTRUCT: 0.1, DEDUCE: 0.5, ADAPT: 0.1, MIGRATE: 0.1 },
+          D: { INSIGHT: 0.1, CONSTRUCT: 0.1, DEDUCE: 0.1, ADAPT: 0.6, MIGRATE: 0.1 },
+        } : undefined,
+        status,
+        created_at: '2026-08-25T10:00:00Z',
+        updated_at: '2026-09-01T10:00:00Z',
+      }
+    })),
+  },
+  {
+    url: '/api/v1/admin/cognitive-questions',
+    method: 'post',
+    response: ({ body }) => success({
+      ...body,
+      id: Math.floor(Math.random() * 9000) + 1000,
+      status: 'draft',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }),
   },
   {
     url: /\/api\/v1\/admin\/cognitive-questions\/(\d+)$/,
     method: 'put',
-    response: ({ body }) => success(body),
+    response: ({ body }) => success({ ...body, updated_at: new Date().toISOString() }),
+  },
+  {
+    url: /\/api\/v1\/admin\/cognitive-questions\/(\d+)\/publish$/,
+    method: 'post',
+    response: ({ url }) => {
+      const id = Number((url as string).match(/\/(\d+)\/publish/)?.[1])
+      return success({ id, status: 'published', updated_at: new Date().toISOString() })
+    },
+  },
+  {
+    url: /\/api\/v1\/admin\/cognitive-questions\/(\d+)\/archive$/,
+    method: 'post',
+    response: ({ url }) => {
+      const id = Number((url as string).match(/\/(\d+)\/archive/)?.[1])
+      return success({ id, status: 'archived', updated_at: new Date().toISOString() })
+    },
+  },
+  {
+    url: /\/api\/v1\/admin\/cognitive-questions\/(\d+)$/,
+    method: 'delete',
+    response: () => success(null),
   },
 
   // 训练配置
