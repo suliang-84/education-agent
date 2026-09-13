@@ -1,183 +1,55 @@
-import request from './request'
-import type {
-  Question, CognitiveQuestion, TrainingConfig, GlobalAlgoConfig, DimensionTrainingConfig, TrainingMode,
-  SystemConfig, Strategy, Student, StudentDetail, Parent, AdminUser, AuditLog,
-  StudentKpStat, StudentAiPromptSummary, PromptInsightEntry,
-  DashboardStats, TokenTrend, UserGrowthPoint, PaginatedResponse
-} from '@/types'
+/**
+ * API 统一导出入口
+ *
+ * 目录结构（按模块独立管理）：
+ * ├── request.ts          Axios 实例（拦截器、Token 注入、401 处理）
+ * ├── common.ts           公共接口：认证（login/verify2fa/logout）、健康检查
+ * ├── questions.ts        题库管理：知识体系树、题目 CRUD、分析、发布、驳回
+ * ├── cognitive.ts        五力测试题维护：新增、编辑、状态变更（发布/下架）、删除
+ * ├── training.ts         训练参数配置：各维度参数版本管理
+ * ├── system.ts           系统参数配置 + 启发策略管理
+ * ├── dashboard.ts        数据看板：概览指标、各分析子页接口
+ * ├── users.ts            用户管理：学生、家长、管理员
+ * └── audit.ts            审计日志
+ *
+ * 接口文档：/docs/4.架构设计/06_接口设计说明书.md §9
+ * Base URL：/api/v1/admin（由 request.ts 配置）
+ */
 
-// 认证
-export const authApi = {
-  login: (data: { username: string; password: string }) =>
-    request.post<unknown, { session_token: string }>('/auth/login', data),
-  verify2fa: (data: { session_token: string; code: string }) =>
-    request.post<unknown, { access_token: string; admin: { id: number; username: string; role: string } }>('/auth/verify-2fa', data),
-  logout: () => request.post('/auth/logout'),
-}
+// ── 公共接口 ─────────────────────────────────────────────────
+export { authApi, healthApi } from './common'
 
-// 题库管理（v1.2.0：新增 analyze / reject 接口，撤销独立标注审核）
-export const questionApi = {
-  getList: (params: Record<string, unknown>) =>
-    request.get<unknown, PaginatedResponse<Question>>('/questions', { params }),
-  getOne: (id: number) =>
-    request.get<unknown, Question>(`/questions/${id}`),
-  // 录入题干（仅 stem + image_url）
-  create: (data: Pick<Question, 'stem'> & { image_url?: string }) =>
-    request.post<unknown, Question>('/questions', data),
-  // 触发大模型分析（draft → analyzing → pending_review）
-  analyze: (id: number) =>
-    request.post<unknown, Question>(`/questions/${id}/analyze`),
-  // 更新审核结果字段（pending_review 状态可修改）
-  update: (id: number, data: Partial<Question>) =>
-    request.put<unknown, Question>(`/questions/${id}`, data),
-  // 发布（pending_review → published，触发向量化）
-  publish: (id: number) =>
-    request.post<unknown, Question>(`/questions/${id}/publish`),
-  // 驳回并重新分析（pending_review → analyzing）
-  reject: (id: number, data: { rejection_reason: string }) =>
-    request.post<unknown, Question>(`/questions/${id}/reject`, data),
-  // 下架（published → archived）
-  archive: (id: number) =>
-    request.post<unknown, Question>(`/questions/${id}/archive`),
-  // 软删除（仅 draft 状态）
-  delete: (id: number) =>
-    request.delete(`/questions/${id}`),
-  // 批量导入题干列表，每条自动触发分析
-  batchImport: (stems: string[]) =>
-    request.post('/questions/batch-import', { stems }),
-}
+// ── 题库管理 ─────────────────────────────────────────────────
+export { knowledgeTreeApi, questionApi } from './questions'
+export type { KnowledgeTreeNode, KnowledgeTreeResponse, QuestionListParams, PublishPayload } from './questions'
 
-// 五力测试题维护
-export const cognitiveApi = {
-  getList: (params?: Record<string, unknown>) =>
-    request.get<unknown, CognitiveQuestion[]>('/cognitive-questions', { params }),
-  create: (data: Partial<CognitiveQuestion>) =>
-    request.post<unknown, CognitiveQuestion>('/cognitive-questions', data),
-  update: (id: number, data: Partial<CognitiveQuestion>) =>
-    request.put<unknown, CognitiveQuestion>(`/cognitive-questions/${id}`, data),
-  publish: (id: number) =>
-    request.post<unknown, CognitiveQuestion>(`/cognitive-questions/${id}/publish`),
-  archive: (id: number) =>
-    request.post<unknown, CognitiveQuestion>(`/cognitive-questions/${id}/archive`),
-  delete: (id: number) =>
-    request.delete(`/cognitive-questions/${id}`),
-}
+// ── 五力测试题维护 ───────────────────────────────────────────
+export { cognitiveApi } from './cognitive'
+export type { CognitiveListResponse, StatusChangeResponse, CognitiveAnswerInput, CognitiveQuestionInput } from './cognitive'
 
-// 训练配置（v2.0：全局算法参数 + 五维度参数独立版本化）
-export const trainingConfigApi = {
-  // 全局算法参数
-  getGlobalList: () =>
-    request.get<unknown, GlobalAlgoConfig[]>('/training-configs/global'),
-  getGlobalActive: () =>
-    request.get<unknown, GlobalAlgoConfig>('/training-configs/global/active'),
-  createGlobal: (data: Partial<GlobalAlgoConfig>) =>
-    request.post<unknown, GlobalAlgoConfig>('/training-configs/global', data),
+// ── 训练参数配置 ─────────────────────────────────────────────
+export { trainingApi, trainingConfigApi } from './training'
+export type { TrainingDimension, DimensionConfigInput } from './training'
 
-  // 各维度训练参数
-  getDimensionList: (mode: TrainingMode) =>
-    request.get<unknown, DimensionTrainingConfig[]>(`/training-configs/dimension/${mode}`),
-  getDimensionActive: (mode: TrainingMode) =>
-    request.get<unknown, DimensionTrainingConfig>(`/training-configs/dimension/${mode}/active`),
-  createDimension: (mode: TrainingMode, data: Partial<DimensionTrainingConfig>) =>
-    request.post<unknown, DimensionTrainingConfig>(`/training-configs/dimension/${mode}`, data),
+// ── 系统参数 + 启发策略 ──────────────────────────────────────
+export { systemConfigApi, strategyApi } from './system'
 
-  // 兼容旧接口
-  getList: () =>
-    request.get<unknown, TrainingConfig[]>('/training-configs'),
-  getActive: () =>
-    request.get<unknown, TrainingConfig>('/training-configs/active'),
-  create: (data: Partial<TrainingConfig>) =>
-    request.post<unknown, TrainingConfig>('/training-configs', data),
-}
+// ── 数据看板 ─────────────────────────────────────────────────
+export { dashboardApi } from './dashboard'
 
-// 系统参数
-export const systemConfigApi = {
-  getList: () =>
-    request.get<unknown, SystemConfig[]>('/system-configs'),
-  update: (key: string, value: string) =>
-    request.put(`/system-configs/${key}`, { value }),
-}
+// ── 用户管理 ─────────────────────────────────────────────────
+export { studentApi, parentApi, adminUserApi } from './users'
 
-// 启发策略
-export const strategyApi = {
-  getList: () =>
-    request.get<unknown, Strategy[]>('/strategies'),
-  update: (id: number, data: Partial<Strategy>) =>
-    request.put<unknown, Strategy>(`/strategies/${id}`, data),
-  reorder: (orders: Array<{ id: number; priority: number }>) =>
-    request.post('/strategies/reorder', { orders }),
-}
+// ── 审计日志 ─────────────────────────────────────────────────
+export { auditLogApi } from './audit'
 
-// 学生管理
-export const studentApi = {
-  getList: (params: Record<string, unknown>) =>
-    request.get<unknown, PaginatedResponse<Student>>('/students', { params }),
-  getOne: (id: number) =>
-    request.get<unknown, StudentDetail>(`/students/${id}`),
-  bindParent: (studentId: number, data: { parent_phone: string }) =>
-    request.post(`/students/${studentId}/bind-parent`, data),
-  unbindParent: (studentId: number, parentId: number) =>
-    request.post(`/students/${studentId}/unbind-parent`, { parent_id: parentId }),
-  // 知识点练习统计
-  getKpStats: (studentId: number, params?: { subject?: string }) =>
-    request.get<unknown, StudentKpStat[]>(`/students/${studentId}/kp-stats`, { params }),
-  // AI助教提示词摘要
-  getAiPromptSummary: (studentId: number) =>
-    request.get<unknown, StudentAiPromptSummary>(`/students/${studentId}/ai-prompt-summary`),
-  updateAiPromptSummary: (studentId: number, data: { personal_insight: string }) =>
-    request.put<unknown, StudentAiPromptSummary>(`/students/${studentId}/ai-prompt-summary`, data),
-  regenerateLearningsummary: (studentId: number) =>
-    request.post<unknown, { message: string }>(`/students/${studentId}/ai-prompt-summary/regenerate`),
-  // 个人洞察条目
-  getInsightEntries: (studentId: number) =>
-    request.get<unknown, PromptInsightEntry[]>(`/students/${studentId}/prompt-insights`),
-  addInsightEntry: (studentId: number, data: { content: string }) =>
-    request.post<unknown, PromptInsightEntry>(`/students/${studentId}/prompt-insights`, data),
-}
-
-// 家长管理
-export const parentApi = {
-  getList: (params: Record<string, unknown>) =>
-    request.get<unknown, PaginatedResponse<Parent>>('/parents', { params }),
-  unbind: (parentId: number, studentId: number) =>
-    request.post(`/parents/${parentId}/unbind`, { student_id: studentId }),
-}
-
-// 管理员账号管理
-export const adminUserApi = {
-  getList: () =>
-    request.get<unknown, AdminUser[]>('/admin-users'),
-  create: (data: { username: string; display_name: string; phone: string; email?: string }) =>
-    request.post<unknown, AdminUser>('/admin-users', data),
-  setActive: (id: number, is_active: boolean) =>
-    request.put(`/admin-users/${id}/status`, { is_active }),
-  resetPassword: (id: number) =>
-    request.post(`/admin-users/${id}/reset-password`),
-}
-
-// 审计日志
-export const auditLogApi = {
-  getList: (params: Record<string, unknown>) =>
-    request.get<unknown, PaginatedResponse<AuditLog>>('/audit-logs', { params }),
-  getOne: (id: number) =>
-    request.get<unknown, AuditLog>(`/audit-logs/${id}`),
-}
-
-// 数据看板
-export const dashboardApi = {
-  getStats: (date?: string) =>
-    request.get<unknown, DashboardStats>('/dashboard/stats', { params: { date } }),
-  getUserGrowth: (days: number) =>
-    request.get<unknown, UserGrowthPoint[]>('/dashboard/user-growth', { params: { days } }),
-  getTokenTrend: (days: number) =>
-    request.get<unknown, TokenTrend[]>('/dashboard/token-trend', { params: { days } }),
-  // 子页专用接口
-  getUserGrowthDetail: (days: number) =>
-    request.get<unknown, Record<string, unknown>>('/dashboard/user-growth-detail', { params: { days } }),
-  getFiveForceAnalysis: (days: number) =>
-    request.get<unknown, Record<string, unknown>>('/dashboard/five-force-analysis', { params: { days } }),
-  getAiTeachingAnalysis: (days: number) =>
-    request.get<unknown, Record<string, unknown>>('/dashboard/ai-teaching-analysis', { params: { days } }),
-  getErrorQuestionsAnalysis: (days: number) =>
-    request.get<unknown, Record<string, unknown>>('/dashboard/error-questions-analysis', { params: { days } }),
+/**
+ * @deprecated §9.2 AI标注审核已合并入题库管理（v2.1废弃）
+ * AnnotationView.vue 为历史遗留页面，保留空对象防止编译报错
+ */
+export const annotationApi = {
+  getList: (_p: unknown) => Promise.resolve({ list: [], total: 0, has_more: false, next_cursor: null }),
+  confirm: (_id: number, _d: unknown) => Promise.resolve(null),
+  reject: (_id: number) => Promise.resolve(null),
+  batchConfirm: (_threshold: number) => Promise.resolve({ confirmed_count: 0 }),
 }
