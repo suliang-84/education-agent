@@ -38,16 +38,7 @@
             </span>
             <span class="nav-item__label">题库管理</span>
           </router-link>
-          <router-link to="/annotations" class="nav-item" :class="{ active: route.path === '/annotations' }">
-            <span class="nav-item__icon">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L9.568 3z"/>
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z"/>
-              </svg>
-            </span>
-            <span class="nav-item__label">AI 标注审核</span>
-            <span class="nav-badge" v-if="!isCollapsed">45</span>
-          </router-link>
+          <!-- AI 标注审核已并入题库管理（v1.2.0），此入口已移除 -->
           <router-link to="/cognitive-test" class="nav-item" :class="{ active: route.path === '/cognitive-test' }">
             <span class="nav-item__icon">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">

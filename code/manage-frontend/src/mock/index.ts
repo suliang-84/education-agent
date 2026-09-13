@@ -5,41 +5,57 @@ const paginated = (list: unknown[], total: number) =>
   success({ list, total, has_more: false, next_cursor: null })
 
 // Mock 题目数据
-const questions = Array.from({ length: 30 }, (_, i) => ({
-  id: 5001 + i,
-  stem: [
-    '几个人一起买一件东西。如果每人出400钱，会多出3400钱；如果每人出300钱，会多出100钱。请建立人数与总价之间的方程关系。',
-    '一辆汽车在平直公路上行驶，受到2000N的合力作用，求加速度。',
-    '如图所示，△ABC中，已知条件如图，求角B的大小。',
-    '科学家发现某湖泊鱼类突然减少，目前有四条线索，请分析最可能的原因。',
-    '城市气温数据如下，请分析哪一年的温差最大。',
-  ][i % 5],
-  solution: '参考解析内容...',
-  knowledge_point: ['二元一次方程组', '牛顿第二定律', '三角形', '生态学', '数据分析'][i % 5],
-  question_type: ['应用题', '计算题', '证明题', '分析题', '统计题'][i % 5],
-  difficulty: ['basic', 'advanced', 'challenge'][i % 3] as 'basic' | 'advanced' | 'challenge',
-  status: ['published', 'draft', 'published', 'published', 'archived'][i % 5] as 'published' | 'draft' | 'archived',
-  primary_power: ['CONSTRUCT', 'DEDUCE', 'INSIGHT', 'ADAPT', 'MIGRATE'][i % 5],
-  secondary_power: ['INSIGHT', 'CONSTRUCT', 'DEDUCE', 'MIGRATE', 'ADAPT'][i % 5],
-  annotation_status: ['confirmed', 'pending', 'confirmed', 'pending', 'rejected'][i % 5],
-  annotation_confidence: [0.92, 0.67, 0.88, 0.71, 0.95][i % 5],
-  embedding_status: ['completed', 'pending', 'completed', 'failed', 'completed'][i % 5],
-  created_at: '2026-08-25T10:00:00Z',
-  updated_at: '2026-08-30T10:00:00Z',
-}))
+// 五力权重模板（合计10分）
+const powerWeights = [
+  { INSIGHT: 2, CONSTRUCT: 5, DEDUCE: 2, ADAPT: 1, MIGRATE: 0 },
+  { INSIGHT: 1, CONSTRUCT: 1, DEDUCE: 5, ADAPT: 2, MIGRATE: 1 },
+  { INSIGHT: 5, CONSTRUCT: 2, DEDUCE: 1, ADAPT: 1, MIGRATE: 1 },
+  { INSIGHT: 2, CONSTRUCT: 1, DEDUCE: 1, ADAPT: 4, MIGRATE: 2 },
+  { INSIGHT: 1, CONSTRUCT: 2, DEDUCE: 2, ADAPT: 2, MIGRATE: 3 },
+]
 
-// Mock 标注数据
-const annotations = Array.from({ length: 20 }, (_, i) => ({
-  id: 301 + i,
-  question_id: 5001 + i,
-  question_stem: questions[i].stem.substring(0, 50) + '...',
-  ai_primary_power: ['CONSTRUCT', 'DEDUCE', 'INSIGHT', 'ADAPT', 'MIGRATE'][i % 5],
-  ai_confidence: [0.92, 0.67, 0.88, 0.71, 0.56][i % 5],
-  ai_reason: '该题目需要学生建立变量关系，属于建构力训练。题目涉及多条件约束，主要考查学生将语言描述转化为数学关系的能力。',
-  confirmed_primary_power: i % 3 === 0 ? ['CONSTRUCT', 'DEDUCE', 'INSIGHT'][i % 3] : undefined,
-  annotation_status: ['pending', 'confirmed', 'pending', 'rejected', 'pending'][i % 5],
-  created_at: '2026-08-30T10:00:00Z',
-}))
+const powerThoughts = [
+  { INSIGHT: '识别题目中的隐含数量关系', CONSTRUCT: '建立变量与方程的对应模型', DEDUCE: '推导各步骤的逻辑依据', ADAPT: '将结果代入验证是否符合约束', MIGRATE: '联系到生活中类似的分摊情境' },
+  { INSIGHT: '观察物理量之间的因果关系', CONSTRUCT: '建立牛顿第二定律的计算模型', DEDUCE: '逐步推导加速度计算过程', ADAPT: '在不同质量/力情境下调整公式', MIGRATE: '迁移至摩擦力、斜面等复杂场景' },
+  { INSIGHT: '从图形中识别对称轴和关键角', CONSTRUCT: '构建全等三角形的条件关系', DEDUCE: '逐步证明SAS条件满足', ADAPT: '检验结论与图形几何关系一致', MIGRATE: '迁移到等腰三角形轴对称性' },
+  { INSIGHT: '从多条线索中筛选最有价值的一条', CONSTRUCT: '建立因果关系的逻辑框架', DEDUCE: '推演各线索的影响程度', ADAPT: '在证据不足时调整假设', MIGRATE: '联系到其他生态或社会系统问题' },
+  { INSIGHT: '从数据表中识别最大差异的年份', CONSTRUCT: '建立温差计算的数学模型', DEDUCE: '逐列计算并比较最大值', ADAPT: '处理异常数据时灵活调整方法', MIGRATE: '迁移到其他统计分析场景' },
+]
+
+// Mock 题库数据（v1.2.0：5态状态模型 + AI全量分析字段）
+const questions = Array.from({ length: 30 }, (_, i) => {
+  const statusList = ['published', 'draft', 'pending_review', 'published', 'archived', 'analyzing'] as const
+  const status = statusList[i % 6]
+  const hasAnalysis = ['published', 'pending_review', 'archived'].includes(status)
+  const stems = [
+    '几个人一起买一件东西。如果每人出400钱，会多出3400钱；如果每人出300钱，会多出100钱。请建立人数与总价之间的方程关系。',
+    '一辆汽车在平直公路上行驶，受到2000N的合力作用，车的质量为1000kg，求加速度。',
+    '如图所示，△ABC中，AB=AC，BD是AC的垂线，BD与AC交于D点，求证BD是AC的垂直平分线。',
+    '科学家发现某湖泊鱼类突然减少，目前有四条线索：①水温升高 ②外来物种入侵 ③工厂排污 ④捕鱼量增加。哪条线索最需要优先调查？',
+    '某城市2021~2025年各月平均气温数据如下表，请分析哪一年的年温差最大。',
+  ]
+  return {
+    id: 5001 + i,
+    stem: stems[i % 5],
+    image_url: undefined as string | undefined,
+    status,
+    analysis_round: status === 'pending_review' && i % 7 === 0 ? 2 : 1,
+    // AI 分析字段（仅 hasAnalysis 时有值）
+    subject:   hasAnalysis ? ['数学', '物理', '数学', '生物', '数学'][i % 5] : undefined,
+    grade:     hasAnalysis ? ['八年级', '九年级', '八年级', '七年级', '九年级'][i % 5] : undefined,
+    chapter:   hasAnalysis ? ['方程与方程组', '牛顿运动定律', '全等三角形', '生态系统', '统计与概率'][i % 5] : undefined,
+    knowledge_points: hasAnalysis ? [['二元一次方程组', '应用题建模'], ['牛顿第二定律'], ['全等三角形', '垂直平分线'], ['生态系统', '调查分析'], ['统计图', '数据分析']][i % 5] : undefined,
+    difficulty: hasAnalysis ? (['basic', 'advanced', 'challenge'] as const)[i % 3] : undefined,
+    solution:  hasAnalysis ? ['设人数为x，总价为y。由题意得：400x - y = 3400，300x - y = 100。两式相减得100x = 3300，解得x = 33，y = 9800。', '由牛顿第二定律 F = ma，得 a = F/m = 2000/1000 = 2 m/s²。', '证：在△ABD和△CBD中，BD=BD（公共边），∠BDA=∠BDC=90°（已知BD⊥AC），AB=BC（等腰三角形），故△ABD≅△CBD（RHS），所以AD=DC，即BD是AC的垂直平分线。', '外来物种入侵最可能导致生态链断裂，应优先调查线索②，因为它能在短时间内引发鱼类数量的急剧减少。', '计算每年各月最高温和最低温之差，即年温差。通过比较可知2023年温差最大，达到42.3°C。'][i % 5] : undefined,
+    typical_error: hasAnalysis ? ['把盈余关系写反（400x+3400=y）', '混淆合力与分力的关系', '忽略垂直条件直接用角度证明', '将相关性误认为因果关系', '未统一单位直接比较'][i % 5] : undefined,
+    five_power_weights: hasAnalysis ? powerWeights[i % 5] : undefined,
+    five_power_thoughts: hasAnalysis ? powerThoughts[i % 5] : undefined,
+    migration_directions: hasAnalysis ? [['班级活动收费', '租车收费'], ['斜面加速', '电梯运动'], ['等腰三角形', '角平分线'], ['水资源保护', '城市扩张'], ['经济数据分析', '气候变化']][i % 5] : undefined,
+    embedding_status: status === 'published' ? (['completed', 'completed', 'failed'][i % 3]) : 'pending',
+    created_at: '2026-08-25T10:00:00Z',
+    updated_at: '2026-08-30T10:00:00Z',
+  }
+})
 
 // Mock 学生数据
 const students = Array.from({ length: 25 }, (_, i) => ({
@@ -125,7 +141,7 @@ const mockRoutes: MockMethod[] = [
     response: () => success(null),
   },
 
-  // 题库
+  // 题库（v1.2.0：新增 analyze / reject 接口，5态状态模型）
   {
     url: '/api/v1/admin/questions',
     method: 'get',
@@ -134,7 +150,6 @@ const mockRoutes: MockMethod[] = [
       const size = 20
       const filtered = questions.filter(q => {
         if (query.status && q.status !== query.status) return false
-        if (query.primary_power && q.primary_power !== query.primary_power) return false
         if (query.difficulty && q.difficulty !== query.difficulty) return false
         if (query.keyword && !q.stem.includes(query.keyword as string)) return false
         return true
@@ -145,7 +160,15 @@ const mockRoutes: MockMethod[] = [
   {
     url: '/api/v1/admin/questions',
     method: 'post',
-    response: ({ body }) => success({ ...body, id: 9999, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), embedding_status: 'pending', annotation_status: 'pending' }),
+    response: ({ body }) => success({
+      ...(body as object),
+      id: Math.floor(Math.random() * 9000) + 6000,
+      status: 'draft',
+      analysis_round: 0,
+      embedding_status: 'pending',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }),
   },
   {
     url: /\/api\/v1\/admin\/questions\/(\d+)$/,
@@ -158,45 +181,71 @@ const mockRoutes: MockMethod[] = [
   {
     url: /\/api\/v1\/admin\/questions\/(\d+)$/,
     method: 'put',
-    response: ({ body }) => success({ ...questions[0], ...body }),
+    response: ({ body, url }) => {
+      const id = parseInt((url as string).match(/\/(\d+)$/)?.[1] || '5001')
+      const q = questions.find(q => q.id === id) || questions[0]
+      return success({ ...q, ...(body as object), updated_at: new Date().toISOString() })
+    },
+  },
+  // 触发大模型分析（draft → analyzing → pending_review，Mock 直接返回 pending_review）
+  {
+    url: /\/api\/v1\/admin\/questions\/(\d+)\/analyze$/,
+    method: 'post',
+    response: ({ url }) => {
+      const id = parseInt((url as string).match(/\/(\d+)\/analyze/)?.[1] || '5001')
+      const q = questions.find(q => q.id === id) || questions[0]
+      return success({ ...q, status: 'pending_review', analysis_round: (q.analysis_round || 0) + 1,
+        subject: '数学', grade: '八年级', chapter: '方程与方程组',
+        knowledge_points: ['二元一次方程组', '应用题建模'],
+        difficulty: 'basic', solution: '设人数为x，总价为y。由题意得：400x - y = 3400，300x - y = 100。两式相减得100x = 3300，解得x = 33，y = 9800。',
+        typical_error: '把盈余关系写反（400x+3400=y）',
+        five_power_weights: { INSIGHT: 2, CONSTRUCT: 5, DEDUCE: 2, ADAPT: 1, MIGRATE: 0 },
+        five_power_thoughts: { INSIGHT: '识别题目中的隐含数量关系', CONSTRUCT: '建立变量与方程的对应模型', DEDUCE: '推导各步骤的逻辑依据', ADAPT: '将结果代入验证是否符合约束', MIGRATE: '联系到生活中类似的分摊情境' },
+        migration_directions: ['班级活动收费', '租车收费'],
+        updated_at: new Date().toISOString(),
+      })
+    },
   },
   {
     url: /\/api\/v1\/admin\/questions\/(\d+)\/publish$/,
     method: 'post',
-    response: () => success({ ...questions[0], status: 'published' }),
+    response: ({ url }) => {
+      const id = parseInt((url as string).match(/\/(\d+)\/publish/)?.[1] || '5001')
+      const q = questions.find(q => q.id === id) || questions[0]
+      return success({ ...q, status: 'published', embedding_status: 'pending', updated_at: new Date().toISOString() })
+    },
+  },
+  // 驳回并自动重新分析（pending_review → analyzing）
+  {
+    url: /\/api\/v1\/admin\/questions\/(\d+)\/reject$/,
+    method: 'post',
+    response: ({ url }) => {
+      const id = parseInt((url as string).match(/\/(\d+)\/reject/)?.[1] || '5001')
+      const q = questions.find(q => q.id === id) || questions[0]
+      return success({ ...q, status: 'analyzing', updated_at: new Date().toISOString() })
+    },
   },
   {
     url: /\/api\/v1\/admin\/questions\/(\d+)\/archive$/,
     method: 'post',
-    response: () => success({ ...questions[0], status: 'archived' }),
+    response: ({ url }) => {
+      const id = parseInt((url as string).match(/\/(\d+)\/archive/)?.[1] || '5001')
+      const q = questions.find(q => q.id === id) || questions[0]
+      return success({ ...q, status: 'archived', updated_at: new Date().toISOString() })
+    },
   },
   {
     url: /\/api\/v1\/admin\/questions\/(\d+)$/,
     method: 'delete',
     response: () => success(null),
   },
-
-  // 标注
   {
-    url: '/api/v1/admin/annotations',
-    method: 'get',
-    response: ({ query }) => {
-      const filtered = annotations.filter(a => {
-        if (query.annotation_status && a.annotation_status !== query.annotation_status) return false
-        return true
-      })
-      return paginated(filtered, filtered.length)
+    url: '/api/v1/admin/questions/batch-import',
+    method: 'post',
+    response: ({ body }) => {
+      const stems = (body as { stems?: string[] }).stems || []
+      return success({ imported_count: stems.length, message: `已创建 ${stems.length} 条题干，AI 分析任务已提交` })
     },
-  },
-  {
-    url: /\/api\/v1\/admin\/annotations\/(\d+)\/confirm$/,
-    method: 'post',
-    response: () => success({ annotation_status: 'confirmed' }),
-  },
-  {
-    url: '/api/v1/admin/annotations/batch-confirm',
-    method: 'post',
-    response: () => success({ confirmed_count: 52 }),
   },
 
   // 五力测试题（v1.4.0 结构：answers JSONB，无 question_type/target_power/option_scores）

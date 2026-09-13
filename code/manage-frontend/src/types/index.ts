@@ -23,20 +23,14 @@ export const FivePowerLabels: Record<FivePower, string> = {
   MIGRATE: '迁移力',
 }
 
-// 题目状态
-export type QuestionStatus = 'draft' | 'published' | 'archived'
+// 题目状态（v1.2.0：扩展为5态）
+export type QuestionStatus = 'draft' | 'analyzing' | 'pending_review' | 'published' | 'archived'
 export const QuestionStatusLabels: Record<QuestionStatus, string> = {
-  draft: '草稿',
-  published: '已发布',
-  archived: '已归档',
-}
-
-// 标注状态
-export type AnnotationStatus = 'pending' | 'confirmed' | 'rejected'
-export const AnnotationStatusLabels: Record<AnnotationStatus, string> = {
-  pending: '待审核',
-  confirmed: '已确认',
-  rejected: '已驳回',
+  draft:          '草稿',
+  analyzing:      '分析中',
+  pending_review: '待审核',
+  published:      '已发布',
+  archived:       '已归档',
 }
 
 // 难度
@@ -47,35 +41,33 @@ export const DifficultyLabels: Record<Difficulty, string> = {
   challenge: '挑战',
 }
 
-// 题目
+// 五力权重（整数，合计10分）
+export type FivePowerWeights = Record<FivePower, number>
+
+// 五力训练思路（各维度文字描述）
+export type FivePowerThoughts = Record<FivePower, string>
+
+// 题目（v1.2.0：AI 全量分析字段 + 新状态模型）
 export interface Question {
   id: number
-  stem: string
-  solution: string
-  knowledge_point: string
-  question_type: string
-  difficulty: Difficulty
+  stem: string                        // 管理员录入的题干（唯一必填字段）
+  image_url?: string                  // 配图（可选）
   status: QuestionStatus
-  primary_power: FivePower
-  secondary_power?: FivePower
-  annotation_status: AnnotationStatus
-  annotation_confidence?: number
+  analysis_round: number              // 分析轮次（驳回后 +1）
+  // ── 以下字段由大模型填充，pending_review 后可修改 ──
+  subject?: string                    // 科目（数学/物理/化学）
+  grade?: string                      // 年级
+  chapter?: string                    // 章节
+  knowledge_points?: string[]         // 知识点（多个）
+  difficulty?: Difficulty
+  solution?: string                   // 参考解析
+  typical_error?: string              // 典型错误
+  five_power_weights?: FivePowerWeights   // 五力训练权重（整数，合计10分）
+  five_power_thoughts?: FivePowerThoughts // 五力训练思路（各维度文字描述）
+  migration_directions?: string[]         // 迁移方向
   embedding_status: 'pending' | 'completed' | 'failed'
   created_at: string
   updated_at: string
-}
-
-// AI标注记录
-export interface Annotation {
-  id: number
-  question_id: number
-  question_stem: string
-  ai_primary_power: FivePower
-  ai_confidence: number
-  ai_reason: string
-  confirmed_primary_power?: FivePower
-  annotation_status: AnnotationStatus
-  created_at: string
 }
 
 // 五力测试题状态

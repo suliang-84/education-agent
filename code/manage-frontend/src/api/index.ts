@@ -1,6 +1,6 @@
 import request from './request'
 import type {
-  Question, Annotation, CognitiveQuestion, TrainingConfig,
+  Question, CognitiveQuestion, TrainingConfig,
   SystemConfig, Strategy, Student, StudentDetail, Parent, AdminUser, AuditLog,
   DashboardStats, TokenTrend, UserGrowthPoint, PaginatedResponse
 } from '@/types'
@@ -14,36 +14,36 @@ export const authApi = {
   logout: () => request.post('/auth/logout'),
 }
 
-// 题库管理
+// 题库管理（v1.2.0：新增 analyze / reject 接口，撤销独立标注审核）
 export const questionApi = {
   getList: (params: Record<string, unknown>) =>
     request.get<unknown, PaginatedResponse<Question>>('/questions', { params }),
   getOne: (id: number) =>
     request.get<unknown, Question>(`/questions/${id}`),
-  create: (data: Partial<Question>) =>
+  // 录入题干（仅 stem + image_url）
+  create: (data: Pick<Question, 'stem'> & { image_url?: string }) =>
     request.post<unknown, Question>('/questions', data),
+  // 触发大模型分析（draft → analyzing → pending_review）
+  analyze: (id: number) =>
+    request.post<unknown, Question>(`/questions/${id}/analyze`),
+  // 更新审核结果字段（pending_review 状态可修改）
   update: (id: number, data: Partial<Question>) =>
     request.put<unknown, Question>(`/questions/${id}`, data),
+  // 发布（pending_review → published，触发向量化）
   publish: (id: number) =>
     request.post<unknown, Question>(`/questions/${id}/publish`),
+  // 驳回并重新分析（pending_review → analyzing）
+  reject: (id: number, data: { rejection_reason: string }) =>
+    request.post<unknown, Question>(`/questions/${id}/reject`, data),
+  // 下架（published → archived）
   archive: (id: number) =>
     request.post<unknown, Question>(`/questions/${id}/archive`),
+  // 软删除（仅 draft 状态）
   delete: (id: number) =>
     request.delete(`/questions/${id}`),
-  batchImport: (data: Partial<Question>[]) =>
-    request.post('/questions/batch-import', data),
-}
-
-// AI标注审核
-export const annotationApi = {
-  getList: (params: Record<string, unknown>) =>
-    request.get<unknown, PaginatedResponse<Annotation>>('/annotations', { params }),
-  confirm: (id: number, data: { confirmed_primary_power: string }) =>
-    request.post(`/annotations/${id}/confirm`, data),
-  batchConfirm: (min_confidence: number) =>
-    request.post('/annotations/batch-confirm', { min_confidence }),
-  reject: (id: number) =>
-    request.post(`/annotations/${id}/reject`),
+  // 批量导入题干列表，每条自动触发分析
+  batchImport: (stems: string[]) =>
+    request.post('/questions/batch-import', { stems }),
 }
 
 // 五力测试题维护
