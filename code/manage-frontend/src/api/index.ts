@@ -1,6 +1,6 @@
 import request from './request'
 import type {
-  Question, CognitiveQuestion, TrainingConfig,
+  Question, CognitiveQuestion, TrainingConfig, GlobalAlgoConfig, DimensionTrainingConfig, TrainingMode,
   SystemConfig, Strategy, Student, StudentDetail, Parent, AdminUser, AuditLog,
   DashboardStats, TokenTrend, UserGrowthPoint, PaginatedResponse
 } from '@/types'
@@ -62,8 +62,25 @@ export const cognitiveApi = {
     request.delete(`/cognitive-questions/${id}`),
 }
 
-// 训练配置
+// 训练配置（v2.0：全局算法参数 + 五维度参数独立版本化）
 export const trainingConfigApi = {
+  // 全局算法参数
+  getGlobalList: () =>
+    request.get<unknown, GlobalAlgoConfig[]>('/training-configs/global'),
+  getGlobalActive: () =>
+    request.get<unknown, GlobalAlgoConfig>('/training-configs/global/active'),
+  createGlobal: (data: Partial<GlobalAlgoConfig>) =>
+    request.post<unknown, GlobalAlgoConfig>('/training-configs/global', data),
+
+  // 各维度训练参数
+  getDimensionList: (mode: TrainingMode) =>
+    request.get<unknown, DimensionTrainingConfig[]>(`/training-configs/dimension/${mode}`),
+  getDimensionActive: (mode: TrainingMode) =>
+    request.get<unknown, DimensionTrainingConfig>(`/training-configs/dimension/${mode}/active`),
+  createDimension: (mode: TrainingMode, data: Partial<DimensionTrainingConfig>) =>
+    request.post<unknown, DimensionTrainingConfig>(`/training-configs/dimension/${mode}`, data),
+
+  // 兼容旧接口
   getList: () =>
     request.get<unknown, TrainingConfig[]>('/training-configs'),
   getActive: () =>

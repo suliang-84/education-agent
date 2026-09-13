@@ -364,30 +364,93 @@ const mockRoutes: MockMethod[] = [
     response: () => success(null),
   },
 
-  // 训练配置
+  // 训练配置（v2.0：全局算法参数 + 五维度参数）
+
+  // ── 全局算法参数 ──
+  {
+    url: '/api/v1/admin/training-configs/global',
+    method: 'get',
+    response: () => success(Array.from({ length: 4 }, (_, i) => ({
+      id: i + 1, version: `v${4 - i}`, is_active: i === 0,
+      rag_mode: 'all', rag_timeout_sec: 8, rag_question_recall: 3,
+      rag_strategy_recall: 2, rag_similarity_threshold: 0.75,
+      ewma_decay: i === 0 ? 0.3 : 0.25,
+      is_correct_threshold: 0.70,
+      created_at: `2026-0${9 - i}-01T09:00:00Z`, created_by: 'admin001',
+    }))),
+  },
+  {
+    url: '/api/v1/admin/training-configs/global/active',
+    method: 'get',
+    response: () => success({
+      id: 1, version: 'v4', is_active: true,
+      rag_mode: 'all', rag_timeout_sec: 8, rag_question_recall: 3,
+      rag_strategy_recall: 2, rag_similarity_threshold: 0.75,
+      ewma_decay: 0.3, is_correct_threshold: 0.70,
+      created_at: '2026-09-01T09:00:00Z', created_by: 'admin001',
+    }),
+  },
+  {
+    url: '/api/v1/admin/training-configs/global',
+    method: 'post',
+    response: ({ body }) => success({ ...(body as object), id: 99, is_active: true, created_at: new Date().toISOString(), created_by: 'admin001' }),
+  },
+
+  // ── 各维度训练参数 ──
+  {
+    url: /\/api\/v1\/admin\/training-configs\/dimension\/([a-z_]+)$/,
+    method: 'get',
+    response: ({ url }) => {
+      const mode = (url as string).match(/\/dimension\/([a-z_]+)$/)?.[1] || 'knowledge_point'
+      const defaults: Record<string, object> = {
+        knowledge_point: { questions_per_session: 5,  dedup_window: 30,  difficulty_basic_pct: 50, difficulty_advanced_pct: 35, difficulty_challenge_pct: 15, weak_threshold: 65, severe_weak_bonus: 0.4, general_weak_bonus: 0.2 },
+        chapter:         { questions_per_session: 8,  dedup_window: 50,  difficulty_basic_pct: 40, difficulty_advanced_pct: 40, difficulty_challenge_pct: 20, weak_threshold: 65, severe_weak_bonus: 0.4, general_weak_bonus: 0.2 },
+        semester:        { questions_per_session: 10, dedup_window: 100, difficulty_basic_pct: 30, difficulty_advanced_pct: 40, difficulty_challenge_pct: 30, weak_threshold: 55, severe_weak_bonus: 0.2, general_weak_bonus: 0.1 },
+        wrong_answer:    { questions_per_session: 5,  dedup_window: 10,  difficulty_basic_pct: 0,  difficulty_advanced_pct: 0,  difficulty_challenge_pct: 0,  weak_threshold: 65, severe_weak_bonus: 0.4, general_weak_bonus: 0.2, wrong_sort_by: 'error_count', new_question_mix_ratio: 0.2, consecutive_correct_to_remove: 3 },
+        random:          { questions_per_session: 5,  dedup_window: 20,  difficulty_basic_pct: 50, difficulty_advanced_pct: 35, difficulty_challenge_pct: 15, weak_threshold: 65, severe_weak_bonus: 0.1, general_weak_bonus: 0.05 },
+      }
+      const d = defaults[mode] || defaults['knowledge_point']
+      return success(Array.from({ length: 3 }, (_, i) => ({
+        id: i + 1, mode, version: `v${3 - i}`, is_active: i === 0,
+        ...d,
+        created_at: `2026-0${9 - i}-01T10:00:00Z`, created_by: 'admin001',
+      })))
+    },
+  },
+  {
+    url: /\/api\/v1\/admin\/training-configs\/dimension\/([a-z_]+)\/active$/,
+    method: 'get',
+    response: ({ url }) => {
+      const mode = (url as string).match(/\/dimension\/([a-z_]+)\/active/)?.[1] || 'knowledge_point'
+      const defaults: Record<string, object> = {
+        knowledge_point: { questions_per_session: 5,  dedup_window: 30,  difficulty_basic_pct: 50, difficulty_advanced_pct: 35, difficulty_challenge_pct: 15, weak_threshold: 65, severe_weak_bonus: 0.4, general_weak_bonus: 0.2 },
+        chapter:         { questions_per_session: 8,  dedup_window: 50,  difficulty_basic_pct: 40, difficulty_advanced_pct: 40, difficulty_challenge_pct: 20, weak_threshold: 65, severe_weak_bonus: 0.4, general_weak_bonus: 0.2 },
+        semester:        { questions_per_session: 10, dedup_window: 100, difficulty_basic_pct: 30, difficulty_advanced_pct: 40, difficulty_challenge_pct: 30, weak_threshold: 55, severe_weak_bonus: 0.2, general_weak_bonus: 0.1 },
+        wrong_answer:    { questions_per_session: 5,  dedup_window: 10,  difficulty_basic_pct: 0,  difficulty_advanced_pct: 0,  difficulty_challenge_pct: 0,  weak_threshold: 65, severe_weak_bonus: 0.4, general_weak_bonus: 0.2, wrong_sort_by: 'error_count', new_question_mix_ratio: 0.2, consecutive_correct_to_remove: 3 },
+        random:          { questions_per_session: 5,  dedup_window: 20,  difficulty_basic_pct: 50, difficulty_advanced_pct: 35, difficulty_challenge_pct: 15, weak_threshold: 65, severe_weak_bonus: 0.1, general_weak_bonus: 0.05 },
+      }
+      const d = defaults[mode] || defaults['knowledge_point']
+      return success({ id: 1, mode, version: 'v3', is_active: true, ...d, created_at: '2026-09-01T10:00:00Z', created_by: 'admin001' })
+    },
+  },
+  {
+    url: /\/api\/v1\/admin\/training-configs\/dimension\/([a-z_]+)$/,
+    method: 'post',
+    response: ({ body }) => success({ ...(body as object), id: Math.floor(Math.random() * 900) + 100, is_active: true, created_at: new Date().toISOString(), created_by: 'admin001' }),
+  },
+
+  // 旧版兼容接口
   {
     url: '/api/v1/admin/training-configs',
     method: 'get',
     response: () => success(Array.from({ length: 6 }, (_, i) => ({
-      id: i + 1,
-      version: `v${6 - i}`,
-      is_active: i === 0,
-      questions_per_session: 5,
-      dedup_window: 30,
-      weak_threshold: 65,
-      severe_weak_bonus: 0.4,
-      general_weak_bonus: 0.2,
-      difficulty_basic_pct: 50,
-      difficulty_advanced_pct: 35,
-      difficulty_challenge_pct: 15,
-      rag_mode: 'all',
-      rag_timeout_sec: 8,
-      rag_question_recall: 3,
-      rag_strategy_recall: 2,
-      rag_similarity_threshold: 0.75,
-      ewma_decay: 0.3,
-      created_at: `2026-0${8 - i}-25T09:00:00Z`,
-      created_by: 'admin001',
+      id: i + 1, version: `v${6 - i}`, is_active: i === 0,
+      questions_per_session: 5, dedup_window: 30, weak_threshold: 65,
+      severe_weak_bonus: 0.4, general_weak_bonus: 0.2,
+      difficulty_basic_pct: 50, difficulty_advanced_pct: 35, difficulty_challenge_pct: 15,
+      rag_mode: 'all', rag_timeout_sec: 8, rag_question_recall: 3,
+      rag_strategy_recall: 2, rag_similarity_threshold: 0.75,
+      ewma_decay: 0.3, created_at: `2026-0${8 - i}-25T09:00:00Z`, created_by: 'admin001',
     }))),
   },
   {
@@ -405,7 +468,7 @@ const mockRoutes: MockMethod[] = [
   {
     url: '/api/v1/admin/training-configs',
     method: 'post',
-    response: ({ body }) => success({ ...body, id: 99, is_active: true, created_at: new Date().toISOString() }),
+    response: ({ body }) => success({ ...(body as object), id: 99, is_active: true, created_at: new Date().toISOString() }),
   },
 
   // 系统参数

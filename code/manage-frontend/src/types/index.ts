@@ -124,7 +124,55 @@ export interface CognitiveQuestion {
   updated_at: string
 }
 
-// 训练配置版本
+// 训练维度类型（v2.0）
+export type TrainingMode = 'knowledge_point' | 'chapter' | 'semester' | 'wrong_answer' | 'random'
+export const TrainingModeLabels: Record<TrainingMode, string> = {
+  knowledge_point: '按知识点',
+  chapter:         '按单元',
+  semester:        '按学期',
+  wrong_answer:    '错题集',
+  random:          '随机练习',
+}
+
+// 全局算法参数版本（v2.0）
+export interface GlobalAlgoConfig {
+  id: number
+  version: string
+  is_active: boolean
+  rag_mode: 'all' | 'wrong_only' | 'disabled'
+  rag_timeout_sec: number
+  rag_question_recall: number
+  rag_strategy_recall: number
+  rag_similarity_threshold: number
+  ewma_decay: number
+  is_correct_threshold: number   // 文字题答对阈值
+  created_at: string
+  created_by: string
+}
+
+// 维度训练参数版本（v2.0，各维度独立版本化）
+export interface DimensionTrainingConfig {
+  id: number
+  mode: TrainingMode
+  version: string
+  is_active: boolean
+  questions_per_session: number
+  dedup_window: number
+  difficulty_basic_pct: number
+  difficulty_advanced_pct: number
+  difficulty_challenge_pct: number    // = 100 - basic - advanced
+  weak_threshold: number
+  severe_weak_bonus: number
+  general_weak_bonus: number
+  // 错题集专属参数
+  wrong_sort_by?: 'error_count' | 'recent' | 'oldest_practice'
+  new_question_mix_ratio?: number     // 新题混入比例 (0~0.5)
+  consecutive_correct_to_remove?: number  // 连续答对几次移出错题
+  created_at: string
+  created_by: string
+}
+
+// 旧版统一配置（保留兼容，历史接口使用）
 export interface TrainingConfig {
   id: number
   version: string
