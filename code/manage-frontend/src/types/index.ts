@@ -275,6 +275,31 @@ export interface AdminUser {
   created_at: string
 }
 
+// 知识点练习统计（管理员视角，student_kp_stats 来源）
+export interface StudentKpStat {
+  knowledge_point: string
+  practice_count: number
+  error_rate: number | null      // null 表示不足5题，不做统计
+  is_stat_valid: boolean         // practice_count >= 5 时为 true
+}
+
+// AI助教提示词摘要
+export interface StudentAiPromptSummary {
+  student_id: number
+  learning_summary: string       // 学习信息摘要（系统自动生成）
+  personal_insight: string       // 个人洞察摘要（AI提取 + 管理员可编辑）
+  full_prompt_preview: string    // 合并后的完整 Prompt 预览（只读）
+  updated_at: string
+}
+
+// 个人洞察历史条目
+export interface PromptInsightEntry {
+  id: number
+  content: string
+  source: 'AI' | 'ADMIN'        // AI提取 或 管理员手动补充
+  created_at: string
+}
+
 // 审计日志
 export interface AuditLog {
   id: number

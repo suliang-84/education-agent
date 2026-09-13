@@ -88,6 +88,18 @@ const router = createRouter({
           meta: { title: '学生详情' },
         },
         {
+          path: 'students/:id/kp-stats',
+          name: 'StudentKpStats',
+          component: () => import('@/views/students/StudentKpStatsView.vue'),
+          meta: { title: '知识点练习统计' },
+        },
+        {
+          path: 'students/:id/ai-prompt',
+          name: 'StudentAiPrompt',
+          component: () => import('@/views/students/StudentAiPromptView.vue'),
+          meta: { title: 'AI助教提示词摘要' },
+        },
+        {
           path: 'audit-logs',
           name: 'AuditLogs',
           component: () => import('@/views/audit-logs/AuditLogView.vue'),

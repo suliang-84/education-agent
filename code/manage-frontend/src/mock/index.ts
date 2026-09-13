@@ -562,6 +562,65 @@ const mockRoutes: MockMethod[] = [
     response: () => success(null),
   },
 
+  // 知识点练习统计
+  {
+    url: /\/api\/v1\/admin\/students\/(\d+)\/kp-stats$/,
+    method: 'get',
+    response: () => success([
+      { knowledge_point: '二元一次方程组应用题', practice_count: 12, error_rate: 0.583, is_stat_valid: true },
+      { knowledge_point: '一次函数图像与性质', practice_count: 9,  error_rate: 0.333, is_stat_valid: true },
+      { knowledge_point: '一次函数实际应用', practice_count: 6,  error_rate: 0.167, is_stat_valid: true },
+      { knowledge_point: '相似三角形判定', practice_count: 5,  error_rate: 0.400, is_stat_valid: true },
+      { knowledge_point: '二元一次方程组图形问题', practice_count: 3,  error_rate: null, is_stat_valid: false },
+      { knowledge_point: '不等式与不等式组', practice_count: 1,  error_rate: null, is_stat_valid: false },
+    ]),
+  },
+
+  // AI助教提示词摘要
+  {
+    url: /\/api\/v1\/admin\/students\/(\d+)\/ai-prompt-summary$/,
+    method: 'get',
+    response: () => success({
+      student_id: 1001,
+      learning_summary: '学生小明，初三（G9）上学期，主要学习数学和物理。五力测试显示洞察力82分（优势），建构力47分（主要薄弱点），推演力74分，调适力61分，迁移力51分，推荐训练模式为TRAIN_WEAKNESS。\n\n近期训练情况：累计训练15次，近7天活跃5天，整体正确率65%。建构力维度正确率仅41%，是当前核心突破方向。高频错题集中在二元一次方程组应用（错误率58%）、一次函数实际应用（41%）。',
+      personal_insight: '小明喜欢打篮球，自称是湖人队球迷。近期期中考试压力较大，在与AI对话中提到"最近有点焦虑，感觉数学学不进去"。对游戏角色类比（如用RPG升级类比五力提升）反应积极，aha时刻多出现在此类场景。家庭方面：爸爸比较严格，妈妈更温和，学习上压力来自家长期望。建议AI助教多用运动/游戏类比，语气轻松不说教。',
+      full_prompt_preview: '你是小明的专属AI数学/物理助教。\n\n【学生学情】\n学生小明，初三（G9）上学期，主要学习数学和物理。五力测试显示洞察力82分（优势），建构力47分（主要薄弱点）……\n\n【个人洞察】\n小明喜欢打篮球，自称是湖人队球迷……建议多用运动/游戏类比。',
+      updated_at: '2026-09-12T15:30:00Z',
+    }),
+  },
+  {
+    url: /\/api\/v1\/admin\/students\/(\d+)\/ai-prompt-summary$/,
+    method: 'put',
+    response: ({ body }) => success({ ...(body as object), updated_at: new Date().toISOString() }),
+  },
+  {
+    url: /\/api\/v1\/admin\/students\/(\d+)\/ai-prompt-summary\/regenerate$/,
+    method: 'post',
+    response: () => success({ message: '学习信息摘要重新生成任务已提交，约 30 秒后完成' }),
+  },
+
+  // 个人洞察条目
+  {
+    url: /\/api\/v1\/admin\/students\/(\d+)\/prompt-insights$/,
+    method: 'get',
+    response: () => success([
+      { id: 4, content: '近期期中考试压力，有焦虑情绪', source: 'AI', created_at: '2026-09-10T14:20:00Z' },
+      { id: 3, content: '喜欢用游戏类比理解知识，反应积极', source: 'AI', created_at: '2026-09-08T10:05:00Z' },
+      { id: 2, content: '补充：爸爸较严格，建议AI语气温和', source: 'ADMIN', created_at: '2026-09-05T09:30:00Z' },
+      { id: 1, content: '自称湖人球迷，喜欢打篮球', source: 'AI', created_at: '2026-08-30T16:45:00Z' },
+    ]),
+  },
+  {
+    url: /\/api\/v1\/admin\/students\/(\d+)\/prompt-insights$/,
+    method: 'post',
+    response: ({ body }) => success({
+      id: Math.floor(Math.random() * 9000) + 100,
+      ...(body as object),
+      source: 'ADMIN',
+      created_at: new Date().toISOString(),
+    }),
+  },
+
   // 家长管理
   {
     url: '/api/v1/admin/parents',

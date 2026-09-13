@@ -2,6 +2,7 @@ import request from './request'
 import type {
   Question, CognitiveQuestion, TrainingConfig, GlobalAlgoConfig, DimensionTrainingConfig, TrainingMode,
   SystemConfig, Strategy, Student, StudentDetail, Parent, AdminUser, AuditLog,
+  StudentKpStat, StudentAiPromptSummary, PromptInsightEntry,
   DashboardStats, TokenTrend, UserGrowthPoint, PaginatedResponse
 } from '@/types'
 
@@ -117,6 +118,21 @@ export const studentApi = {
     request.post(`/students/${studentId}/bind-parent`, data),
   unbindParent: (studentId: number, parentId: number) =>
     request.post(`/students/${studentId}/unbind-parent`, { parent_id: parentId }),
+  // 知识点练习统计
+  getKpStats: (studentId: number, params?: { subject?: string }) =>
+    request.get<unknown, StudentKpStat[]>(`/students/${studentId}/kp-stats`, { params }),
+  // AI助教提示词摘要
+  getAiPromptSummary: (studentId: number) =>
+    request.get<unknown, StudentAiPromptSummary>(`/students/${studentId}/ai-prompt-summary`),
+  updateAiPromptSummary: (studentId: number, data: { personal_insight: string }) =>
+    request.put<unknown, StudentAiPromptSummary>(`/students/${studentId}/ai-prompt-summary`, data),
+  regenerateLearningsummary: (studentId: number) =>
+    request.post<unknown, { message: string }>(`/students/${studentId}/ai-prompt-summary/regenerate`),
+  // 个人洞察条目
+  getInsightEntries: (studentId: number) =>
+    request.get<unknown, PromptInsightEntry[]>(`/students/${studentId}/prompt-insights`),
+  addInsightEntry: (studentId: number, data: { content: string }) =>
+    request.post<unknown, PromptInsightEntry>(`/students/${studentId}/prompt-insights`, data),
 }
 
 // 家长管理
