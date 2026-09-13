@@ -171,4 +171,13 @@ export const dashboardApi = {
     request.get<unknown, UserGrowthPoint[]>('/dashboard/user-growth', { params: { days } }),
   getTokenTrend: (days: number) =>
     request.get<unknown, TokenTrend[]>('/dashboard/token-trend', { params: { days } }),
+  // 子页专用接口
+  getUserGrowthDetail: (days: number) =>
+    request.get<unknown, Record<string, unknown>>('/dashboard/user-growth-detail', { params: { days } }),
+  getFiveForceAnalysis: (days: number) =>
+    request.get<unknown, Record<string, unknown>>('/dashboard/five-force-analysis', { params: { days } }),
+  getAiTeachingAnalysis: (days: number) =>
+    request.get<unknown, Record<string, unknown>>('/dashboard/ai-teaching-analysis', { params: { days } }),
+  getErrorQuestionsAnalysis: (days: number) =>
+    request.get<unknown, Record<string, unknown>>('/dashboard/error-questions-analysis', { params: { days } }),
 }

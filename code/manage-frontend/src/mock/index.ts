@@ -737,6 +737,129 @@ const mockRoutes: MockMethod[] = [
       })))
     },
   },
+
+  // 子页详细数据
+
+  // 14.2.2 用户增长分析
+  {
+    url: '/api/v1/admin/dashboard/user-growth-detail',
+    method: 'get',
+    response: ({ query }) => {
+      const days = Number(query.days || 30)
+      return success({
+        daily_new_users: Array.from({ length: days }, (_, i) => ({
+          date: new Date(Date.now() - (days - 1 - i) * 86400000).toISOString().split('T')[0],
+          new_users: Math.floor(6 + Math.random() * 12),
+          active_users: Math.floor(70 + Math.random() * 40),
+        })),
+        retention_funnel: [
+          { stage: '注册用户',     count: 1024, pct: 100 },
+          { stage: '完成五力测试', count: 823,  pct: 80 },
+          { stage: '参与训练',     count: 568,  pct: 55 },
+          { stage: '使用AI助教',   count: 312,  pct: 30 },
+          { stage: '产生理解突破', count: 186,  pct: 18 },
+        ],
+        grade_distribution: [
+          { grade: '初一', count: 82,  pct: 8 },
+          { grade: '初二', count: 123, pct: 12 },
+          { grade: '初三', count: 225, pct: 22 },
+          { grade: '高一', count: 286, pct: 28 },
+          { grade: '高二', count: 205, pct: 20 },
+          { grade: '高三', count: 103, pct: 10 },
+        ],
+        subject_preference: [
+          { subject: '数学', pct: 92 },
+          { subject: '物理', pct: 75 },
+          { subject: '化学', pct: 58 },
+        ],
+      })
+    },
+  },
+
+  // 14.2.3 五力测试分析
+  {
+    url: '/api/v1/admin/dashboard/five-force-analysis',
+    method: 'get',
+    response: () => success({
+      summary: { total_tests: 1024, today_tests: 38, retest_rate: 0.24, completion_rate: 0.85, avg_duration_min: 18 },
+      avg_scores: { INSIGHT: 68, CONSTRUCT: 47, DEDUCE: 72, ADAPT: 61, MIGRATE: 54 },
+      weakness_distribution: [
+        { power: '建构力', power_key: 'CONSTRUCT', pct: 38 },
+        { power: '迁移力', power_key: 'MIGRATE',   pct: 29 },
+        { power: '调适力', power_key: 'ADAPT',     pct: 18 },
+        { power: '推演力', power_key: 'DEDUCE',    pct: 10 },
+        { power: '洞察力', power_key: 'INSIGHT',   pct: 5 },
+      ],
+    }),
+  },
+
+  // 14.2.4 AI助教效果分析
+  {
+    url: '/api/v1/admin/dashboard/ai-teaching-analysis',
+    method: 'get',
+    response: ({ query }) => {
+      const days = Number(query.days || 7)
+      return success({
+        summary: { aha_total: 186, avg_rounds: 6.2, breakthrough_rate: 0.24, review_breakthrough_rate: 0.38, silence_rate: 0.08 },
+        session_mode_distribution: [
+          { mode: '自由提问', pct: 45, color: '#4F46E5' },
+          { mode: '错题复盘', pct: 38, color: '#10B981' },
+          { mode: '训练介入', pct: 17, color: '#F59E0B' },
+        ],
+        strategy_effectiveness: [
+          { name: '苏格拉底提问',   uses: 3241, success_rate: 0.81 },
+          { name: '生活场景类比',   uses: 2186, success_rate: 0.74 },
+          { name: '化简特例',       uses: 1843, success_rate: 0.68 },
+          { name: '反例证伪',       uses: 1204, success_rate: 0.62 },
+          { name: '空间想象',       uses: 892,  success_rate: 0.58 },
+          { name: '图示引导',       uses: 764,  success_rate: 0.55 },
+          { name: '故事叙述',       uses: 623,  success_rate: 0.52 },
+          { name: '节奏/模式感',   uses: 512,  success_rate: 0.49 },
+          { name: '已知知识类比',   uses: 389,  success_rate: 0.46 },
+        ],
+        aha_trend: Array.from({ length: days }, (_, i) => ({
+          date: new Date(Date.now() - (days - 1 - i) * 86400000).toISOString().split('T')[0],
+          aha_count: Math.floor(18 + Math.random() * 15),
+          session_count: Math.floor(80 + Math.random() * 30),
+          message_count: Math.floor(700 + Math.random() * 200),
+        })),
+      })
+    },
+  },
+
+  // 14.2.5 错题集分析
+  {
+    url: '/api/v1/admin/dashboard/error-questions-analysis',
+    method: 'get',
+    response: () => success({
+      summary: { total_errors: 8432, review_rate: 0.38, breakthrough_rate: 0.62 },
+      review_status_distribution: [
+        { status: '未复盘',     count: 5228, pct: 62, color: '#94A3B8' },
+        { status: '已突破',     count: 1939, pct: 23, color: '#10B981' },
+        { status: '待巩固',     count: 759,  pct: 9,  color: '#F59E0B' },
+        { status: '复盘进行中', count: 506,  pct: 6,  color: '#4F46E5' },
+      ],
+      power_distribution: [
+        { power: '建构力', power_key: 'CONSTRUCT', pct: 35 },
+        { power: '推演力', power_key: 'DEDUCE',    pct: 28 },
+        { power: '迁移力', power_key: 'MIGRATE',   pct: 18 },
+        { power: '调适力', power_key: 'ADAPT',     pct: 12 },
+        { power: '洞察力', power_key: 'INSIGHT',   pct: 7 },
+      ],
+      top_error_questions: [
+        { rank: 1, stem: '几个人一起买东西，每人400多出3400，每人300多出100...', error_count: 128, power: '建构力', power_key: 'CONSTRUCT' },
+        { rank: 2, stem: '身高每天变成前一天的90%，以下判断哪个正确？',           error_count: 94,  power: '推演力', power_key: 'DEDUCE' },
+        { rank: 3, stem: '银行/细菌/社交网络增长方式相同的是哪一项？',             error_count: 87,  power: '迁移力', power_key: 'MIGRATE' },
+        { rank: 4, stem: '衣服让人感觉暖和是因为衣服自身产生热量？',               error_count: 76,  power: '调适力', power_key: 'ADAPT' },
+        { rank: 5, stem: '如图所示，△ABC中AB=AC，BD是AC的垂线，求证BD是...', error_count: 68,  power: '推演力', power_key: 'DEDUCE' },
+        { rank: 6, stem: '城市气温数据如下，哪一年的年温差最大？',                 error_count: 61,  power: '洞察力', power_key: 'INSIGHT' },
+        { rank: 7, stem: '小明发现两组数据差距很大，请分析最可能的原因...',         error_count: 54,  power: '洞察力', power_key: 'INSIGHT' },
+        { rank: 8, stem: '以下哪种情况下，增大压力能提高摩擦力？',                 error_count: 48,  power: '调适力', power_key: 'ADAPT' },
+        { rank: 9, stem: '从生物学角度解释：为什么北极熊比普通熊更耐寒？',         error_count: 43,  power: '迁移力', power_key: 'MIGRATE' },
+        { rank: 10, stem: '实验报告中对照组数值比实验组还高，最可能的原因是？',     error_count: 39,  power: '建构力', power_key: 'CONSTRUCT' },
+      ],
+    }),
+  },
 ]
 
 export default mockRoutes

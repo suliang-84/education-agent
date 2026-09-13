@@ -22,6 +22,30 @@ const router = createRouter({
           meta: { title: '数据看板' },
         },
         {
+          path: 'dashboard/user-growth',
+          name: 'DashboardUserGrowth',
+          component: () => import('@/views/dashboard/DashboardUserGrowthView.vue'),
+          meta: { title: '用户增长分析' },
+        },
+        {
+          path: 'dashboard/five-force',
+          name: 'DashboardFiveForce',
+          component: () => import('@/views/dashboard/DashboardFiveForceView.vue'),
+          meta: { title: '五力测试分析' },
+        },
+        {
+          path: 'dashboard/ai-teaching',
+          name: 'DashboardAiTeaching',
+          component: () => import('@/views/dashboard/DashboardAiTeachingView.vue'),
+          meta: { title: 'AI助教效果分析' },
+        },
+        {
+          path: 'dashboard/error-questions',
+          name: 'DashboardErrorQuestions',
+          component: () => import('@/views/dashboard/DashboardErrorQuestionsView.vue'),
+          meta: { title: '错题集分析' },
+        },
+        {
           path: 'questions',
           name: 'QuestionList',
           component: () => import('@/views/questions/QuestionListView.vue'),

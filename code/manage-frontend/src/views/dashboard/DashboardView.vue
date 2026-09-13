@@ -16,11 +16,11 @@
       </div>
     </div>
 
-    <!-- ── Row 1：KPI 网格 4列 ──────────────────────────────────── -->
+    <!-- ── Row 1：KPI 网格 4列（点击跳转详细分析子页）───────────── -->
     <div class="kpi-row" v-loading="loading">
 
-      <!-- 用户规模 -->
-      <div class="card">
+      <!-- 用户规模 → 用户增长分析子页 -->
+      <div class="card card--clickable" @click="$router.push('/dashboard/user-growth')">
         <div class="kpi-top">
           <div class="kpi-icon" style="background:rgba(79,70,229,0.10)">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" stroke-width="1.8">
@@ -28,6 +28,7 @@
             </svg>
           </div>
           <span class="kpi-label">用户规模</span>
+          <span class="kpi-link-hint">详细分析 →</span>
         </div>
         <div class="kpi-value num">{{ stats?.total_students?.toLocaleString() ?? '--' }}</div>
         <div class="kpi-footer">
@@ -36,7 +37,7 @@
         </div>
       </div>
 
-      <!-- 训练活跃 -->
+      <!-- 训练活跃（暂无独立子页，保持原样） -->
       <div class="card">
         <div class="kpi-top">
           <div class="kpi-icon" style="background:rgba(34,197,94,0.10)">
@@ -53,8 +54,8 @@
         </div>
       </div>
 
-      <!-- AI助教 -->
-      <div class="card">
+      <!-- AI助教 → AI助教效果分析子页 -->
+      <div class="card card--clickable" @click="$router.push('/dashboard/ai-teaching')">
         <div class="kpi-top">
           <div class="kpi-icon" style="background:rgba(245,158,11,0.10)">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="1.8">
@@ -62,6 +63,7 @@
             </svg>
           </div>
           <span class="kpi-label">AI 助教</span>
+          <span class="kpi-link-hint">效果分析 →</span>
         </div>
         <div class="kpi-value num">{{ stats?.rag_calls_today ?? '--' }}</div>
         <div class="kpi-footer">
@@ -70,7 +72,7 @@
         </div>
       </div>
 
-      <!-- 题库健康度 -->
+      <!-- 题库健康度（原样） -->
       <div class="card">
         <div class="kpi-top">
           <div class="kpi-icon" style="background:rgba(244,63,126,0.10)">
@@ -322,6 +324,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
 import * as echarts from 'echarts'
 import { dashboardApi } from '@/api'
 import type { DashboardStats, TokenTrend, UserGrowthPoint } from '@/types'
@@ -329,6 +332,7 @@ import { useAuthStore } from '@/stores/auth'
 import dayjs from 'dayjs'
 
 // ── 认证 Store ────────────────────────────────────────────────
+const router = useRouter()
 const authStore = useAuthStore()
 
 // ── 图表公共样式配置 ──────────────────────────────────────────
@@ -823,6 +827,10 @@ function handleResize() {
   ;[growthChart, weakChart, accChart, complChart, tokenChart].forEach(c => c?.resize())
 }
 
+// ── 自动刷新（KPI每5分钟，图表每30分钟）──────────────────────
+let kpiTimer: ReturnType<typeof setInterval>
+let chartTimer: ReturnType<typeof setInterval>
+
 // ── 生命周期 ──────────────────────────────────────────────────
 onMounted(async () => {
   // 1. 先加载统计数据
@@ -837,11 +845,19 @@ onMounted(async () => {
   renderAccuracyChart()
   // 5. 注册 resize 监听
   window.addEventListener('resize', handleResize)
+  // 6. 自动刷新：KPI 每 5 分钟，图表每 30 分钟
+  kpiTimer   = setInterval(() => loadStats(), 5 * 60 * 1000)
+  chartTimer = setInterval(async () => {
+    await Promise.all([loadGrowth(), loadToken()])
+    renderWeaknessChart()
+  }, 30 * 60 * 1000)
 })
 
 onUnmounted(() => {
   ;[growthChart, weakChart, accChart, complChart, tokenChart].forEach(c => c?.dispose())
   window.removeEventListener('resize', handleResize)
+  clearInterval(kpiTimer)
+  clearInterval(chartTimer)
 })
 </script>
 
@@ -871,6 +887,24 @@ onUnmounted(() => {
     transform: translateY(-2px);
   }
 }
+
+// ── 可点击 KPI 卡片 ──────────────────────────────────────────
+.card--clickable {
+  cursor: pointer;
+
+  .kpi-link-hint {
+    font-size: 11px;
+    color: var(--indigo);
+    font-weight: 500;
+    margin-left: auto;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  &:hover .kpi-link-hint { opacity: 1; }
+}
+
+.kpi-link-hint { display: inline; }
 
 // ── 图表高度辅助类 ───────────────────────────────────────────
 .h-240 { height: 240px; }
