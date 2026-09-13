@@ -41,13 +41,31 @@ export const DifficultyLabels: Record<Difficulty, string> = {
   challenge: '挑战',
 }
 
+// 题目类型（v1.2.0 新增，由大模型自动判断）
+export type QuestionType = 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' | 'FILL_BLANK' | 'TRUE_FALSE' | 'APPLICATION'
+export const QuestionTypeLabels: Record<QuestionType, string> = {
+  SINGLE_CHOICE:   '单选题',
+  MULTIPLE_CHOICE: '多选题',
+  FILL_BLANK:      '填空题',
+  TRUE_FALSE:      '判断题',
+  APPLICATION:     '应用题',
+}
+
+// 题目答案（依题型结构化，由大模型生成，管理员可修改）
+export type QuestionAnswer =
+  | { type: 'SINGLE_CHOICE';   correct: string }
+  | { type: 'MULTIPLE_CHOICE'; correct: string[] }
+  | { type: 'FILL_BLANK';      correct: string[]; accept_range?: null }
+  | { type: 'TRUE_FALSE';      correct: boolean }
+  | { type: 'APPLICATION';     final_answer: string; key_steps: string[] }
+
 // 五力权重（整数，合计10分）
 export type FivePowerWeights = Record<FivePower, number>
 
 // 五力训练思路（各维度文字描述）
 export type FivePowerThoughts = Record<FivePower, string>
 
-// 题目（v1.2.0：AI 全量分析字段 + 新状态模型）
+// 题目（v1.2.0：AI 全量分析字段 + 5级知识体系 + 题目类型与答案）
 export interface Question {
   id: number
   stem: string                        // 管理员录入的题干（唯一必填字段）
@@ -57,10 +75,13 @@ export interface Question {
   // ── 以下字段由大模型填充，pending_review 后可修改 ──
   subject?: string                    // 科目（数学/物理/化学）
   grade?: string                      // 年级
-  chapter?: string                    // 章节
-  knowledge_points?: string[]         // 知识点（多个）
+  semester?: string                   // 学期（上学期/下学期）— 第三级知识体系节点
+  chapter?: string                    // 单元/章节
+  knowledge_points?: string[]         // 知识点（多个）— 第五级
+  question_type?: QuestionType        // 题目类型（单选/多选/填空/判断/应用题）
+  answer?: QuestionAnswer             // 题目答案（结构化，依题型适配）
   difficulty?: Difficulty
-  solution?: string                   // 参考解析
+  solution?: string                   // 参考解析（详细推导过程）
   typical_error?: string              // 典型错误
   five_power_weights?: FivePowerWeights   // 五力训练权重（整数，合计10分）
   five_power_thoughts?: FivePowerThoughts // 五力训练思路（各维度文字描述）

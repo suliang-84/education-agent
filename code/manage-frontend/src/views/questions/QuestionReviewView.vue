@@ -59,10 +59,10 @@
 
         <el-form :model="form" label-width="100px">
 
-          <!-- 归属体系 -->
-          <div class="sub-section-title">归属体系</div>
+          <!-- ── 归属体系（五级）── -->
+          <div class="sub-section-title">归属体系（五级知识体系）</div>
           <el-row :gutter="20">
-            <el-col :span="6">
+            <el-col :span="5">
               <el-form-item label="科目">
                 <el-select v-model="form.subject" :disabled="!isEditable" style="width:100%">
                   <el-option label="数学" value="数学" />
@@ -71,15 +71,23 @@
                 </el-select>
               </el-form-item>
             </el-col>
-            <el-col :span="6">
+            <el-col :span="5">
               <el-form-item label="年级">
                 <el-select v-model="form.grade" :disabled="!isEditable" style="width:100%">
                   <el-option v-for="g in grades" :key="g" :label="g" :value="g" />
                 </el-select>
               </el-form-item>
             </el-col>
-            <el-col :span="12">
-              <el-form-item label="章节">
+            <el-col :span="5">
+              <el-form-item label="学期">
+                <el-select v-model="form.semester" :disabled="!isEditable" style="width:100%">
+                  <el-option label="上学期" value="上学期" />
+                  <el-option label="下学期" value="下学期" />
+                </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col :span="9">
+              <el-form-item label="单元">
                 <el-input v-model="form.chapter" :disabled="!isEditable" placeholder="如：第三章 方程与方程组" />
               </el-form-item>
             </el-col>
@@ -100,7 +108,7 @@
                   ref="kpInputRef"
                   v-model="kpInput"
                   size="small"
-                  style="width:130px"
+                  style="width:140px"
                   @keyup.enter="addKnowledgePoint"
                   @blur="addKnowledgePoint"
                 />
@@ -109,20 +117,134 @@
             </div>
           </el-form-item>
 
-          <!-- 难度 -->
-          <div class="sub-section-title">难度</div>
-          <el-form-item label="难度等级">
-            <el-radio-group v-model="form.difficulty" :disabled="!isEditable">
-              <el-radio-button value="basic">基础</el-radio-button>
-              <el-radio-button value="advanced">进阶</el-radio-button>
-              <el-radio-button value="challenge">挑战</el-radio-button>
-            </el-radio-group>
-          </el-form-item>
+          <!-- ── 题目属性 ── -->
+          <div class="sub-section-title">题目属性</div>
+          <el-row :gutter="20">
+            <el-col :span="16">
+              <el-form-item label="题目类型">
+                <el-radio-group v-model="form.question_type" :disabled="!isEditable" @change="onQuestionTypeChange">
+                  <el-radio-button value="SINGLE_CHOICE">单选题</el-radio-button>
+                  <el-radio-button value="MULTIPLE_CHOICE">多选题</el-radio-button>
+                  <el-radio-button value="FILL_BLANK">填空题</el-radio-button>
+                  <el-radio-button value="TRUE_FALSE">判断题</el-radio-button>
+                  <el-radio-button value="APPLICATION">应用题</el-radio-button>
+                </el-radio-group>
+              </el-form-item>
+            </el-col>
+            <el-col :span="8">
+              <el-form-item label="难度等级">
+                <el-radio-group v-model="form.difficulty" :disabled="!isEditable">
+                  <el-radio-button value="basic">基础</el-radio-button>
+                  <el-radio-button value="advanced">进阶</el-radio-button>
+                  <el-radio-button value="challenge">挑战</el-radio-button>
+                </el-radio-group>
+              </el-form-item>
+            </el-col>
+          </el-row>
+
+          <!-- ── 题目答案（依题型自动适配）── -->
+          <div class="sub-section-title">
+            题目答案
+            <span class="sub-section-hint">{{ answerTypeHint }}</span>
+          </div>
+
+          <!-- 单选题：正确选项字母 -->
+          <div v-if="form.question_type === 'SINGLE_CHOICE'" class="answer-block">
+            <el-form-item label="正确选项">
+              <el-radio-group v-model="form.answer_single" :disabled="!isEditable">
+                <el-radio-button value="A">A</el-radio-button>
+                <el-radio-button value="B">B</el-radio-button>
+                <el-radio-button value="C">C</el-radio-button>
+                <el-radio-button value="D">D</el-radio-button>
+              </el-radio-group>
+              <div class="answer-hint">标注题干中正确选项对应的字母</div>
+            </el-form-item>
+          </div>
+
+          <!-- 多选题：正确选项字母组 -->
+          <div v-else-if="form.question_type === 'MULTIPLE_CHOICE'" class="answer-block">
+            <el-form-item label="正确选项">
+              <el-checkbox-group v-model="form.answer_multi" :disabled="!isEditable">
+                <el-checkbox-button value="A">A</el-checkbox-button>
+                <el-checkbox-button value="B">B</el-checkbox-button>
+                <el-checkbox-button value="C">C</el-checkbox-button>
+                <el-checkbox-button value="D">D</el-checkbox-button>
+              </el-checkbox-group>
+              <div class="answer-hint">可选多个正确选项</div>
+            </el-form-item>
+          </div>
+
+          <!-- 填空题：每个空的标准答案 -->
+          <div v-else-if="form.question_type === 'FILL_BLANK'" class="answer-block">
+            <el-form-item label="标准答案">
+              <div class="fill-blank-answers">
+                <div v-for="(ans, idx) in form.answer_blanks" :key="idx" class="fill-blank-item">
+                  <span class="fill-blank-label">第 {{ idx + 1 }} 空</span>
+                  <el-input
+                    v-model="form.answer_blanks[idx]"
+                    :disabled="!isEditable"
+                    placeholder="填入标准答案"
+                    style="width:180px"
+                    size="small"
+                  />
+                  <el-button
+                    v-if="isEditable && form.answer_blanks.length > 1"
+                    text size="small" style="color:var(--red)"
+                    @click="form.answer_blanks.splice(idx, 1)"
+                  >删除</el-button>
+                </div>
+                <el-button v-if="isEditable" size="small" @click="form.answer_blanks.push('')">+ 添加空</el-button>
+              </div>
+              <div class="answer-hint">多空题目请逐空填写标准答案</div>
+            </el-form-item>
+          </div>
+
+          <!-- 判断题：对/错 -->
+          <div v-else-if="form.question_type === 'TRUE_FALSE'" class="answer-block">
+            <el-form-item label="正确答案">
+              <el-radio-group v-model="form.answer_tf" :disabled="!isEditable">
+                <el-radio-button :value="true">✓ 正确（对）</el-radio-button>
+                <el-radio-button :value="false">✗ 错误（错）</el-radio-button>
+              </el-radio-group>
+            </el-form-item>
+          </div>
+
+          <!-- 应用题：最终结论 + 关键步骤 -->
+          <div v-else-if="form.question_type === 'APPLICATION'" class="answer-block">
+            <el-form-item label="最终结论">
+              <el-input
+                v-model="form.answer_final"
+                :disabled="!isEditable"
+                placeholder="如：x=33，y=9800（人数33人，总价9800钱）"
+              />
+            </el-form-item>
+            <el-form-item label="关键步骤">
+              <div class="key-steps">
+                <div v-for="(step, idx) in form.answer_steps" :key="idx" class="key-step-item">
+                  <span class="step-num">{{ idx + 1 }}</span>
+                  <el-input
+                    v-model="form.answer_steps[idx]"
+                    :disabled="!isEditable"
+                    :placeholder="`第 ${idx + 1} 个关键步骤`"
+                    size="small"
+                    style="flex:1"
+                  />
+                  <el-button
+                    v-if="isEditable && form.answer_steps.length > 1"
+                    text size="small" style="color:var(--red)"
+                    @click="form.answer_steps.splice(idx, 1)"
+                  >删除</el-button>
+                </div>
+                <el-button v-if="isEditable" size="small" @click="form.answer_steps.push('')">+ 添加步骤</el-button>
+              </div>
+              <div class="answer-hint">列出解题的关键推导步骤，无需完整，突出思路节点即可</div>
+            </el-form-item>
+          </div>
 
           <!-- 参考解析 -->
           <div class="sub-section-title">参考解析</div>
-          <el-form-item label="解析内容">
-            <el-input v-model="form.solution" type="textarea" :rows="5" :disabled="!isEditable" placeholder="完整解题过程..." />
+          <el-form-item label="详细推导">
+            <el-input v-model="form.solution" type="textarea" :rows="5" :disabled="!isEditable" placeholder="完整解题推导过程，供 AI 辅导引导和 RAG 检索使用..." />
           </el-form-item>
 
           <!-- 典型错误 -->
@@ -237,7 +359,7 @@ import { ref, reactive, computed, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { questionApi } from '@/api'
-import type { Question, QuestionStatus, FivePower, Difficulty } from '@/types'
+import type { Question, QuestionStatus, QuestionType, FivePower, Difficulty } from '@/types'
 import { QuestionStatusLabels, FivePowerLabels } from '@/types'
 
 const route  = useRoute()
@@ -253,7 +375,6 @@ const rejectReason = ref('')
 const powers = ['INSIGHT', 'CONSTRUCT', 'DEDUCE', 'ADAPT', 'MIGRATE'] as const
 const grades = ['七年级', '八年级', '九年级', '高一', '高二', '高三']
 
-// 仅待审核状态可编辑
 const isEditable = computed(() => question.value?.status === 'pending_review')
 
 const pageTitle = computed(() => {
@@ -264,21 +385,78 @@ const pageTitle = computed(() => {
   return '题目详情'
 })
 
+const answerTypeHint = computed(() => {
+  const map: Record<QuestionType, string> = {
+    SINGLE_CHOICE:   '单选题 — 标注正确选项字母',
+    MULTIPLE_CHOICE: '多选题 — 标注所有正确选项字母',
+    FILL_BLANK:      '填空题 — 逐空填写标准答案',
+    TRUE_FALSE:      '判断题 — 选择「对」或「错」',
+    APPLICATION:     '应用题 — 填写最终结论和关键推导步骤',
+  }
+  return form.question_type ? map[form.question_type as QuestionType] : ''
+})
+
 // ── 可编辑表单 ───────────────────────────────────────────────
 const form = reactive({
-  subject: '' as string,
-  grade: '' as string,
-  chapter: '' as string,
-  knowledge_points: [] as string[],
-  difficulty: 'basic' as Difficulty,
-  solution: '' as string,
-  typical_error: '' as string,
-  five_power_weights: { INSIGHT: 2, CONSTRUCT: 5, DEDUCE: 2, ADAPT: 1, MIGRATE: 0 } as Record<FivePower, number>,
+  subject:            '' as string,
+  grade:              '' as string,
+  semester:           '' as string,
+  chapter:            '' as string,
+  knowledge_points:   [] as string[],
+  question_type:      'APPLICATION' as QuestionType,
+  difficulty:         'basic' as Difficulty,
+  // 答案各题型分开存储，保存时按 question_type 聚合
+  answer_single:      'A' as string,
+  answer_multi:       [] as string[],
+  answer_blanks:      [''] as string[],
+  answer_tf:          true as boolean,
+  answer_final:       '' as string,
+  answer_steps:       [''] as string[],
+  // 其余分析字段
+  solution:           '' as string,
+  typical_error:      '' as string,
+  five_power_weights:  { INSIGHT: 2, CONSTRUCT: 5, DEDUCE: 2, ADAPT: 1, MIGRATE: 0 } as Record<FivePower, number>,
   five_power_thoughts: { INSIGHT: '', CONSTRUCT: '', DEDUCE: '', ADAPT: '', MIGRATE: '' } as Record<FivePower, string>,
   migration_directions: [] as string[],
 })
 
 const weightTotal = computed(() => Object.values(form.five_power_weights).reduce((s, v) => s + v, 0))
+
+// 切换题型时重置答案
+function onQuestionTypeChange() {
+  form.answer_single = 'A'
+  form.answer_multi  = []
+  form.answer_blanks = ['']
+  form.answer_tf     = true
+  form.answer_final  = ''
+  form.answer_steps  = ['']
+}
+
+// 从 Question.answer 反序列化到各字段
+function deserializeAnswer(q: Question) {
+  const a = q.answer
+  if (!a) return
+  form.question_type = a.type as QuestionType
+  if (a.type === 'SINGLE_CHOICE')   form.answer_single = a.correct
+  if (a.type === 'MULTIPLE_CHOICE') form.answer_multi  = [...a.correct]
+  if (a.type === 'FILL_BLANK')      form.answer_blanks = a.correct.length ? [...a.correct] : ['']
+  if (a.type === 'TRUE_FALSE')      form.answer_tf     = a.correct
+  if (a.type === 'APPLICATION') {
+    form.answer_final = a.final_answer
+    form.answer_steps = a.key_steps.length ? [...a.key_steps] : ['']
+  }
+}
+
+// 序列化答案为后端格式
+function serializeAnswer() {
+  const t = form.question_type
+  if (t === 'SINGLE_CHOICE')   return { type: t, correct: form.answer_single }
+  if (t === 'MULTIPLE_CHOICE') return { type: t, correct: [...form.answer_multi] }
+  if (t === 'FILL_BLANK')      return { type: t, correct: form.answer_blanks.filter(Boolean), accept_range: null }
+  if (t === 'TRUE_FALSE')      return { type: t, correct: form.answer_tf }
+  if (t === 'APPLICATION')     return { type: t, final_answer: form.answer_final, key_steps: form.answer_steps.filter(Boolean) }
+  return undefined
+}
 
 // 知识点 tag 输入
 const kpInputVisible = ref(false)
@@ -307,17 +485,19 @@ onMounted(async () => {
   try {
     const q = await questionApi.getOne(Number(route.params.id))
     question.value = q
-    // 填充表单
     form.subject            = q.subject ?? ''
     form.grade              = q.grade ?? ''
+    form.semester           = q.semester ?? '上学期'
     form.chapter            = q.chapter ?? ''
     form.knowledge_points   = q.knowledge_points ? [...q.knowledge_points] : []
+    form.question_type      = (q.question_type ?? 'APPLICATION') as QuestionType
     form.difficulty         = q.difficulty ?? 'basic'
     form.solution           = q.solution ?? ''
     form.typical_error      = q.typical_error ?? ''
     form.migration_directions = q.migration_directions ? [...q.migration_directions] : []
-    if (q.five_power_weights) Object.assign(form.five_power_weights, q.five_power_weights)
+    if (q.five_power_weights)  Object.assign(form.five_power_weights, q.five_power_weights)
     if (q.five_power_thoughts) Object.assign(form.five_power_thoughts, q.five_power_thoughts)
+    deserializeAnswer(q)
   } finally { loading.value = false }
 })
 
@@ -326,15 +506,18 @@ async function handleSaveAnalysis() {
   saving.value = true
   try {
     await questionApi.update(Number(route.params.id), {
-      subject:            form.subject,
-      grade:              form.grade,
-      chapter:            form.chapter,
-      knowledge_points:   [...form.knowledge_points],
-      difficulty:         form.difficulty,
-      solution:           form.solution,
-      typical_error:      form.typical_error,
-      five_power_weights: { ...form.five_power_weights },
-      five_power_thoughts: { ...form.five_power_thoughts },
+      subject:              form.subject,
+      grade:                form.grade,
+      semester:             form.semester,
+      chapter:              form.chapter,
+      knowledge_points:     [...form.knowledge_points],
+      question_type:        form.question_type,
+      answer:               serializeAnswer(),
+      difficulty:           form.difficulty,
+      solution:             form.solution,
+      typical_error:        form.typical_error,
+      five_power_weights:   { ...form.five_power_weights },
+      five_power_thoughts:  { ...form.five_power_thoughts },
       migration_directions: [...form.migration_directions],
     })
     ElMessage.success('修改已保存')
@@ -354,10 +537,10 @@ async function handlePublish() {
   )
   saving.value = true
   try {
-    // 先保存修改，再发布
     await questionApi.update(Number(route.params.id), {
-      subject: form.subject, grade: form.grade, chapter: form.chapter,
-      knowledge_points: [...form.knowledge_points], difficulty: form.difficulty,
+      subject: form.subject, grade: form.grade, semester: form.semester, chapter: form.chapter,
+      knowledge_points: [...form.knowledge_points], question_type: form.question_type,
+      answer: serializeAnswer(), difficulty: form.difficulty,
       solution: form.solution, typical_error: form.typical_error,
       five_power_weights: { ...form.five_power_weights },
       five_power_thoughts: { ...form.five_power_thoughts },
@@ -445,6 +628,75 @@ async function handleReject() {
   gap: 10px;
 }
 
+.sub-section-hint {
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--text-3);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+// ── 答案区块 ─────────────────────────────────────────────────
+.answer-block {
+  background: var(--bg-muted);
+  border-radius: var(--r-lg);
+  padding: 16px 16px 4px;
+  margin-bottom: 12px;
+}
+
+.answer-hint {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 6px;
+}
+
+// 填空题多空
+.fill-blank-answers {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fill-blank-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fill-blank-label {
+  font-size: 12.5px;
+  color: var(--text-2);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+// 应用题步骤
+.key-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.key-step-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.step-num {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--indigo-light);
+  color: var(--indigo);
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
 // 五力权重合计
 .weight-total {
   font-size: 12px;
@@ -481,7 +733,6 @@ async function handleReject() {
   }
 }
 
-// 五力维度彩色圆点
 .power-dot {
   width: 8px;
   height: 8px;
@@ -495,7 +746,6 @@ async function handleReject() {
   &--MIGRATE   { background: var(--power-migrate); }
 }
 
-// 五力思路输入
 .thoughts-grid {
   background: var(--bg-muted);
   border-radius: var(--r-lg);
@@ -503,7 +753,6 @@ async function handleReject() {
   margin-bottom: 4px;
 }
 
-// Tag 区域
 .tag-area {
   display: flex;
   flex-wrap: wrap;

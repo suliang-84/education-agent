@@ -22,7 +22,16 @@ const powerThoughts = [
   { INSIGHT: '从数据表中识别最大差异的年份', CONSTRUCT: '建立温差计算的数学模型', DEDUCE: '逐列计算并比较最大值', ADAPT: '处理异常数据时灵活调整方法', MIGRATE: '迁移到其他统计分析场景' },
 ]
 
-// Mock 题库数据（v1.2.0：5态状态模型 + AI全量分析字段）
+// 各题型的标准答案模板
+const answerTemplates = [
+  { type: 'APPLICATION',     final_answer: 'x=33，y=9800（人数33人，总价9800钱）', key_steps: ['设人数为x，总价为y', '由题意建立二元方程组：400x - y = 3400 且 300x - y = 100', '两式相减得100x = 3300，解得x = 33', '代入得y = 9800'] },
+  { type: 'APPLICATION',     final_answer: 'a = 2 m/s²', key_steps: ['由牛顿第二定律 F = ma', '已知 F = 2000N，m = 1000kg', '解得 a = F/m = 2 m/s²'] },
+  { type: 'APPLICATION',     final_answer: 'BD是AC的垂直平分线，即AD = CD', key_steps: ['在△ABD和△CBD中，AB = CB（等腰三角形），BD = BD（公共边），∠ADB = ∠CDB = 90°', '由RHS可得△ABD ≅ △CBD', '故AD = DC，BD是AC的垂直平分线'] },
+  { type: 'SINGLE_CHOICE',   correct: 'B' },
+  { type: 'FILL_BLANK',      correct: ['2023', '42.3°C'], accept_range: null },
+]
+
+// Mock 题库数据（v1.2.0：5态状态模型 + 五级知识体系 + 题目类型与答案）
 const questions = Array.from({ length: 30 }, (_, i) => {
   const statusList = ['published', 'draft', 'pending_review', 'published', 'archived', 'analyzing'] as const
   const status = statusList[i % 6]
@@ -40,15 +49,18 @@ const questions = Array.from({ length: 30 }, (_, i) => {
     image_url: undefined as string | undefined,
     status,
     analysis_round: status === 'pending_review' && i % 7 === 0 ? 2 : 1,
-    // AI 分析字段（仅 hasAnalysis 时有值）
-    subject:   hasAnalysis ? ['数学', '物理', '数学', '生物', '数学'][i % 5] : undefined,
-    grade:     hasAnalysis ? ['八年级', '九年级', '八年级', '七年级', '九年级'][i % 5] : undefined,
-    chapter:   hasAnalysis ? ['方程与方程组', '牛顿运动定律', '全等三角形', '生态系统', '统计与概率'][i % 5] : undefined,
+    // AI 分析字段（仅 hasAnalysis 时有值）— 五级知识体系
+    subject:          hasAnalysis ? ['数学', '物理', '数学', '生物', '数学'][i % 5] : undefined,
+    grade:            hasAnalysis ? ['八年级', '九年级', '八年级', '七年级', '九年级'][i % 5] : undefined,
+    semester:         hasAnalysis ? ['上学期', '下学期', '上学期', '下学期', '上学期'][i % 5] : undefined,
+    chapter:          hasAnalysis ? ['方程与方程组', '牛顿运动定律', '全等三角形', '生态系统', '统计与概率'][i % 5] : undefined,
     knowledge_points: hasAnalysis ? [['二元一次方程组', '应用题建模'], ['牛顿第二定律'], ['全等三角形', '垂直平分线'], ['生态系统', '调查分析'], ['统计图', '数据分析']][i % 5] : undefined,
-    difficulty: hasAnalysis ? (['basic', 'advanced', 'challenge'] as const)[i % 3] : undefined,
-    solution:  hasAnalysis ? ['设人数为x，总价为y。由题意得：400x - y = 3400，300x - y = 100。两式相减得100x = 3300，解得x = 33，y = 9800。', '由牛顿第二定律 F = ma，得 a = F/m = 2000/1000 = 2 m/s²。', '证：在△ABD和△CBD中，BD=BD（公共边），∠BDA=∠BDC=90°（已知BD⊥AC），AB=BC（等腰三角形），故△ABD≅△CBD（RHS），所以AD=DC，即BD是AC的垂直平分线。', '外来物种入侵最可能导致生态链断裂，应优先调查线索②，因为它能在短时间内引发鱼类数量的急剧减少。', '计算每年各月最高温和最低温之差，即年温差。通过比较可知2023年温差最大，达到42.3°C。'][i % 5] : undefined,
-    typical_error: hasAnalysis ? ['把盈余关系写反（400x+3400=y）', '混淆合力与分力的关系', '忽略垂直条件直接用角度证明', '将相关性误认为因果关系', '未统一单位直接比较'][i % 5] : undefined,
-    five_power_weights: hasAnalysis ? powerWeights[i % 5] : undefined,
+    question_type:    hasAnalysis ? ['APPLICATION', 'APPLICATION', 'APPLICATION', 'SINGLE_CHOICE', 'FILL_BLANK'][i % 5] : undefined,
+    answer:           hasAnalysis ? answerTemplates[i % 5] : undefined,
+    difficulty:       hasAnalysis ? (['basic', 'advanced', 'challenge'] as const)[i % 3] : undefined,
+    solution:         hasAnalysis ? ['设人数为x，总价为y。由题意得：400x - y = 3400，300x - y = 100。两式相减得100x = 3300，解得x = 33，y = 9800。', '由牛顿第二定律 F = ma，得 a = F/m = 2000/1000 = 2 m/s²。', '证：在△ABD和△CBD中，BD=BD（公共边），∠BDA=∠BDC=90°（已知BD⊥AC），AB=BC（等腰三角形），故△ABD≅△CBD（RHS），所以AD=DC，即BD是AC的垂直平分线。', '外来物种入侵最可能导致生态链断裂，应优先调查线索②。', '计算每年各月最高温和最低温之差，即年温差，通过比较可知2023年温差最大。'][i % 5] : undefined,
+    typical_error:    hasAnalysis ? ['把盈余关系写反（400x+3400=y）', '混淆合力与分力的关系', '忽略垂直条件直接用角度证明', '将相关性误认为因果关系', '未统一单位直接比较'][i % 5] : undefined,
+    five_power_weights:  hasAnalysis ? powerWeights[i % 5] : undefined,
     five_power_thoughts: hasAnalysis ? powerThoughts[i % 5] : undefined,
     migration_directions: hasAnalysis ? [['班级活动收费', '租车收费'], ['斜面加速', '电梯运动'], ['等腰三角形', '角平分线'], ['水资源保护', '城市扩张'], ['经济数据分析', '气候变化']][i % 5] : undefined,
     embedding_status: status === 'published' ? (['completed', 'completed', 'failed'][i % 3]) : 'pending',
@@ -195,9 +207,14 @@ const mockRoutes: MockMethod[] = [
       const id = parseInt((url as string).match(/\/(\d+)\/analyze/)?.[1] || '5001')
       const q = questions.find(q => q.id === id) || questions[0]
       return success({ ...q, status: 'pending_review', analysis_round: (q.analysis_round || 0) + 1,
-        subject: '数学', grade: '八年级', chapter: '方程与方程组',
+        // 五级知识体系
+        subject: '数学', grade: '八年级', semester: '上学期', chapter: '方程与方程组',
         knowledge_points: ['二元一次方程组', '应用题建模'],
-        difficulty: 'basic', solution: '设人数为x，总价为y。由题意得：400x - y = 3400，300x - y = 100。两式相减得100x = 3300，解得x = 33，y = 9800。',
+        // 题目属性
+        question_type: 'APPLICATION',
+        answer: { type: 'APPLICATION', final_answer: 'x=33，y=9800（人数33人，总价9800钱）', key_steps: ['设人数为x，总价为y', '由题意建立方程组：400x - y = 3400 且 300x - y = 100', '两式相减得100x = 3300，解得x = 33', '代入得y = 9800'] },
+        difficulty: 'basic',
+        solution: '设人数为x，总价为y。由题意得：400x - y = 3400，300x - y = 100。两式相减得100x = 3300，解得x = 33，y = 9800。',
         typical_error: '把盈余关系写反（400x+3400=y）',
         five_power_weights: { INSIGHT: 2, CONSTRUCT: 5, DEDUCE: 2, ADAPT: 1, MIGRATE: 0 },
         five_power_thoughts: { INSIGHT: '识别题目中的隐含数量关系', CONSTRUCT: '建立变量与方程的对应模型', DEDUCE: '推导各步骤的逻辑依据', ADAPT: '将结果代入验证是否符合约束', MIGRATE: '联系到生活中类似的分摊情境' },
