@@ -52,6 +52,13 @@ async def test_logout(client):
     assert resp.status_code == 200
     assert resp.json()["status"] == "success"
 
+    # 验证 token 已加入黑名单 — 再次使用同一 token 应被拒绝
+    resp2 = await client.post(
+        "/api/v1/admin/auth/logout",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+    assert resp2.status_code == 401
+
 
 @pytest.mark.asyncio
 async def test_protected_route_without_token(client):

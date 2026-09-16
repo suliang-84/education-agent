@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,12 +31,14 @@ async def login(db: AsyncSession, username: str, password: str, ip: str) -> tupl
     if admin.is_active == 0:
         raise AppException("AUTH-003", "账号已停用，请联系管理员", 403)
 
+    if admin.is_active == 2:
+        raise AppException("LOGIN-003", "首次登录请先修改初始密码", 403)
+
     # 验证密码
     if not verify_password(password, admin.password_hash):
         new_fail = admin.login_fail_count + 1
         update_vals: dict = {"login_fail_count": new_fail}
         if new_fail >= MAX_FAIL_COUNT:
-            from datetime import timedelta
             update_vals["locked_until"] = datetime.now(UTC) + timedelta(minutes=LOCK_MINUTES)
             update_vals["login_fail_count"] = 0
             await db.execute(update(AdminUser).where(AdminUser.id == admin.id).values(**update_vals))
