@@ -41,7 +41,9 @@ async def login(db: AsyncSession, username: str, password: str, ip: str) -> tupl
         if new_fail >= MAX_FAIL_COUNT:
             update_vals["locked_until"] = datetime.now(UTC) + timedelta(minutes=LOCK_MINUTES)
             update_vals["login_fail_count"] = 0
-            await db.execute(update(AdminUser).where(AdminUser.id == admin.id).values(**update_vals))
+            await db.execute(
+                update(AdminUser).where(AdminUser.id == admin.id).values(**update_vals)
+            )
             await db.commit()
             raise AppException("LOGIN-002", f"密码错误次数过多，账号已锁定{LOCK_MINUTES}分钟", 403)
         remaining = MAX_FAIL_COUNT - new_fail

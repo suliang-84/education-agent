@@ -1,9 +1,8 @@
+import jwt
 from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
-import jwt
 
 from app.core.database import get_db
 from app.core.exceptions import AppException

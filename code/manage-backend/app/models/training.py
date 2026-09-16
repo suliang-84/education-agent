@@ -5,11 +5,12 @@ from sqlalchemy import BigInteger, Boolean, DateTime, Integer, Numeric, SmallInt
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.models.base import Base, TimestampMixin
+from app.models.base import Base
 
 
 class TrainingDimensionConfig(Base):
     """训练维度配置（无 updated_at，由触发器维护）"""
+
     __tablename__ = "training_dimension_configs"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
@@ -29,6 +30,7 @@ class TrainingDimensionConfig(Base):
 
 class TrainingConfigVersion(Base):
     """训练全局配置版本"""
+
     __tablename__ = "training_config_versions"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
@@ -51,13 +53,16 @@ class TrainingConfigVersion(Base):
 
 class TrainingSession(Base):
     """训练会话（无 updated_at）"""
+
     __tablename__ = "training_sessions"
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True)
     student_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     config_version_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     dimension_config_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
-    training_dimension: Mapped[str] = mapped_column(String(20), nullable=False, default="KNOWLEDGE_POINT")
+    training_dimension: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="KNOWLEDGE_POINT"
+    )
     knowledge_point_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     chapter_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     semester_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -81,6 +86,7 @@ class TrainingSession(Base):
 
 class TrainingAnswerRecord(Base):
     """训练答题记录（无 updated_at）"""
+
     __tablename__ = "training_answer_records"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)

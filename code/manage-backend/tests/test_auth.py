@@ -3,10 +3,9 @@ import pytest
 
 @pytest.mark.asyncio
 async def test_login_success(client):
-    resp = await client.post("/api/v1/admin/auth/login", json={
-        "username": "admin",
-        "password": "qwer123#"
-    })
+    resp = await client.post(
+        "/api/v1/admin/auth/login", json={"username": "admin", "password": "qwer123#"}
+    )
     assert resp.status_code == 200
     data = resp.json()
     assert data["status"] == "success"
@@ -16,10 +15,9 @@ async def test_login_success(client):
 
 @pytest.mark.asyncio
 async def test_login_wrong_password(client):
-    resp = await client.post("/api/v1/admin/auth/login", json={
-        "username": "admin",
-        "password": "wrongpassword"
-    })
+    resp = await client.post(
+        "/api/v1/admin/auth/login", json={"username": "admin", "password": "wrongpassword"}
+    )
     assert resp.status_code == 401
     data = resp.json()
     assert data["status"] == "fail"
@@ -28,34 +26,30 @@ async def test_login_wrong_password(client):
 
 @pytest.mark.asyncio
 async def test_login_wrong_username(client):
-    resp = await client.post("/api/v1/admin/auth/login", json={
-        "username": "notexist",
-        "password": "qwer123#"
-    })
+    resp = await client.post(
+        "/api/v1/admin/auth/login", json={"username": "notexist", "password": "qwer123#"}
+    )
     assert resp.status_code == 401
 
 
 @pytest.mark.asyncio
 async def test_logout(client):
     # 先登录拿 token
-    login_resp = await client.post("/api/v1/admin/auth/login", json={
-        "username": "admin",
-        "password": "qwer123#"
-    })
+    login_resp = await client.post(
+        "/api/v1/admin/auth/login", json={"username": "admin", "password": "qwer123#"}
+    )
     token = login_resp.json()["data"]["access_token"]
 
     # 退出
     resp = await client.post(
-        "/api/v1/admin/auth/logout",
-        headers={"Authorization": f"Bearer {token}"}
+        "/api/v1/admin/auth/logout", headers={"Authorization": f"Bearer {token}"}
     )
     assert resp.status_code == 200
     assert resp.json()["status"] == "success"
 
     # 验证 token 已加入黑名单 — 再次使用同一 token 应被拒绝
     resp2 = await client.post(
-        "/api/v1/admin/auth/logout",
-        headers={"Authorization": f"Bearer {token}"}
+        "/api/v1/admin/auth/logout", headers={"Authorization": f"Bearer {token}"}
     )
     assert resp2.status_code == 401
 

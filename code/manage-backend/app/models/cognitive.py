@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from sqlalchemy import BigInteger, Integer, SmallInteger, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column

@@ -48,10 +48,12 @@ app.add_exception_handler(Exception, generic_exception_handler)
 
 # 注册路由
 from app.api.v1.admin import router as admin_router  # noqa: E402
+
 app.include_router(admin_router, prefix="/api/v1/admin")
 
 
 @app.get("/health", tags=["健康检查"])
 async def health():
     from app.core.response import ok
+
     return ok({"status": "healthy"})

@@ -1,6 +1,5 @@
-import pytest
+from app.core.response import fail, ok
 from app.core.security import create_access_token, decode_token, hash_password, verify_password
-from app.core.response import ok, fail
 
 
 def test_password_hash_and_verify():

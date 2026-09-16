@@ -23,8 +23,12 @@ async def login(
 
     # 写审计日志
     await audit_service.log(
-        db, admin.id, admin.display_name,
-        "ADMIN_LOGIN", "admin_users", str(admin.id),
+        db,
+        admin.id,
+        admin.display_name,
+        "ADMIN_LOGIN",
+        "admin_users",
+        str(admin.id),
         ip_address=ip,
     )
     await db.commit()
@@ -56,8 +60,11 @@ async def logout(
     await auth_service.logout(token)
 
     await audit_service.log(
-        db, current_admin.id, current_admin.display_name,
-        "ADMIN_LOGOUT", ip_address=request.client.host if request.client else None,
+        db,
+        current_admin.id,
+        current_admin.display_name,
+        "ADMIN_LOGOUT",
+        ip_address=request.client.host if request.client else None,
     )
     await db.commit()
     return ok_response(None, "已退出登录")

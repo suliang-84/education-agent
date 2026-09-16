@@ -1,12 +1,9 @@
-from typing import Any, Generic, TypeVar
-
 from pydantic import BaseModel, ConfigDict
 
-T = TypeVar("T")
 
-
-class PageResp(BaseModel, Generic[T]):
+class PageResp[T](BaseModel):
     """游标分页响应结构"""
+
     list: list[T]
     total: int
     has_more: bool
@@ -15,6 +12,7 @@ class PageResp(BaseModel, Generic[T]):
 
 class PageParams(BaseModel):
     """游标分页查询参数"""
+
     limit: int = 20
     before_id: int | None = None
 

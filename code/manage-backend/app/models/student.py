@@ -41,6 +41,7 @@ class ParentStudentBinding(Base, TimestampMixin):
 
 class InviteCode(Base):
     """邀请码（无 updated_at）"""
+
     __tablename__ = "invite_codes"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
@@ -55,6 +56,7 @@ class InviteCode(Base):
 
 class SmsCode(Base):
     """短信验证码（无 updated_at）"""
+
     __tablename__ = "sms_codes"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
@@ -69,6 +71,7 @@ class SmsCode(Base):
 
 class FivePowerProfile(Base):
     """五力测评档案（仅 created_at）"""
+
     __tablename__ = "five_power_profiles"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
@@ -105,6 +108,7 @@ class FivePowerProfile(Base):
 
 class FivePowerTrainingProfile(Base):
     """五力训练档案（有 updated_at 触发器）"""
+
     __tablename__ = "five_power_training_profiles"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
@@ -122,6 +126,7 @@ class FivePowerTrainingProfile(Base):
 
 class TestSession(Base):
     """五力测试会话（无 updated_at）"""
+
     __tablename__ = "test_sessions"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
@@ -140,6 +145,7 @@ class TestSession(Base):
 
 class TestAnswerRecord(Base):
     """测试答题记录（无 updated_at）"""
+
     __tablename__ = "test_answer_records"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
@@ -159,6 +165,7 @@ class TestAnswerRecord(Base):
 
 class WrongAnswerRecord(Base):
     """错题记录（无 updated_at）"""
+
     __tablename__ = "wrong_answer_records"
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True)
@@ -177,6 +184,7 @@ class WrongAnswerRecord(Base):
 
 class StudentKpStat(Base, TimestampMixin):
     """学生知识点统计"""
+
     __tablename__ = "student_kp_stats"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
@@ -186,4 +194,6 @@ class StudentKpStat(Base, TimestampMixin):
     error_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     error_rate: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
     is_stat_valid: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    last_practiced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_practiced_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )

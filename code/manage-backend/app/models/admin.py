@@ -20,7 +20,9 @@ class AdminUser(Base, TimestampMixin):
     is_active: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=2)
     login_fail_count: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    password_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    password_changed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_login_ip: Mapped[str | None] = mapped_column(String(50), nullable=True)
     created_by: Mapped[int | None] = mapped_column(BigInteger, nullable=True)

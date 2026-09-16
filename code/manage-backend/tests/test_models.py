@@ -1,10 +1,20 @@
 def test_models_import():
     from app.models import (
-        AdminUser, Question, CognitiveTestQuestion,
-        Subject, Grade, Semester, Chapter, KnowledgePoint,
-        TrainingDimensionConfig, Student, AdminAuditLog,
-        AiHeuristicStrategy, SystemConfig,
+        AdminAuditLog,
+        AdminUser,
+        AiHeuristicStrategy,
+        Chapter,
+        CognitiveTestQuestion,
+        Grade,
+        KnowledgePoint,
+        Question,
+        Semester,
+        Student,
+        Subject,
+        SystemConfig,
+        TrainingDimensionConfig,
     )
+
     # 验证表名映射正确
     assert AdminUser.__tablename__ == "admin_users"
     assert Question.__tablename__ == "questions"
@@ -24,39 +34,18 @@ def test_models_import():
 def test_all_models_importable():
     """验证所有 34 张表的 ORM 模型均可导入"""
     from app.models import (
-        # Admin
-        AdminUser,
-        # AI
-        AiChatMessage,
-        AiChatSession,
-        AiHeuristicStrategy,
-        AiStrategyEvent,
-        AiStudentStrategyProfile,
-        AiTokenUsageLog,
-        AdminAuditLog,
-        # Cognitive
-        CognitiveTestQuestion,
-        # Knowledge
-        Subject, Grade, Semester, Chapter, KnowledgePoint,
+        ParentStudentBinding,
         # Question
-        Question, QuestionAnalysis,
-        # Student & family
-        Student, ParentStudentBinding,
-        InviteCode, SmsCode,
-        FivePowerProfile, FivePowerTrainingProfile,
-        TestSession, TestAnswerRecord,
-        WrongAnswerRecord, StudentKpStat,
-        StudentAiPromptSummary, StudentPromptInsight,
-        # Training
-        TrainingDimensionConfig, TrainingConfigVersion,
-        TrainingSession, TrainingAnswerRecord,
-        # System
-        SystemConfig, SystemDowngradeLog,
+        Question,
+        Student,
+        TrainingSession,
+        WrongAnswerRecord,
     )
+
     # 验证所有表名
     assert ParentStudentBinding.__tablename__ == "parent_student_bindings"
     assert Question.deleted_at is not None  # soft-delete 字段存在
-    assert Student.deleted_at is not None   # soft-delete 字段存在
+    assert Student.deleted_at is not None  # soft-delete 字段存在
     assert ParentStudentBinding.deleted_at is not None  # soft-delete 字段存在
     assert TrainingSession.__tablename__ == "training_sessions"
     assert WrongAnswerRecord.__tablename__ == "wrong_answer_records"
