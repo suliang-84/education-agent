@@ -1,5 +1,6 @@
 from fastapi import Request
 from fastapi.responses import JSONResponse
+from loguru import logger
 
 from app.core.response import error, fail
 
@@ -20,4 +21,8 @@ async def app_exception_handler(request: Request, exc: AppException) -> JSONResp
 
 
 async def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-    return JSONResponse(status_code=500, content=error(str(exc)))
+    logger.exception("Unhandled exception")
+    from app.core.config import get_settings
+    settings = get_settings()
+    msg = str(exc) if settings.APP_DEBUG else "服务器内部错误，请稍后重试"
+    return JSONResponse(status_code=500, content=error(msg))

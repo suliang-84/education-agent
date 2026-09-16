@@ -25,7 +25,6 @@ async def login(
     await audit_service.log(
         db,
         admin.id,
-        admin.display_name,
         "ADMIN_LOGIN",
         "admin_users",
         str(admin.id),
@@ -62,7 +61,6 @@ async def logout(
     await audit_service.log(
         db,
         current_admin.id,
-        current_admin.display_name,
         "ADMIN_LOGOUT",
         ip_address=request.client.host if request.client else None,
     )

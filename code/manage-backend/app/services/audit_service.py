@@ -6,7 +6,6 @@ from app.models.audit import AdminAuditLog
 async def log(
     db: AsyncSession,
     admin_id: int,
-    admin_name: str,  # kept for interface compatibility; not stored in DB
     action: str,
     target_type: str | None = None,
     target_id: str | None = None,
