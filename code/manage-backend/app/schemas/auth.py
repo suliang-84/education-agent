@@ -6,11 +6,6 @@ class LoginReq(BaseModel):
     password: str = Field(..., min_length=6, max_length=100)
 
 
-class TwoFAReq(BaseModel):
-    session_token: str
-    code: str = Field(..., min_length=6, max_length=6)
-
-
 class TokenResp(BaseModel):
     access_token: str
     token_type: str = "bearer"

@@ -8,7 +8,7 @@ export default defineConfig({
     vue(),
     viteMockServe({
       mockPath: 'src/mock',
-      enable: true,
+      enable: false,
     }),
   ],
   resolve: {
@@ -19,5 +19,11 @@ export default defineConfig({
   server: {
     port: 5174,
     open: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+    },
   },
 })
