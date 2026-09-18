@@ -91,13 +91,13 @@
                     <span v-for="p in powers" :key="p" class="expand-weight-chip">
                       <span class="power-dot-xs" :class="`power-dot-xs--${p}`" />
                       {{ FivePowerLabels[p as FivePower] }}
-                      <strong class="num">{{ (answer.force_weights?.[p as FivePower] ?? 0).toFixed(2) }}</strong>
+                      <strong class="num">{{ answer.force_weights?.[p as FivePower] ?? 0 }}</strong>
                     </span>
                     <span
                       class="expand-sum num"
-                      :class="Math.abs(Object.values(answer.force_weights || {}).reduce((s: number, v: number) => s + v, 0) - 1) < 0.02 ? 'expand-sum--ok' : 'expand-sum--err'"
+                      :class="Object.values(answer.force_weights || {}).reduce((s: number, v: number) => s + v, 0) === 10 ? 'expand-sum--ok' : 'expand-sum--err'"
                     >
-                      合计 {{ Object.values(answer.force_weights || {}).reduce((s: number, v: number) => s + v, 0).toFixed(2) }}
+                      合计 {{ Object.values(answer.force_weights || {}).reduce((s: number, v: number) => s + v, 0) }}
                     </span>
                   </div>
                 </div>

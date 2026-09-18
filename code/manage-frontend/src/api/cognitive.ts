@@ -33,7 +33,7 @@ export interface StatusChangeResponse {
 
 export interface CognitiveAnswerInput {
   text: string
-  force_weights: Record<FivePower, number>   // 五项之和须满足 0.99 ≤ sum ≤ 1.01
+  force_weights: Record<FivePower, number>   // 五项之和须等于 10（非负整数）
 }
 
 export interface CognitiveQuestionInput {

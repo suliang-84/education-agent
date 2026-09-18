@@ -139,7 +139,7 @@
         <div class="section-hd">
           <span class="section-title">答案配置</span>
           <div style="display:flex;align-items:center;gap:10px">
-            <span class="section-badge">每行合计需为 1.0（±0.01）</span>
+            <span class="section-badge">每行合计需为 10（整数）</span>
             <el-button
               size="small"
               :disabled="form.answers.length >= 8"
@@ -202,8 +202,8 @@
                   </div>
                   <el-input-number
                     v-model="answer.force_weights[p as FivePower]"
-                    :min="0" :max="1" :step="0.05"
-                    :precision="2"
+                    :min="0" :max="10" :step="1"
+                    :precision="0"
                     controls-position="right"
                     size="small"
                     style="width:90px"
@@ -212,7 +212,7 @@
                 <!-- 合计 -->
                 <div class="weight-sum" :class="isWeightValid(idx) ? 'weight-sum--ok' : 'weight-sum--err'">
                   <span class="weight-sum__label">合计</span>
-                  <span class="weight-sum__val num">{{ answerWeightSum(idx).toFixed(2) }}</span>
+                  <span class="weight-sum__val num">{{ answerWeightSum(idx) }}</span>
                   <svg v-if="isWeightValid(idx)" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
                   </svg>
@@ -235,7 +235,7 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/>
             </svg>
-            存在答案权重合计不等于 1.0，请调整后再保存。
+            存在答案权重合计不等于 10，请调整后再保存。
           </div>
         </div>
       </div>
@@ -285,7 +285,7 @@ const pageSubtitle = computed(() => {
 function makeAnswer(text = '') {
   return {
     text,
-    force_weights: { INSIGHT: 0.20, CONSTRUCT: 0.20, DEDUCE: 0.20, ADAPT: 0.20, MIGRATE: 0.20 } as Record<FivePower, number>,
+    force_weights: { INSIGHT: 2, CONSTRUCT: 2, DEDUCE: 2, ADAPT: 2, MIGRATE: 2 } as Record<FivePower, number>,
   }
 }
 
@@ -311,7 +311,7 @@ function answerWeightSum(idx: number) {
 }
 
 function isWeightValid(idx: number) {
-  return Math.abs(answerWeightSum(idx) - 1) < 0.02
+  return answerWeightSum(idx) === 10
 }
 
 const allWeightsValid = computed(() => form.answers.every((_, i) => isWeightValid(i)))
@@ -377,7 +377,7 @@ async function handleSave(action: 'draft' | 'publish' | 'save' | 'republish') {
   // 发布/重新发布前校验权重并弹窗确认
   if (action === 'publish' || action === 'republish') {
     if (!allWeightsValid.value) {
-      ElMessage.warning('存在答案权重合计不等于 1.0，请检查后再发布')
+      ElMessage.warning('存在答案权重合计不等于 10，请检查后再发布')
       return
     }
 

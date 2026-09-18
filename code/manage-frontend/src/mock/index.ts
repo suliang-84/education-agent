@@ -279,37 +279,37 @@ const mockRoutes: MockMethod[] = [
         '一位建筑师设计了一栋大楼，但施工方发现原材料成本超出预算30%。建筑师提出三个方案：①减少楼层数 ②使用替代材料 ③延期施工等待价格下降。请分析哪个方案最合理？',
         '实验报告中发现一处数据异常：对照组的数值比实验组还要高。以下哪种解释最能说明这个现象？',
       ]
-      // answers 模板：每道题4个选项，每个选项含文本+五力权重（合计=1.0）
+      // answers 模板：每道题4个选项，每个选项含文本+五力权重（整数，合计=10）
       const answerSets = [
         [
-          { key: 'A', text: '杯A、B、C最终都会变凉，加盖只影响速度', force_weights: { INSIGHT: 0.10, CONSTRUCT: 0.05, DEDUCE: 0.05, ADAPT: 0.70, MIGRATE: 0.10 } },
-          { key: 'B', text: 'B和C都加了盖，但结果仍然不同，说明"加盖"不能解释全部差异', force_weights: { INSIGHT: 0.70, CONSTRUCT: 0.10, DEDUCE: 0.10, ADAPT: 0.05, MIGRATE: 0.05 } },
-          { key: 'C', text: '毛巾起到了隔热作用，是加盖之外的因素', force_weights: { INSIGHT: 0.30, CONSTRUCT: 0.20, DEDUCE: 0.20, ADAPT: 0.20, MIGRATE: 0.10 } },
-          { key: 'D', text: '三杯水都不会变凉，因为房间是封闭的', force_weights: { INSIGHT: 0.10, CONSTRUCT: 0.10, DEDUCE: 0.10, ADAPT: 0.10, MIGRATE: 0.60 } },
+          { key: 'A', text: '杯A、B、C最终都会变凉，加盖只影响速度', force_weights: { INSIGHT: 1, CONSTRUCT: 1, DEDUCE: 0, ADAPT: 7, MIGRATE: 1 } },
+          { key: 'B', text: 'B和C都加了盖，但结果仍然不同，说明"加盖"不能解释全部差异', force_weights: { INSIGHT: 7, CONSTRUCT: 1, DEDUCE: 1, ADAPT: 0, MIGRATE: 1 } },
+          { key: 'C', text: '毛巾起到了隔热作用，是加盖之外的因素', force_weights: { INSIGHT: 3, CONSTRUCT: 2, DEDUCE: 2, ADAPT: 2, MIGRATE: 1 } },
+          { key: 'D', text: '三杯水都不会变凉，因为房间是封闭的', force_weights: { INSIGHT: 1, CONSTRUCT: 1, DEDUCE: 1, ADAPT: 1, MIGRATE: 6 } },
         ],
         [
-          { key: 'A', text: '他的推理逻辑正确，只要左边成立，右边也成立', force_weights: { INSIGHT: 0.15, CONSTRUCT: 0.60, DEDUCE: 0.10, ADAPT: 0.10, MIGRATE: 0.05 } },
-          { key: 'B', text: '缺少对"所有整数"的穷举验证，特例可能推翻结论', force_weights: { INSIGHT: 0.20, CONSTRUCT: 0.10, DEDUCE: 0.55, ADAPT: 0.10, MIGRATE: 0.05 } },
-          { key: 'C', text: '方程化简本身有误，导致结论错误', force_weights: { INSIGHT: 0.35, CONSTRUCT: 0.20, DEDUCE: 0.25, ADAPT: 0.15, MIGRATE: 0.05 } },
-          { key: 'D', text: '应该先验证负整数的情况再下结论', force_weights: { INSIGHT: 0.25, CONSTRUCT: 0.15, DEDUCE: 0.30, ADAPT: 0.20, MIGRATE: 0.10 } },
+          { key: 'A', text: '他的推理逻辑正确，只要左边成立，右边也成立', force_weights: { INSIGHT: 2, CONSTRUCT: 6, DEDUCE: 1, ADAPT: 1, MIGRATE: 0 } },
+          { key: 'B', text: '缺少对"所有整数"的穷举验证，特例可能推翻结论', force_weights: { INSIGHT: 2, CONSTRUCT: 1, DEDUCE: 6, ADAPT: 1, MIGRATE: 0 } },
+          { key: 'C', text: '方程化简本身有误，导致结论错误', force_weights: { INSIGHT: 4, CONSTRUCT: 2, DEDUCE: 2, ADAPT: 1, MIGRATE: 1 } },
+          { key: 'D', text: '应该先验证负整数的情况再下结论', force_weights: { INSIGHT: 3, CONSTRUCT: 1, DEDUCE: 3, ADAPT: 2, MIGRATE: 1 } },
         ],
         [
-          { key: 'A', text: '水温升高是最直接的物理原因，优先调查', force_weights: { INSIGHT: 0.20, CONSTRUCT: 0.10, DEDUCE: 0.55, ADAPT: 0.10, MIGRATE: 0.05 } },
-          { key: 'B', text: '外来物种入侵最可能造成生态链断裂，影响最大', force_weights: { INSIGHT: 0.55, CONSTRUCT: 0.15, DEDUCE: 0.15, ADAPT: 0.10, MIGRATE: 0.05 } },
-          { key: 'C', text: '工厂排污属于人为因素，更易追责和控制', force_weights: { INSIGHT: 0.15, CONSTRUCT: 0.55, DEDUCE: 0.15, ADAPT: 0.10, MIGRATE: 0.05 } },
-          { key: 'D', text: '四条线索都有可能，应同时调查', force_weights: { INSIGHT: 0.10, CONSTRUCT: 0.10, DEDUCE: 0.20, ADAPT: 0.55, MIGRATE: 0.05 } },
+          { key: 'A', text: '水温升高是最直接的物理原因，优先调查', force_weights: { INSIGHT: 2, CONSTRUCT: 1, DEDUCE: 6, ADAPT: 1, MIGRATE: 0 } },
+          { key: 'B', text: '外来物种入侵最可能造成生态链断裂，影响最大', force_weights: { INSIGHT: 6, CONSTRUCT: 1, DEDUCE: 1, ADAPT: 1, MIGRATE: 1 } },
+          { key: 'C', text: '工厂排污属于人为因素，更易追责和控制', force_weights: { INSIGHT: 1, CONSTRUCT: 6, DEDUCE: 1, ADAPT: 1, MIGRATE: 1 } },
+          { key: 'D', text: '四条线索都有可能，应同时调查', force_weights: { INSIGHT: 1, CONSTRUCT: 1, DEDUCE: 2, ADAPT: 5, MIGRATE: 1 } },
         ],
         [
-          { key: 'A', text: '减少楼层数，直接降低总成本', force_weights: { INSIGHT: 0.10, CONSTRUCT: 0.15, DEDUCE: 0.20, ADAPT: 0.50, MIGRATE: 0.05 } },
-          { key: 'B', text: '使用替代材料在保证质量前提下控制成本', force_weights: { INSIGHT: 0.15, CONSTRUCT: 0.50, DEDUCE: 0.15, ADAPT: 0.15, MIGRATE: 0.05 } },
-          { key: 'C', text: '延期施工等待材料降价，规避当前压力', force_weights: { INSIGHT: 0.20, CONSTRUCT: 0.10, DEDUCE: 0.15, ADAPT: 0.05, MIGRATE: 0.50 } },
-          { key: 'D', text: '需要综合评估三个方案的风险和收益后再决定', force_weights: { INSIGHT: 0.50, CONSTRUCT: 0.15, DEDUCE: 0.20, ADAPT: 0.10, MIGRATE: 0.05 } },
+          { key: 'A', text: '减少楼层数，直接降低总成本', force_weights: { INSIGHT: 1, CONSTRUCT: 2, DEDUCE: 2, ADAPT: 5, MIGRATE: 0 } },
+          { key: 'B', text: '使用替代材料在保证质量前提下控制成本', force_weights: { INSIGHT: 2, CONSTRUCT: 5, DEDUCE: 1, ADAPT: 1, MIGRATE: 1 } },
+          { key: 'C', text: '延期施工等待材料降价，规避当前压力', force_weights: { INSIGHT: 2, CONSTRUCT: 1, DEDUCE: 1, ADAPT: 1, MIGRATE: 5 } },
+          { key: 'D', text: '需要综合评估三个方案的风险和收益后再决定', force_weights: { INSIGHT: 5, CONSTRUCT: 2, DEDUCE: 2, ADAPT: 1, MIGRATE: 0 } },
         ],
         [
-          { key: 'A', text: '实验组操作失误，导致数据偏低', force_weights: { INSIGHT: 0.30, CONSTRUCT: 0.10, DEDUCE: 0.45, ADAPT: 0.10, MIGRATE: 0.05 } },
-          { key: 'B', text: '对照组受到了未控制变量的干扰', force_weights: { INSIGHT: 0.55, CONSTRUCT: 0.15, DEDUCE: 0.15, ADAPT: 0.10, MIGRATE: 0.05 } },
-          { key: 'C', text: '数据记录时发生了组别对调', force_weights: { INSIGHT: 0.20, CONSTRUCT: 0.55, DEDUCE: 0.10, ADAPT: 0.10, MIGRATE: 0.05 } },
-          { key: 'D', text: '实验设计本身存在根本性缺陷', force_weights: { INSIGHT: 0.40, CONSTRUCT: 0.20, DEDUCE: 0.25, ADAPT: 0.10, MIGRATE: 0.05 } },
+          { key: 'A', text: '实验组操作失误，导致数据偏低', force_weights: { INSIGHT: 3, CONSTRUCT: 1, DEDUCE: 5, ADAPT: 1, MIGRATE: 0 } },
+          { key: 'B', text: '对照组受到了未控制变量的干扰', force_weights: { INSIGHT: 6, CONSTRUCT: 1, DEDUCE: 1, ADAPT: 1, MIGRATE: 1 } },
+          { key: 'C', text: '数据记录时发生了组别对调', force_weights: { INSIGHT: 2, CONSTRUCT: 5, DEDUCE: 1, ADAPT: 1, MIGRATE: 1 } },
+          { key: 'D', text: '实验设计本身存在根本性缺陷', force_weights: { INSIGHT: 4, CONSTRUCT: 2, DEDUCE: 2, ADAPT: 1, MIGRATE: 1 } },
         ],
       ]
       return {
