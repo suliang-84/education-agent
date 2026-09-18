@@ -6,17 +6,18 @@ from app.core.response import error, fail
 
 
 class AppException(Exception):
-    def __init__(self, code: str, msg: str, http_status: int = 400):
-        self.code = code
+    def __init__(self, msg: str, http_status: int = 400, code: str | None = None):
         self.msg = msg
         self.http_status = http_status
+        # code 字段保留供内部日志追踪，不再透传给客户端
+        self.code = code
         super().__init__(msg)
 
 
 async def app_exception_handler(request: Request, exc: AppException) -> JSONResponse:
     return JSONResponse(
         status_code=exc.http_status,
-        content=fail(exc.code, exc.msg),
+        content=fail(exc.http_status, exc.msg),
     )
 
 

@@ -21,19 +21,19 @@ async def get_current_admin(
     try:
         payload = decode_token(token)
     except jwt.ExpiredSignatureError:
-        raise AppException("AUTH-001", "Token 已过期，请重新登录", 401)
+        raise AppException("Token 已过期，请重新登录", 401)
     except jwt.PyJWTError:
-        raise AppException("AUTH-001", "Token 无效，请重新登录", 401)
+        raise AppException("Token 无效，请重新登录", 401)
 
     # 检查 Redis 黑名单
     redis = await get_redis()
     jti = payload.get("jti", "")
     if await redis.get(f"blacklist:{jti}"):
-        raise AppException("AUTH-001", "Token 已撤销，请重新登录", 401)
+        raise AppException("Token 已撤销，请重新登录", 401)
 
     # 检查角色
     if payload.get("role") != "SUPER_ADMIN":
-        raise AppException("AUTH-003", "权限不足", 403)
+        raise AppException("权限不足", 403)
 
     # 查询管理员
     admin_id = int(payload["sub"])
@@ -41,8 +41,8 @@ async def get_current_admin(
     admin = result.scalar_one_or_none()
 
     if not admin:
-        raise AppException("AUTH-001", "管理员不存在", 401)
+        raise AppException("管理员不存在", 401)
     if admin.is_active == 0:
-        raise AppException("AUTH-003", "账号已停用", 403)
+        raise AppException("账号已停用", 403)
 
     return admin

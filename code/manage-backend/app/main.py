@@ -1,7 +1,10 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.config import get_settings
 from app.core.exceptions import AppException, app_exception_handler, generic_exception_handler
@@ -45,6 +48,27 @@ app.add_middleware(RequestLogMiddleware)
 # 异常处理器
 app.add_exception_handler(AppException, app_exception_handler)
 app.add_exception_handler(Exception, generic_exception_handler)
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"code": exc.status_code, "msg": exc.detail, "data": None},
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    # 取第一条错误的中文化提示
+    errors = exc.errors()
+    first = errors[0] if errors else {}
+    field = ".".join(str(loc) for loc in first.get("loc", [])[1:])
+    msg = f"参数错误：{field} — {first.get('msg', '')}" if field else "请求参数错误"
+    return JSONResponse(
+        status_code=422,
+        content={"code": 422, "msg": msg, "data": None},
+    )
 
 # 注册路由
 from app.api.v1.admin import router as admin_router  # noqa: E402

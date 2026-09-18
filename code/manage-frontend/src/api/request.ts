@@ -19,19 +19,21 @@ request.interceptors.request.use((config) => {
 request.interceptors.response.use(
   (response) => {
     const { data } = response
-    if (data.status === 'success') {
+    if (data.code === 200) {
       return data.data
     }
     ElMessage.error(data.msg || '操作失败')
     return Promise.reject(new Error(data.msg))
   },
   (error) => {
-    if (error.response?.status === 401) {
+    const status = error.response?.status
+    const msg = error.response?.data?.msg
+    if (status === 401) {
       localStorage.removeItem(TOKEN_KEY)
       router.push('/login')
-      ElMessage.error('登录已过期，请重新登录')
+      ElMessage.error(msg || '登录已过期，请重新登录')
     } else {
-      ElMessage.error(error.response?.data?.msg || '网络错误')
+      ElMessage.error(msg || '网络错误')
     }
     return Promise.reject(error)
   }

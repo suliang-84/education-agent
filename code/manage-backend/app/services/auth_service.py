@@ -21,18 +21,18 @@ async def login(db: AsyncSession, username: str, password: str, ip: str) -> tupl
     admin = result.scalar_one_or_none()
 
     if not admin:
-        raise AppException("LOGIN-001", "账号或密码错误", 401)
+        raise AppException("账号或密码错误", 401)
 
     # 检查锁定
     if admin.locked_until and admin.locked_until > datetime.now(UTC):
-        raise AppException("LOGIN-002", f"账号已锁定，请{LOCK_MINUTES}分钟后重试", 403)
+        raise AppException(f"账号已锁定，请{LOCK_MINUTES}分钟后重试", 403)
 
     # 检查账号状态
     if admin.is_active == 0:
-        raise AppException("AUTH-003", "账号已停用，请联系管理员", 403)
+        raise AppException("账号已停用，请联系管理员", 403)
 
     if admin.is_active == 2:
-        raise AppException("LOGIN-003", "首次登录请先修改初始密码", 403)
+        raise AppException("首次登录请先修改初始密码", 403)
 
     # 验证密码
     if not verify_password(password, admin.password_hash):
@@ -45,11 +45,11 @@ async def login(db: AsyncSession, username: str, password: str, ip: str) -> tupl
                 update(AdminUser).where(AdminUser.id == admin.id).values(**update_vals)
             )
             await db.commit()
-            raise AppException("LOGIN-002", f"密码错误次数过多，账号已锁定{LOCK_MINUTES}分钟", 403)
+            raise AppException(f"密码错误次数过多，账号已锁定{LOCK_MINUTES}分钟", 403)
         remaining = MAX_FAIL_COUNT - new_fail
         await db.execute(update(AdminUser).where(AdminUser.id == admin.id).values(**update_vals))
         await db.commit()
-        raise AppException("LOGIN-001", f"账号或密码错误，还可尝试{remaining}次", 401)
+        raise AppException(f"账号或密码错误，还可尝试{remaining}次", 401)
 
     # 登录成功：重置失败次数，更新 last_login
     await db.execute(
