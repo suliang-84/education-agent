@@ -346,17 +346,21 @@
           <el-input v-model="adminForm.display_name" placeholder="如：运营专员" />
         </el-form-item>
         <el-form-item label="手机号">
-          <el-input v-model="adminForm.phone" placeholder="用于2FA验证和密码重置" maxlength="11" />
+          <el-input v-model="adminForm.phone" placeholder="11位手机号" maxlength="11" />
         </el-form-item>
         <el-form-item label="邮箱">
           <el-input v-model="adminForm.email" placeholder="选填" />
         </el-form-item>
-        <div class="create-admin-tip">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"/>
-          </svg>
-          创建后系统将向该手机号发送初始密码，首次登录必须修改。
-        </div>
+        <el-form-item label="密码">
+          <el-input v-model="adminForm.password" type="password" placeholder="请输入密码" show-password />
+        </el-form-item>
+        <el-form-item label="确认密码">
+          <el-input v-model="adminForm.confirm_password" type="password" placeholder="再次输入密码" show-password />
+          <div v-if="adminForm.confirm_password && adminForm.password !== adminForm.confirm_password"
+               style="color:var(--red);font-size:12px;margin-top:4px">
+            两次密码输入不一致
+          </div>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="createAdminVisible = false">取消</el-button>
@@ -513,10 +517,10 @@ async function confirmResetPwd(row: AdminUser) {
 
 // ── 新增管理员
 const createAdminVisible = ref(false)
-const adminForm = reactive({ username: '', display_name: '', phone: '', email: '' })
+const adminForm = reactive({ username: '', display_name: '', phone: '', email: '', password: '', confirm_password: '' })
 
 function openCreateAdmin() {
-  Object.assign(adminForm, { username: '', display_name: '', phone: '', email: '' })
+  Object.assign(adminForm, { username: '', display_name: '', phone: '', email: '', password: '', confirm_password: '' })
   createAdminVisible.value = true
 }
 
@@ -525,16 +529,25 @@ async function doCreateAdmin() {
     ElMessage.warning('账号、显示名称、手机号为必填项')
     return
   }
+  if (!adminForm.password) {
+    ElMessage.warning('请输入密码')
+    return
+  }
+  if (adminForm.password !== adminForm.confirm_password) {
+    ElMessage.warning('两次密码输入不一致')
+    return
+  }
   adminLoading.value = true
   try {
-    const created = await adminUserApi.create({
+    await adminUserApi.create({
       username: adminForm.username,
       display_name: adminForm.display_name,
       phone: adminForm.phone,
       email: adminForm.email || undefined,
+      password: adminForm.password,
     })
     createAdminVisible.value = false
-    ElMessage.success(`管理员账号已创建，初始密码：${created.initial_password}`)
+    ElMessage.success('管理员账号已创建')
     await loadAdmins()
   } finally { adminLoading.value = false }
 }

@@ -227,14 +227,11 @@ async def create_admin_user(
     db: AsyncSession = Depends(get_db),
     current_admin: AdminUser = Depends(get_current_admin),
 ):
-    admin, pwd = await users_service.create_admin(db, body, current_admin.id)
+    admin = await users_service.create_admin(db, body, current_admin.id)
     await audit_service.log(db, current_admin.id, "CREATE_ADMIN",
                             target_type="admin_users", target_id=str(admin.id))
     await db.commit()
-    return ok_response(
-        {"id": admin.id, "username": admin.username, "initial_password": pwd},
-        "管理员账号已创建",
-    )
+    return ok_response({"id": admin.id, "username": admin.username}, "管理员账号已创建")
 
 
 @router.put("/admin-users/{admin_id}/status", summary="启用/停用管理员账号")

@@ -99,6 +99,7 @@ class CreateAdminReq(BaseModel):
     display_name: str = Field(..., min_length=1, max_length=50)
     phone: str = Field(..., pattern=r'^\d{11}$')
     email: str | None = None
+    password: str = Field(..., min_length=1)
 
 
 class CreateAdminResp(BaseModel):

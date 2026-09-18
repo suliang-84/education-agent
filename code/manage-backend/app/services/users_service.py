@@ -211,8 +211,7 @@ async def create_admin(db: AsyncSession, data, operator_id: int):
     if existing:
         raise AppException('用户名已存在', 409)
 
-    pwd = _gen_password()
-    pwd_hash = bcrypt.hashpw(pwd.encode(), bcrypt.gensalt(rounds=12)).decode()
+    pwd_hash = bcrypt.hashpw(data.password.encode(), bcrypt.gensalt(rounds=12)).decode()
 
     admin = AdminUser(
         username=data.username,
@@ -221,12 +220,12 @@ async def create_admin(db: AsyncSession, data, operator_id: int):
         email=data.email,
         password_hash=pwd_hash,
         role='SUPER_ADMIN',
-        is_active=2,
+        is_active=1,
         created_by=operator_id,
     )
     db.add(admin)
     await db.flush()
-    return admin, pwd
+    return admin
 
 
 # ── 启用 / 停用管理员 ─────────────────────────────────────────
