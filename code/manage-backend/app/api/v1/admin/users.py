@@ -24,15 +24,22 @@ router = APIRouter()
 @router.get("/students", summary="学生列表")
 async def list_students(
     grade: str | None = Query(None),
-    has_profile: bool | None = Query(None),
+    has_profile: str | None = Query(None),   # 前端传 'true'/'false'/'' 字符串
     keyword: str | None = Query(None),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
     _: AdminUser = Depends(get_current_admin),
 ):
+    # 空字符串或 None 均视为不筛选
+    has_profile_bool: bool | None = None
+    if has_profile == 'true':
+        has_profile_bool = True
+    elif has_profile == 'false':
+        has_profile_bool = False
+
     data = await users_service.get_student_list(
-        db, grade=grade, has_profile=has_profile, keyword=keyword,
+        db, grade=grade or None, has_profile=has_profile_bool, keyword=keyword or None,
         page=page, limit=limit,
     )
     return ok_response(data)

@@ -138,8 +138,9 @@
         <div class="paginator">
           <span>共 <span class="num" style="color:var(--text-1);font-weight:600">{{ sTotal }}</span> 名学生</span>
           <div style="display:flex;gap:6px">
-            <el-button size="small" :disabled="sCursor === 0" @click="sPrevPage">上一页</el-button>
-            <el-button size="small" :disabled="!sHasMore" @click="sNextPage">下一页</el-button>
+            <el-button size="small" :disabled="sPage <= 1" @click="sPrevPage">上一页</el-button>
+            <span style="font-size:13px;color:var(--text-3);padding:0 4px">{{ sPage }} / {{ sTotalPages }}</span>
+            <el-button size="small" :disabled="sPage >= sTotalPages" @click="sNextPage">下一页</el-button>
           </div>
         </div>
       </div>
@@ -394,24 +395,28 @@ function bindMethodLabel(m: string) {
 const sLoading = ref(false)
 const students = ref<Student[]>([])
 const sTotal = ref(0)
-const sHasMore = ref(false)
-const sCursor = ref(0)
+const sTotalPages = ref(1)
+const sPage = ref(1)
 const sFilters = reactive({ grade: '', has_profile: '', keyword: '' })
 
 async function loadStudents() {
   sLoading.value = true
   try {
-    const res = await studentApi.getList({ ...sFilters, cursor: sCursor.value, limit: 20 })
+    const params: Record<string, unknown> = { page: sPage.value, limit: 20 }
+    if (sFilters.grade) params.grade = sFilters.grade
+    if (sFilters.keyword) params.keyword = sFilters.keyword
+    if (sFilters.has_profile !== '') params.has_profile = sFilters.has_profile === 'true'
+    const res = await studentApi.getList(params as Parameters<typeof studentApi.getList>[0])
     students.value = res.list
     sTotal.value = res.total
-    sHasMore.value = res.has_more
+    sTotalPages.value = res.total_pages
   } finally { sLoading.value = false }
 }
 
-function searchStudents() { sCursor.value = 0; loadStudents() }
-function resetStudentFilters() { Object.assign(sFilters, { grade: '', has_profile: '', keyword: '' }); sCursor.value = 0; loadStudents() }
-function sPrevPage() { sCursor.value = Math.max(0, sCursor.value - 20); loadStudents() }
-function sNextPage() { sCursor.value += 20; loadStudents() }
+function searchStudents() { sPage.value = 1; loadStudents() }
+function resetStudentFilters() { Object.assign(sFilters, { grade: '', has_profile: '', keyword: '' }); sPage.value = 1; loadStudents() }
+function sPrevPage() { if (sPage.value > 1) { sPage.value--; loadStudents() } }
+function sNextPage() { if (sPage.value < sTotalPages.value) { sPage.value++; loadStudents() } }
 
 // ═══════════════════════════════════════════════════════════════
 // ── Tab 2：家长管理 ──────────────────────────────────────────
@@ -472,7 +477,8 @@ const adminLoading = ref(false)
 async function loadAdmins() {
   aLoading.value = true
   try {
-    adminUsers.value = await adminUserApi.getList()
+    const res = await adminUserApi.getList()
+    adminUsers.value = res.list
   } finally { aLoading.value = false }
 }
 
@@ -527,9 +533,9 @@ async function doCreateAdmin() {
       phone: adminForm.phone,
       email: adminForm.email || undefined,
     })
-    adminUsers.value.push(created)
     createAdminVisible.value = false
-    ElMessage.success('管理员账号已创建，初始密码已发送至手机')
+    ElMessage.success(`管理员账号已创建，初始密码：${created.initial_password}`)
+    await loadAdmins()
   } finally { adminLoading.value = false }
 }
 

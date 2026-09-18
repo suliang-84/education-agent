@@ -167,7 +167,7 @@ export const adminUserApi = {
    * 接口文档：§9.8.4
    */
   create: (data: { username: string; display_name: string; phone: string; email?: string }) =>
-    request.post<unknown, { admin_id: number; username: string }>('/admin-users', data),
+    request.post<unknown, { id: number; username: string; initial_password: string }>('/admin-users', data),
 
   /**
    * 启用 / 停用管理员账号
