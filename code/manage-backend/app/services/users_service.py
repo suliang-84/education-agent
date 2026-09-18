@@ -253,10 +253,8 @@ async def reset_admin_password(db: AsyncSession, admin_id: int):
     if not admin:
         raise AppException('管理员账号不存在', 404)
 
-    pwd = _gen_password()
-    admin.password_hash = bcrypt.hashpw(pwd.encode(), bcrypt.gensalt(rounds=12)).decode()
-    admin.is_active = 2
-    return pwd
+    admin.password_hash = bcrypt.hashpw(b'123456', bcrypt.gensalt(rounds=12)).decode()
+    admin.is_active = 1
 
 
 # ── 绑定家长 ──────────────────────────────────────────────────

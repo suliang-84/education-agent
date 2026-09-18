@@ -254,8 +254,8 @@ async def reset_admin_password(
     db: AsyncSession = Depends(get_db),
     current_admin: AdminUser = Depends(get_current_admin),
 ):
-    pwd = await users_service.reset_admin_password(db, admin_id)
+    await users_service.reset_admin_password(db, admin_id)
     await audit_service.log(db, current_admin.id, "RESET_ADMIN_PASSWORD",
                             target_type="admin_users", target_id=str(admin_id))
     await db.commit()
-    return ok_response({"new_password": pwd}, "密码已重置")
+    return ok_response(None, "密码已重置为 123456")
