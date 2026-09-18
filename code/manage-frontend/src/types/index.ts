@@ -2,8 +2,9 @@
 export interface PaginatedResponse<T> {
   list: T[]
   total: number
-  has_more: boolean
-  next_cursor: number | null
+  page: number
+  limit: number
+  total_pages: number
 }
 
 // 管理员

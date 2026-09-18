@@ -40,8 +40,8 @@ async def get_student_list(
     grade: str | None = None,
     has_profile: bool | None = None,
     keyword: str | None = None,
+    page: int = 1,
     limit: int = 20,
-    before_id: int | None = None,
 ):
     """返回学生列表，附带 has_five_power_profile、training_count、bound_parents_count"""
     from app.models.training import TrainingSession
@@ -55,17 +55,14 @@ async def get_student_list(
         q = q.where(Student.grade == grade)
     if keyword:
         q = q.where(Student.nickname.ilike(f'%{keyword}%'))
-    if before_id:
-        q = q.where(Student.id < before_id)
 
     total_q = select(func.count()).select_from(q.subquery())
     total = (await db.execute(total_q)).scalar_one()
+    total_pages = max(1, (total + limit - 1) // limit)
 
-    q = q.order_by(Student.id.desc()).limit(limit + 1)
+    offset = (page - 1) * limit
+    q = q.order_by(Student.id.desc()).offset(offset).limit(limit)
     rows = (await db.execute(q)).scalars().all()
-
-    has_more = len(rows) > limit
-    rows = rows[:limit]
 
     student_ids = [s.id for s in rows]
 
@@ -112,8 +109,7 @@ async def get_student_list(
             'created_at': s.created_at,
         })
 
-    next_cursor = rows[-1].id if has_more else None
-    return {'list': items, 'total': total, 'has_more': has_more, 'next_cursor': next_cursor}
+    return {'list': items, 'total': total, 'page': page, 'limit': limit, 'total_pages': total_pages}
 
 
 # ── 家长列表 ──────────────────────────────────────────────────
@@ -121,8 +117,8 @@ async def get_student_list(
 async def get_parent_list(
     db: AsyncSession,
     keyword: str | None = None,
+    page: int = 1,
     limit: int = 20,
-    before_id: int | None = None,
 ):
     q = select(Student).where(
         Student.user_type == 'PARENT',
@@ -131,16 +127,14 @@ async def get_parent_list(
     )
     if keyword:
         q = q.where(Student.nickname.ilike(f'%{keyword}%'))
-    if before_id:
-        q = q.where(Student.id < before_id)
 
     total_q = select(func.count()).select_from(q.subquery())
     total = (await db.execute(total_q)).scalar_one()
+    total_pages = max(1, (total + limit - 1) // limit)
 
-    q = q.order_by(Student.id.desc()).limit(limit + 1)
+    offset = (page - 1) * limit
+    q = q.order_by(Student.id.desc()).offset(offset).limit(limit)
     rows = (await db.execute(q)).scalars().all()
-    has_more = len(rows) > limit
-    rows = rows[:limit]
 
     parent_ids = [p.id for p in rows]
 
@@ -185,31 +179,27 @@ async def get_parent_list(
             'created_at': p.created_at,
         })
 
-    next_cursor = rows[-1].id if has_more else None
-    return {'list': items, 'total': total, 'has_more': has_more, 'next_cursor': next_cursor}
+    return {'list': items, 'total': total, 'page': page, 'limit': limit, 'total_pages': total_pages}
 
 
 # ── 管理员列表 ────────────────────────────────────────────────
 
 async def get_admin_list(
     db: AsyncSession,
+    page: int = 1,
     limit: int = 20,
-    before_id: int | None = None,
 ):
     q = select(AdminUser)
-    if before_id:
-        q = q.where(AdminUser.id < before_id)
 
     total_q = select(func.count()).select_from(q.subquery())
     total = (await db.execute(total_q)).scalar_one()
+    total_pages = max(1, (total + limit - 1) // limit)
 
-    q = q.order_by(AdminUser.id.desc()).limit(limit + 1)
+    offset = (page - 1) * limit
+    q = q.order_by(AdminUser.id.desc()).offset(offset).limit(limit)
     rows = (await db.execute(q)).scalars().all()
-    has_more = len(rows) > limit
-    rows = rows[:limit]
 
-    next_cursor = rows[-1].id if has_more else None
-    return {'list': list(rows), 'total': total, 'has_more': has_more, 'next_cursor': next_cursor}
+    return {'list': list(rows), 'total': total, 'page': page, 'limit': limit, 'total_pages': total_pages}
 
 
 # ── 创建管理员 ────────────────────────────────────────────────

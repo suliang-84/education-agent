@@ -10,8 +10,8 @@ import type { AuditLog, PaginatedResponse } from '@/types'
 
 export const auditLogApi = {
   /**
-   * 查询审计日志列表（多条件过滤，时间倒序，游标分页）
-   * GET /api/v1/admin/audit-logs?admin_id=1&action=CONFIRM_ANNOTATION&limit=20&before_id=5000
+   * 查询审计日志列表（多条件过滤，时间倒序，页码分页）
+   * GET /api/v1/admin/audit-logs?admin_id=1&action=CONFIRM_ANNOTATION&page=1&limit=20
    * 接口文档：§9.9.1
    */
   getList: (params: {
@@ -19,8 +19,8 @@ export const auditLogApi = {
     action?: string        // 操作类型，如 CONFIRM_ANNOTATION、PUBLISH_QUESTION
     start_time?: string    // 开始时间（ISO 8601）
     end_time?: string      // 结束时间（ISO 8601）
+    page?: number
     limit?: number
-    before_id?: number
   }) =>
     request.get<unknown, PaginatedResponse<AuditLog>>('/audit-logs', { params }),
 

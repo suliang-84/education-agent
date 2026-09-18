@@ -51,9 +51,9 @@ export interface QuestionListParams {
   status?: 'draft' | 'analyzing' | 'pending_review' | 'published' | 'archived'
   difficulty?: 'basic' | 'advanced' | 'challenge'
   keyword?: string
-  // 游标分页
+  // 页码分页
+  page?: number
   limit?: number
-  before_id?: number
 }
 
 // ── 发布请求体（审核确认后携带的完整字段）────────────────────

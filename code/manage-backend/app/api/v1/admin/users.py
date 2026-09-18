@@ -26,14 +26,14 @@ async def list_students(
     grade: str | None = Query(None),
     has_profile: bool | None = Query(None),
     keyword: str | None = Query(None),
+    page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
-    before_id: int | None = Query(None),
     db: AsyncSession = Depends(get_db),
     _: AdminUser = Depends(get_current_admin),
 ):
     data = await users_service.get_student_list(
         db, grade=grade, has_profile=has_profile, keyword=keyword,
-        limit=limit, before_id=before_id,
+        page=page, limit=limit,
     )
     return ok_response(data)
 
@@ -166,12 +166,12 @@ async def regenerate_learning_summary(
 @router.get("/parents", summary="家长列表")
 async def list_parents(
     keyword: str | None = Query(None),
+    page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
-    before_id: int | None = Query(None),
     db: AsyncSession = Depends(get_db),
     _: AdminUser = Depends(get_current_admin),
 ):
-    data = await users_service.get_parent_list(db, keyword=keyword, limit=limit, before_id=before_id)
+    data = await users_service.get_parent_list(db, keyword=keyword, page=page, limit=limit)
     return ok_response(data)
 
 
@@ -193,12 +193,12 @@ async def unbind_student_from_parent(
 
 @router.get("/admin-users", summary="管理员账号列表")
 async def list_admin_users(
+    page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
-    before_id: int | None = Query(None),
     db: AsyncSession = Depends(get_db),
     _: AdminUser = Depends(get_current_admin),
 ):
-    data = await users_service.get_admin_list(db, limit=limit, before_id=before_id)
+    data = await users_service.get_admin_list(db, page=page, limit=limit)
     items = [
         {
             "id": a.id,

@@ -48,7 +48,7 @@ export { auditLogApi } from './audit'
  * AnnotationView.vue 为历史遗留页面，保留空对象防止编译报错
  */
 export const annotationApi = {
-  getList: (_p: unknown) => Promise.resolve({ list: [], total: 0, has_more: false, next_cursor: null }),
+  getList: (_p: unknown) => Promise.resolve({ list: [], total: 0, page: 1, limit: 20, total_pages: 1 }),
   confirm: (_id: number, _d: unknown) => Promise.resolve(null),
   reject: (_id: number) => Promise.resolve(null),
   batchConfirm: (_threshold: number) => Promise.resolve({ confirmed_count: 0 }),

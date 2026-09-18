@@ -22,8 +22,9 @@ class StudentListItem(BaseModel):
 class StudentListResp(BaseModel):
     list: list[StudentListItem]
     total: int
-    has_more: bool
-    next_cursor: int | None
+    page: int
+    limit: int
+    total_pages: int
 
 
 # ── 家长相关 ──────────────────────────────────────────────────
@@ -49,8 +50,9 @@ class ParentListItem(BaseModel):
 class ParentListResp(BaseModel):
     list: list[ParentListItem]
     total: int
-    has_more: bool
-    next_cursor: int | None
+    page: int
+    limit: int
+    total_pages: int
 
 
 class UnbindParentReq(BaseModel):
@@ -87,8 +89,9 @@ class AdminUserListItem(BaseModel):
 class AdminUserListResp(BaseModel):
     list: list[AdminUserListItem]
     total: int
-    has_more: bool
-    next_cursor: int | None
+    page: int
+    limit: int
+    total_pages: int
 
 
 class CreateAdminReq(BaseModel):

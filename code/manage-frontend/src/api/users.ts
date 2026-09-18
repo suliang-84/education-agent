@@ -21,7 +21,7 @@ import type {
 
 export const studentApi = {
   /**
-   * 学生列表（多条件搜索，游标分页）
+   * 学生列表（多条件搜索，页码分页）
    * GET /api/v1/admin/students
    * 接口文档：§9.8.1
    */
@@ -29,8 +29,8 @@ export const studentApi = {
     grade?: string          // G7~G12
     has_profile?: boolean
     keyword?: string        // 模糊搜索昵称或手机号
+    page?: number
     limit?: number
-    before_id?: number
   }) =>
     request.get<unknown, PaginatedResponse<Student>>('/students', { params }),
 
@@ -135,10 +135,10 @@ export const studentApi = {
 export const parentApi = {
   /**
    * 家长列表（含已绑定学生信息）
-   * GET /api/v1/admin/parents?keyword=&limit=20&before_id=
+   * GET /api/v1/admin/parents?keyword=&page=1&limit=20
    * 接口文档：§9.8.2
    */
-  getList: (params: { keyword?: string; limit?: number; before_id?: number }) =>
+  getList: (params: { keyword?: string; page?: number; limit?: number }) =>
     request.get<unknown, PaginatedResponse<Parent>>('/parents', { params }),
 
   /**
@@ -154,12 +154,12 @@ export const parentApi = {
 
 export const adminUserApi = {
   /**
-   * 管理员账号列表
-   * GET /api/v1/admin/admin-users
+   * 管理员账号列表（页码分页）
+   * GET /api/v1/admin/admin-users?page=1&limit=20
    * 接口文档：§9.8.3
    */
-  getList: () =>
-    request.get<unknown, { list: AdminUser[] }>('/admin-users'),
+  getList: (params?: { page?: number; limit?: number }) =>
+    request.get<unknown, PaginatedResponse<AdminUser>>('/admin-users', { params }),
 
   /**
    * 创建管理员账号（系统自动生成初始密码发送至手机，首次登录必须修改）
