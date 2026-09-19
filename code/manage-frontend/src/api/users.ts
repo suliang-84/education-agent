@@ -147,7 +147,7 @@ export const parentApi = {
    * 接口文档：§9.8.9（接口B）
    */
   unbind: (parentId: number, studentId: number) =>
-    request.post(`/parents/${parentId}/unbind`, { student_id: studentId }),
+    request.post<unknown, { parent_deleted: boolean }>(`/parents/${parentId}/unbind`, { student_id: studentId }),
 }
 
 // ── 管理员账号管理 ───────────────────────────────────────────

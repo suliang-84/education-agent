@@ -106,8 +106,8 @@
 
           <el-table-column label="绑定家长" width="90" align="center">
             <template #default="{ row }">
-              <span class="parent-count-badge" :class="row.parent_count === 0 ? 'parent-count-badge--none' : ''">
-                {{ row.parent_count }}
+              <span class="parent-count-badge" :class="row.bound_parents_count === 0 ? 'parent-count-badge--none' : ''">
+                {{ row.bound_parents_count }}
               </span>
             </template>
           </el-table-column>
@@ -294,7 +294,7 @@
     <!-- ── 绑定家长弹窗 ── -->
     <el-dialog v-model="bindDialogVisible" :title="`为学生「${bindTarget?.nickname}」绑定家长`" width="480px">
       <div v-if="bindTarget">
-        <div class="bind-info">当前已绑定：<strong class="num">{{ bindTarget.parent_count }}</strong> 位家长</div>
+        <div class="bind-info">当前已绑定：<strong class="num">{{ bindTarget.bound_parents_count }}</strong> 位家长</div>
         <div class="bind-form-label">家长手机号</div>
         <el-input v-model="bindPhone" placeholder="输入家长手机号" maxlength="11" style="width:100%;margin-bottom:8px" />
         <div class="bind-tip">若该手机号未注册，系统将自动创建家长账号。</div>
@@ -305,15 +305,32 @@
       </template>
     </el-dialog>
 
-    <!-- ── 解绑家长确认弹窗 ── -->
-    <el-dialog v-model="unbindParentDialogVisible" title="解绑学生" width="420px">
-      <div v-if="unbindParentTarget" style="font-size:14px;color:var(--text-2);line-height:1.8">
-        <p>确认解绑「{{ unbindParentTarget.nickname }}」与其所有绑定学生的关系？</p>
-        <p style="color:var(--text-3);font-size:13px">解绑后家长账号仍保留，可重新绑定。</p>
+    <!-- ── 解绑学生弹窗 ── -->
+    <el-dialog v-model="unbindParentDialogVisible" title="解绑学生" width="460px">
+      <div v-if="unbindParentTarget">
+        <p style="font-size:14px;color:var(--text-2);margin-bottom:14px">
+          家长「{{ unbindParentTarget.nickname }}」当前绑定
+          <strong class="num">{{ unbindParentTarget.bound_students.length }}</strong> 位学生，请选择要解绑的学生：
+        </p>
+        <el-checkbox-group v-model="unbindSelected" style="display:flex;flex-direction:column;gap:8px">
+          <el-checkbox
+            v-for="s in unbindParentTarget.bound_students"
+            :key="s.student_id"
+            :value="s.student_id"
+            style="font-size:14px"
+          >
+            {{ s.nickname }}（{{ s.grade || '未知年级' }}）
+          </el-checkbox>
+        </el-checkbox-group>
+        <div style="margin-top:14px;padding:10px 12px;background:var(--amber-dim);border:1px solid var(--amber-border);border-radius:var(--r-lg);font-size:13px;color:var(--amber)">
+          解绑后若家长无任何绑定学生，家长账号将被自动删除。
+        </div>
       </div>
       <template #footer>
         <el-button @click="unbindParentDialogVisible = false">取消</el-button>
-        <el-button type="danger" :loading="bindLoading" @click="doUnbindParentAll">确认解绑</el-button>
+        <el-button type="danger" :loading="bindLoading" :disabled="unbindSelected.length === 0" @click="doUnbindSelected">
+          确认解绑（{{ unbindSelected.length }}）
+        </el-button>
       </template>
     </el-dialog>
 
@@ -430,6 +447,7 @@ function searchParents() { loadParents() }
 // ── 解绑家长（解绑其全部学生）
 const unbindParentDialogVisible = ref(false)
 const unbindParentTarget = ref<Parent | null>(null)
+const unbindSelected = ref<number[]>([])
 const bindLoading = ref(false)
 
 function confirmUnbindParent(row: Parent) {
@@ -438,19 +456,24 @@ function confirmUnbindParent(row: Parent) {
     return
   }
   unbindParentTarget.value = row
+  // 仅一个学生时默认全选
+  unbindSelected.value = row.bound_students.length === 1
+    ? [row.bound_students[0].student_id]
+    : []
   unbindParentDialogVisible.value = true
 }
 
-async function doUnbindParentAll() {
-  if (!unbindParentTarget.value) return
+async function doUnbindSelected() {
+  if (!unbindParentTarget.value || unbindSelected.value.length === 0) return
   bindLoading.value = true
   try {
-    // 逐一解绑每个学生
-    for (const s of unbindParentTarget.value.bound_students) {
-      await parentApi.unbind(unbindParentTarget.value.id, s.id)
+    let parentDeleted = false
+    for (const studentId of unbindSelected.value) {
+      const res = await parentApi.unbind(unbindParentTarget.value.id, studentId)
+      if (res?.parent_deleted) parentDeleted = true
     }
     unbindParentDialogVisible.value = false
-    ElMessage.success('已解绑所有关联学生')
+    ElMessage.success(parentDeleted ? '解绑成功，家长账号已自动删除' : '解绑成功')
     await loadParents()
   } finally { bindLoading.value = false }
 }
@@ -578,7 +601,7 @@ async function doBindParent() {
     const res = await studentApi.bindParent(bindTarget.value.id, { parent_phone: bindPhone.value })
     // 更新本地学生计数
     const idx = students.value.findIndex(s => s.id === bindTarget.value!.id)
-    if (idx !== -1) students.value[idx].parent_count += 1
+    if (idx !== -1) students.value[idx].bound_parents_count += 1
     bindDialogVisible.value = false
     // 若自动创建了家长账号，刷新家长列表
     if (res.parent_created) await loadParents()

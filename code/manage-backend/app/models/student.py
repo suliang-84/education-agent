@@ -13,6 +13,7 @@ class Student(Base, TimestampMixin):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     user_type: Mapped[str] = mapped_column(String(10), nullable=False, default="STUDENT")
+    openid: Mapped[str] = mapped_column(String(64), nullable=False, default="")
     openid_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     nickname: Mapped[str] = mapped_column(String(50), nullable=False, default="")
     avatar_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
@@ -35,7 +36,7 @@ class ParentStudentBinding(Base, TimestampMixin):
     bind_method: Mapped[str] = mapped_column(String(20), nullable=False)
     bind_status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
     created_by_admin_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
-    deleted_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class InviteCode(Base):

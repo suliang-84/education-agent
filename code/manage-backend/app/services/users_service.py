@@ -306,8 +306,11 @@ async def bind_parent(db: AsyncSession, student_id: int, parent_phone: str, oper
     parent_created = False
     if not parent:
         # 自动创建家长账号
+        import hashlib, uuid
+        placeholder_openid = f'admin_created_{uuid.uuid4().hex}'
         parent = Student(
-            openid_hash='',
+            openid=placeholder_openid,
+            openid_hash=hashlib.sha256(placeholder_openid.encode()).hexdigest(),
             phone=parent_phone,
             phone_masked=parent_phone[:3] + '****' + parent_phone[-4:],
             nickname=f'家长{parent_phone[-4:]}',
@@ -371,14 +374,33 @@ async def unbind_parent_from_student(db: AsyncSession, student_id: int, parent_i
     if not binding:
         raise AppException('绑定关系不存在', 404)
 
-    binding.bind_status = 'removed'
     binding.deleted_at = datetime.now(UTC)
+
+    # 解绑后检查家长剩余绑定数，为0则软删除家长账号
+    remaining = (await db.execute(
+        select(func.count()).select_from(ParentStudentBinding).where(
+            ParentStudentBinding.parent_id == parent_id,
+            ParentStudentBinding.deleted_at.is_(None),
+            ParentStudentBinding.id != binding.id,  # 排除刚软删除的这条（尚未 flush）
+        )
+    )).scalar_one()
+
+    parent_deleted = False
+    if remaining == 0:
+        parent = (await db.execute(
+            select(Student).where(Student.id == parent_id)
+        )).scalar_one_or_none()
+        if parent:
+            parent.deleted_at = datetime.now(UTC)
+            parent_deleted = True
+
+    return parent_deleted
 
 
 # ── 解绑（家长侧：从某家长移除某学生）────────────────────────
 
 async def unbind_student_from_parent(db: AsyncSession, parent_id: int, student_id: int):
-    await unbind_parent_from_student(db, student_id, parent_id)
+    return await unbind_parent_from_student(db, student_id, parent_id)
 
 
 # ── 知识点统计 ────────────────────────────────────────────────

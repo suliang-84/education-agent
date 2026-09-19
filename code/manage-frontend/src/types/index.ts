@@ -227,7 +227,7 @@ export interface Student {
   training_count: number
   last_login_at: string
   created_at: string
-  parent_count: number  // 已绑定家长数量
+  bound_parents_count: number  // 已绑定家长数量
 }
 
 // 学生详情
@@ -256,11 +256,11 @@ export interface Parent {
   last_login_at: string
   created_at: string
   bound_students: Array<{
-    id: number
+    student_id: number
     nickname: string
     grade: string
     bind_method: string
-    bound_at: string
+    bind_date: string
   }>
 }
 

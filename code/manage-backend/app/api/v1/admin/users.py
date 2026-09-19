@@ -189,11 +189,12 @@ async def unbind_student_from_parent(
     db: AsyncSession = Depends(get_db),
     current_admin: AdminUser = Depends(get_current_admin),
 ):
-    await users_service.unbind_student_from_parent(db, parent_id, body.student_id)
+    parent_deleted = await users_service.unbind_student_from_parent(db, parent_id, body.student_id)
     await audit_service.log(db, current_admin.id, "UNBIND_PARENT",
                             target_type="parent_student_bindings")
     await db.commit()
-    return ok_response(None, "解绑成功")
+    msg = "解绑成功，家长账号已删除" if parent_deleted else "解绑成功"
+    return ok_response({"parent_deleted": parent_deleted}, msg)
 
 
 # ── 管理员账号管理（仅 SUPER_ADMIN）──────────────────────────
