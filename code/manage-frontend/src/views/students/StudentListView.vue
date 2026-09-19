@@ -603,8 +603,8 @@ async function doBindParent() {
     const idx = students.value.findIndex(s => s.id === bindTarget.value!.id)
     if (idx !== -1) students.value[idx].bound_parents_count += 1
     bindDialogVisible.value = false
-    // 若自动创建了家长账号，刷新家长列表
-    if (res.parent_created) await loadParents()
+    // 绑定成功后始终刷新家长列表
+    await loadParents()
     ElMessage.success('家长绑定成功')
   } finally { bindLoading.value = false }
 }

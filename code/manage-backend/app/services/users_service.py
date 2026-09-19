@@ -295,31 +295,49 @@ async def bind_parent(db: AsyncSession, student_id: int, parent_phone: str, oper
         raise AppException('学生不存在', 404)
 
     # 查找家长账号（开发阶段 phone 未加密，直接比对）
+    # 先查有效家长
     parent = (
         await db.execute(
             select(Student).where(
                 Student.phone == parent_phone,
                 Student.user_type == 'PARENT',
+                Student.deleted_at.is_(None),
             )
         )
     ).scalar_one_or_none()
 
     parent_created = False
     if not parent:
-        # 自动创建家长账号
-        import hashlib, uuid
-        placeholder_openid = f'admin_created_{uuid.uuid4().hex}'
-        parent = Student(
-            openid=placeholder_openid,
-            openid_hash=hashlib.sha256(placeholder_openid.encode()).hexdigest(),
-            phone=parent_phone,
-            phone_masked=parent_phone[:3] + '****' + parent_phone[-4:],
-            nickname=f'家长{parent_phone[-4:]}',
-            user_type='PARENT',
-            is_confirmed=False,
-        )
-        db.add(parent)
-        await db.flush()
+        # 查是否有已软删除的同手机号家长，有则恢复
+        deleted_parent = (
+            await db.execute(
+                select(Student).where(
+                    Student.phone == parent_phone,
+                    Student.user_type == 'PARENT',
+                    Student.deleted_at.isnot(None),
+                )
+            )
+        ).scalar_one_or_none()
+
+        if deleted_parent:
+            # 恢复已软删除的家长账号
+            deleted_parent.deleted_at = None
+            parent = deleted_parent
+        else:
+            # 创建全新家长账号
+            import hashlib, uuid
+            placeholder_openid = f'admin_created_{uuid.uuid4().hex}'
+            parent = Student(
+                openid=placeholder_openid,
+                openid_hash=hashlib.sha256(placeholder_openid.encode()).hexdigest(),
+                phone=parent_phone,
+                phone_masked=parent_phone[:3] + '****' + parent_phone[-4:],
+                nickname=f'家长{parent_phone[-4:]}',
+                user_type='PARENT',
+                is_confirmed=False,
+            )
+            db.add(parent)
+            await db.flush()
         parent_created = True
 
     # 检查是否已存在绑定关系（包含软删除的）
