@@ -248,6 +248,19 @@ async def set_admin_status(
     return ok_response(None, "账号状态已更新")
 
 
+@router.delete("/admin-users/{admin_id}", summary="删除管理员账号（软删除，仅停用状态可删）")
+async def delete_admin_user(
+    admin_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_admin: AdminUser = Depends(get_current_admin),
+):
+    await users_service.delete_admin(db, admin_id, current_admin.id)
+    await audit_service.log(db, current_admin.id, "DELETE_ADMIN",
+                            target_type="admin_users", target_id=str(admin_id))
+    await db.commit()
+    return ok_response(None, "管理员账号已删除")
+
+
 @router.post("/admin-users/{admin_id}/reset-password", summary="重置管理员密码")
 async def reset_admin_password(
     admin_id: int,

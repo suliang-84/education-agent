@@ -180,10 +180,18 @@ export const adminUserApi = {
     request.put(`/admin-users/${adminId}/status`, { is_active: isActive }),
 
   /**
-   * 重置管理员密码（生成临时密码发送至手机）
+   * 重置管理员密码（固定重置为 123456）
    * POST /api/v1/admin/admin-users/{admin_id}/reset-password
    * 接口文档：§9.8.6
    */
   resetPassword: (adminId: number) =>
     request.post(`/admin-users/${adminId}/reset-password`),
+
+  /**
+   * 删除管理员账号（软删除，仅 is_active=0 停用状态可删，不可删除自己）
+   * DELETE /api/v1/admin/admin-users/{admin_id}
+   * 接口文档：§9.8.7
+   */
+  delete: (adminId: number) =>
+    request.delete(`/admin-users/${adminId}`),
 }

@@ -274,19 +274,24 @@
             </template>
           </el-table-column>
 
-          <el-table-column label="操作" width="160" align="center">
+          <el-table-column label="操作" width="200" align="center">
             <template #default="{ row }">
               <el-button
-                v-if="row.is_active && row.role !== 'SUPER_ADMIN'"
+                v-if="row.is_active === 1"
                 text size="small" style="color:var(--amber)"
-                @click="toggleAdmin(row, false)"
+                @click="toggleAdmin(row, 0)"
               >停用</el-button>
               <el-button
-                v-if="!row.is_active"
+                v-if="row.is_active === 0"
                 text size="small" style="color:var(--green)"
-                @click="toggleAdmin(row, true)"
+                @click="toggleAdmin(row, 1)"
               >启用</el-button>
               <el-button text size="small" style="color:var(--indigo)" @click="confirmResetPwd(row)">重置密码</el-button>
+              <el-button
+                v-if="row.is_active === 0"
+                text size="small" style="color:var(--red)"
+                @click="confirmDeleteAdmin(row)"
+              >删除</el-button>
             </template>
           </el-table-column>
 
@@ -486,16 +491,17 @@ async function loadAdmins() {
   } finally { aLoading.value = false }
 }
 
-async function toggleAdmin(row: AdminUser, active: boolean) {
+async function toggleAdmin(row: AdminUser, active: 0 | 1) {
+  const label = active === 1 ? '启用' : '停用'
   await ElMessageBox.confirm(
-    `确认${active ? '启用' : '停用'}管理员「${row.display_name}」？${!active ? '\n停用后该账号 Token 立即失效。' : ''}`,
-    `${active ? '启用' : '停用'}管理员账号`,
+    `确认${label}管理员「${row.display_name}」？${active === 0 ? '\n停用后该账号 Token 立即失效。' : ''}`,
+    `${label}管理员账号`,
     { confirmButtonText: '确认', cancelButtonText: '取消', type: 'warning' }
   ).catch(() => { throw new Error('cancelled') })
   try {
     await adminUserApi.setActive(row.id, active)
     row.is_active = active
-    ElMessage.success(`管理员「${row.display_name}」已${active ? '启用' : '停用'}`)
+    ElMessage.success(`管理员「${row.display_name}」已${label}`)
   } catch (e) {
     if ((e as Error).message !== 'cancelled') throw e
   }
@@ -503,13 +509,28 @@ async function toggleAdmin(row: AdminUser, active: boolean) {
 
 async function confirmResetPwd(row: AdminUser) {
   await ElMessageBox.confirm(
-    `确认重置「${row.display_name}」的密码？系统将向 ${row.phone_masked} 发送临时密码。`,
+    `确认重置「${row.display_name}」的密码？密码将重置为 123456。`,
     '重置密码',
     { confirmButtonText: '确认重置', cancelButtonText: '取消', type: 'warning' }
   ).catch(() => { throw new Error('cancelled') })
   try {
     await adminUserApi.resetPassword(row.id)
-    ElMessage.success('临时密码已发送至管理员手机号')
+    ElMessage.success('密码已重置为 123456')
+  } catch (e) {
+    if ((e as Error).message !== 'cancelled') throw e
+  }
+}
+
+async function confirmDeleteAdmin(row: AdminUser) {
+  await ElMessageBox.confirm(
+    `确认删除管理员「${row.display_name}」？删除后不可恢复，该账号的操作记录将予以保留。`,
+    '删除管理员账号',
+    { confirmButtonText: '确认删除', cancelButtonText: '取消', type: 'error' }
+  ).catch(() => { throw new Error('cancelled') })
+  try {
+    await adminUserApi.delete(row.id)
+    ElMessage.success('管理员账号已删除')
+    await loadAdmins()
   } catch (e) {
     if ((e as Error).message !== 'cancelled') throw e
   }

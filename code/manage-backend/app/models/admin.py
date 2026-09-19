@@ -16,8 +16,9 @@ class AdminUser(Base, TimestampMixin):
     email: Mapped[str | None] = mapped_column(String(100), nullable=True)
     phone: Mapped[str] = mapped_column(String(64), nullable=False)
     role: Mapped[str] = mapped_column(String(20), nullable=False, default="SUPER_ADMIN")
-    # 0=停用, 1=启用, 2=待首次登录
-    is_active: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=2)
+    # 0=停用, 1=启用
+    is_active: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=1)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     login_fail_count: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     password_changed_at: Mapped[datetime | None] = mapped_column(

@@ -189,7 +189,7 @@ async def get_admin_list(
     page: int = 1,
     limit: int = 20,
 ):
-    q = select(AdminUser)
+    q = select(AdminUser).where(AdminUser.deleted_at.is_(None))
 
     total_q = select(func.count()).select_from(q.subquery())
     total = (await db.execute(total_q)).scalar_one()
@@ -200,6 +200,22 @@ async def get_admin_list(
     rows = (await db.execute(q)).scalars().all()
 
     return {'list': list(rows), 'total': total, 'page': page, 'limit': limit, 'total_pages': total_pages}
+
+
+# ── 删除管理员（软删除，仅停用状态可删除）────────────────────────
+async def delete_admin(db: AsyncSession, admin_id: int, operator_id: int):
+    if admin_id == operator_id:
+        raise AppException('不能删除自己的账号', 403)
+
+    admin = (await db.execute(
+        select(AdminUser).where(AdminUser.id == admin_id, AdminUser.deleted_at.is_(None))
+    )).scalar_one_or_none()
+    if not admin:
+        raise AppException('管理员账号不存在', 404)
+    if admin.is_active != 0:
+        raise AppException('请先停用该账号后再删除', 403)
+
+    admin.deleted_at = datetime.now(UTC)
 
 
 # ── 创建管理员 ────────────────────────────────────────────────
