@@ -178,6 +178,7 @@ async def get_parent_list(
         items.append({
             'id': p.id,
             'nickname': p.nickname,
+            'phone_masked': p.phone_masked,
             'is_confirmed': p.is_confirmed,
             'bound_students': binding_map.get(p.id, []),
             'last_login_at': p.last_login_at,
