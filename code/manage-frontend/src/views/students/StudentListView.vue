@@ -7,7 +7,7 @@
         <h1 class="page-title">用户管理</h1>
         <p class="page-subtitle">统一管理学生、家长和管理员账号</p>
       </div>
-      <el-button v-if="activeTab === 'admins'" type="primary" @click="openCreateAdmin">
+      <el-button v-if="activeTab === 'admins' && isSuperAdmin" type="primary" @click="openCreateAdmin">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:5px">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
         </svg>
@@ -31,7 +31,7 @@
           </svg>
           家长管理
         </button>
-        <button class="tab-item" :class="{ active: activeTab === 'admins' }" @click="activeTab = 'admins'">
+        <button v-if="isSuperAdmin" class="tab-item" :class="{ active: activeTab === 'admins' }" @click="activeTab = 'admins'">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/>
           </svg>
@@ -356,6 +356,12 @@
         <el-form-item label="邮箱">
           <el-input v-model="adminForm.email" placeholder="选填" />
         </el-form-item>
+        <el-form-item label="角色">
+          <el-radio-group v-model="adminForm.role">
+            <el-radio value="ADMIN">普通管理员</el-radio>
+            <el-radio value="SUPER_ADMIN">超级管理员</el-radio>
+          </el-radio-group>
+        </el-form-item>
         <el-form-item label="密码">
           <el-input v-model="adminForm.password" type="password" placeholder="请输入密码" show-password />
         </el-form-item>
@@ -384,6 +390,10 @@ import { studentApi, parentApi, adminUserApi } from '@/api'
 import type { Student, Parent, AdminUser, FivePower } from '@/types'
 import { FivePowerLabels } from '@/types'
 import { fromNow } from '@/utils/format'
+import { useAuthStore } from '@/stores/auth'
+
+const authStore = useAuthStore()
+const isSuperAdmin = authStore.isSuperAdmin
 
 const router = useRouter()
 
@@ -538,10 +548,10 @@ async function confirmDeleteAdmin(row: AdminUser) {
 
 // ── 新增管理员
 const createAdminVisible = ref(false)
-const adminForm = reactive({ username: '', display_name: '', phone: '', email: '', password: '', confirm_password: '' })
+const adminForm = reactive({ username: '', display_name: '', phone: '', email: '', password: '', confirm_password: '', role: 'ADMIN' })
 
 function openCreateAdmin() {
-  Object.assign(adminForm, { username: '', display_name: '', phone: '', email: '', password: '', confirm_password: '' })
+  Object.assign(adminForm, { username: '', display_name: '', phone: '', email: '', password: '', confirm_password: '', role: 'ADMIN' })
   createAdminVisible.value = true
 }
 
@@ -566,6 +576,7 @@ async function doCreateAdmin() {
       phone: adminForm.phone,
       email: adminForm.email || undefined,
       password: adminForm.password,
+      role: adminForm.role,
     })
     createAdminVisible.value = false
     ElMessage.success('管理员账号已创建')

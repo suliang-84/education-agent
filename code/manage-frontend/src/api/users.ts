@@ -166,7 +166,7 @@ export const adminUserApi = {
    * POST /api/v1/admin/admin-users
    * 接口文档：§9.8.4
    */
-  create: (data: { username: string; display_name: string; phone: string; email?: string; password: string }) =>
+  create: (data: { username: string; display_name: string; phone: string; email?: string; password: string; role?: string }) =>
     request.post<unknown, { id: number; username: string }>('/admin-users', data),
 
   /**

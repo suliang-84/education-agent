@@ -100,6 +100,7 @@ class CreateAdminReq(BaseModel):
     phone: str = Field(..., pattern=r'^\d{11}$')
     email: str | None = None
     password: str = Field(..., min_length=1)
+    role: str = Field(default="ADMIN", pattern=r'^(SUPER_ADMIN|ADMIN)$')
 
 
 class CreateAdminResp(BaseModel):

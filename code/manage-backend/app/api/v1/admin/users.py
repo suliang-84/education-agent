@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.response import ok_response
-from app.dependencies import get_current_admin, get_db
+from app.dependencies import get_current_admin, require_super_admin, get_db
 from app.models.admin import AdminUser
 from app.schemas.users import (
     BindParentReq,
@@ -19,7 +19,7 @@ from app.services import audit_service, users_service
 router = APIRouter()
 
 
-# ── 学生管理 ─────────────────────────────────────────────────
+# ── 学生管理（所有管理员均可访问）────────────────────────────
 
 @router.get("/students", summary="学生列表")
 async def list_students(
@@ -168,7 +168,7 @@ async def regenerate_learning_summary(
     return ok_response(result, "学习信息摘要已重新生成")
 
 
-# ── 家长管理 ─────────────────────────────────────────────────
+# ── 家长管理（所有管理员均可访问）────────────────────────────
 
 @router.get("/parents", summary="家长列表")
 async def list_parents(
@@ -196,14 +196,14 @@ async def unbind_student_from_parent(
     return ok_response(None, "解绑成功")
 
 
-# ── 管理员账号管理 ───────────────────────────────────────────
+# ── 管理员账号管理（仅 SUPER_ADMIN）──────────────────────────
 
-@router.get("/admin-users", summary="管理员账号列表")
+@router.get("/admin-users", summary="管理员账号列表（仅超级管理员）")
 async def list_admin_users(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    _: AdminUser = Depends(get_current_admin),
+    _: AdminUser = Depends(require_super_admin),
 ):
     data = await users_service.get_admin_list(db, page=page, limit=limit)
     items = [
@@ -221,11 +221,11 @@ async def list_admin_users(
     return ok_response({**data, "list": items})
 
 
-@router.post("/admin-users", summary="创建管理员账号")
+@router.post("/admin-users", summary="创建管理员账号（仅超级管理员）")
 async def create_admin_user(
     body: CreateAdminReq,
     db: AsyncSession = Depends(get_db),
-    current_admin: AdminUser = Depends(get_current_admin),
+    current_admin: AdminUser = Depends(require_super_admin),
 ):
     admin = await users_service.create_admin(db, body, current_admin.id)
     await audit_service.log(db, current_admin.id, "CREATE_ADMIN",
@@ -234,12 +234,12 @@ async def create_admin_user(
     return ok_response({"id": admin.id, "username": admin.username}, "管理员账号已创建")
 
 
-@router.put("/admin-users/{admin_id}/status", summary="启用/停用管理员账号")
+@router.put("/admin-users/{admin_id}/status", summary="启用/停用管理员账号（仅超级管理员）")
 async def set_admin_status(
     admin_id: int,
     body: SetAdminStatusReq,
     db: AsyncSession = Depends(get_db),
-    current_admin: AdminUser = Depends(get_current_admin),
+    current_admin: AdminUser = Depends(require_super_admin),
 ):
     await users_service.set_admin_status(db, admin_id, body.is_active, current_admin.id)
     await audit_service.log(db, current_admin.id, "SET_ADMIN_STATUS",
@@ -248,11 +248,11 @@ async def set_admin_status(
     return ok_response(None, "账号状态已更新")
 
 
-@router.delete("/admin-users/{admin_id}", summary="删除管理员账号（软删除，仅停用状态可删）")
+@router.delete("/admin-users/{admin_id}", summary="删除管理员账号（仅超级管理员）")
 async def delete_admin_user(
     admin_id: int,
     db: AsyncSession = Depends(get_db),
-    current_admin: AdminUser = Depends(get_current_admin),
+    current_admin: AdminUser = Depends(require_super_admin),
 ):
     await users_service.delete_admin(db, admin_id, current_admin.id)
     await audit_service.log(db, current_admin.id, "DELETE_ADMIN",
@@ -261,11 +261,11 @@ async def delete_admin_user(
     return ok_response(None, "管理员账号已删除")
 
 
-@router.post("/admin-users/{admin_id}/reset-password", summary="重置管理员密码")
+@router.post("/admin-users/{admin_id}/reset-password", summary="重置管理员密码（仅超级管理员）")
 async def reset_admin_password(
     admin_id: int,
     db: AsyncSession = Depends(get_db),
-    current_admin: AdminUser = Depends(get_current_admin),
+    current_admin: AdminUser = Depends(require_super_admin),
 ):
     await users_service.reset_admin_password(db, admin_id)
     await audit_service.log(db, current_admin.id, "RESET_ADMIN_PASSWORD",

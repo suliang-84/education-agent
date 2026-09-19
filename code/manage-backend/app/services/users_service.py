@@ -235,7 +235,7 @@ async def create_admin(db: AsyncSession, data, operator_id: int):
         phone=data.phone,  # 生产环境应加密存储
         email=data.email,
         password_hash=pwd_hash,
-        role='SUPER_ADMIN',
+        role=getattr(data, 'role', 'ADMIN'),
         is_active=1,
         created_by=operator_id,
     )

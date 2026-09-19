@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { TOKEN_KEY, USER_KEY } from '@/utils/constants'
 
 interface AdminUser {
@@ -29,6 +29,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   const isLoggedIn = () => !!token.value
+  const isSuperAdmin = computed(() => user.value?.role === 'SUPER_ADMIN')
 
-  return { token, user, setAuth, clearAuth, isLoggedIn }
+  return { token, user, setAuth, clearAuth, isLoggedIn, isSuperAdmin }
 })
