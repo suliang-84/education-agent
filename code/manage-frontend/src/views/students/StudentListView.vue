@@ -80,11 +80,12 @@
             </template>
           </el-table-column>
 
-          <el-table-column label="科目" min-width="130">
+          <el-table-column label="最强力" width="100">
             <template #default="{ row }">
-              <div style="display:flex;gap:4px;flex-wrap:wrap">
-                <span v-for="sub in row.subjects" :key="sub" class="subject-tag">{{ sub }}</span>
-              </div>
+              <span v-if="row.strongest_power" class="power-badge" :class="`power-badge--${row.strongest_power}`">
+                {{ FivePowerLabels[row.strongest_power as FivePower] }}
+              </span>
+              <span v-else class="tag-muted">未测试</span>
             </template>
           </el-table-column>
 
@@ -106,7 +107,7 @@
           <el-table-column label="绑定家长" width="90" align="center">
             <template #default="{ row }">
               <span class="parent-count-badge" :class="row.parent_count === 0 ? 'parent-count-badge--none' : ''">
-                {{ row.parent_count }} / 2
+                {{ row.parent_count }}
               </span>
             </template>
           </el-table-column>
@@ -127,9 +128,7 @@
             <template #default="{ row }">
               <el-button text size="small" style="color:var(--indigo)" @click="$router.push(`/students/${row.id}`)">画像</el-button>
               <el-button text size="small" style="color:var(--purple)" @click="$router.push(`/students/${row.id}/ai-prompt`)">摘要</el-button>
-              <el-button text size="small" style="color:var(--text-2)" @click="openBindParent(row)">
-                家长({{ row.parent_count }})
-              </el-button>
+              <el-button text size="small" style="color:var(--text-2)" @click="openBindParent(row)">绑定家长</el-button>
             </template>
           </el-table-column>
 
@@ -246,14 +245,6 @@
             </template>
           </el-table-column>
 
-          <el-table-column label="角色" width="110">
-            <template #default="{ row }">
-              <span class="role-badge" :class="row.role === 'SUPER_ADMIN' ? 'role-badge--super' : 'role-badge--admin'">
-                {{ row.role === 'SUPER_ADMIN' ? '超级管理员' : '管理员' }}
-              </span>
-            </template>
-          </el-table-column>
-
           <el-table-column label="手机号" width="130">
             <template #default="{ row }">
               <span class="mono" style="color:var(--text-3);font-size:13px">{{ row.phone_masked }}</span>
@@ -303,29 +294,14 @@
     <!-- ── 绑定家长弹窗 ── -->
     <el-dialog v-model="bindDialogVisible" :title="`为学生「${bindTarget?.nickname}」绑定家长`" width="480px">
       <div v-if="bindTarget">
-        <div class="bind-info">当前已绑定：<strong class="num">{{ bindTarget.parent_count }}</strong> / 2 位家长</div>
-
-        <!-- 已绑定列表（从详情接口拿，这里简单展示计数）-->
-        <div class="bind-hint" v-if="bindTarget.parent_count >= 2">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/>
-          </svg>
-          该学生已绑定 2 位家长，已达上限。请先在学生画像页解绑后再绑定新家长。
-        </div>
-        <template v-else>
-          <div class="bind-form-label">家长手机号</div>
-          <el-input v-model="bindPhone" placeholder="输入家长手机号" maxlength="11" style="width:100%;margin-bottom:8px" />
-          <div class="bind-tip">若该手机号未注册，系统将自动创建家长账号并发送激活短信。</div>
-        </template>
+        <div class="bind-info">当前已绑定：<strong class="num">{{ bindTarget.parent_count }}</strong> 位家长</div>
+        <div class="bind-form-label">家长手机号</div>
+        <el-input v-model="bindPhone" placeholder="输入家长手机号" maxlength="11" style="width:100%;margin-bottom:8px" />
+        <div class="bind-tip">若该手机号未注册，系统将自动创建家长账号。</div>
       </div>
       <template #footer>
         <el-button @click="bindDialogVisible = false">取消</el-button>
-        <el-button
-          type="primary"
-          :disabled="!!bindTarget && bindTarget.parent_count >= 2"
-          :loading="bindLoading"
-          @click="doBindParent"
-        >立即绑定</el-button>
+        <el-button type="primary" :loading="bindLoading" @click="doBindParent">立即绑定</el-button>
       </template>
     </el-dialog>
 
@@ -355,12 +331,6 @@
         </el-form-item>
         <el-form-item label="邮箱">
           <el-input v-model="adminForm.email" placeholder="选填" />
-        </el-form-item>
-        <el-form-item label="角色">
-          <el-radio-group v-model="adminForm.role">
-            <el-radio value="ADMIN">普通管理员</el-radio>
-            <el-radio value="SUPER_ADMIN">超级管理员</el-radio>
-          </el-radio-group>
         </el-form-item>
         <el-form-item label="密码">
           <el-input v-model="adminForm.password" type="password" placeholder="请输入密码" show-password />
@@ -576,7 +546,6 @@ async function doCreateAdmin() {
       phone: adminForm.phone,
       email: adminForm.email || undefined,
       password: adminForm.password,
-      role: adminForm.role,
     })
     createAdminVisible.value = false
     ElMessage.success('管理员账号已创建')
@@ -606,11 +575,13 @@ async function doBindParent() {
   if (!bindTarget.value) return
   bindLoading.value = true
   try {
-    await studentApi.bindParent(bindTarget.value.id, { parent_phone: bindPhone.value })
-    // 更新本地计数
+    const res = await studentApi.bindParent(bindTarget.value.id, { parent_phone: bindPhone.value })
+    // 更新本地学生计数
     const idx = students.value.findIndex(s => s.id === bindTarget.value!.id)
-    if (idx !== -1) students.value[idx].parent_count = Math.min(2, students.value[idx].parent_count + 1)
+    if (idx !== -1) students.value[idx].parent_count += 1
     bindDialogVisible.value = false
+    // 若自动创建了家长账号，刷新家长列表
+    if (res.parent_created) await loadParents()
     ElMessage.success('家长绑定成功')
   } finally { bindLoading.value = false }
 }

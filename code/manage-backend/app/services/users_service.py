@@ -66,14 +66,17 @@ async def get_student_list(
 
     student_ids = [s.id for s in rows]
 
-    # 有五力画像（is_latest）的学生集合
-    profile_ids_res = await db.execute(
-        select(FivePowerProfile.student_id).where(
+    # 有五力画像（is_latest）的学生集合，同时取 primary_strength
+    profile_res = await db.execute(
+        select(FivePowerProfile.student_id, FivePowerProfile.primary_strength, FivePowerProfile.primary_weakness).where(
             FivePowerProfile.student_id.in_(student_ids),
             FivePowerProfile.is_latest == True,
         )
     )
-    profile_set = {r[0] for r in profile_ids_res.all()}
+    profile_rows = profile_res.all()
+    profile_set = {r[0] for r in profile_rows}
+    strength_map = {r[0]: r[1] for r in profile_rows}
+    weakness_map = {r[0]: r[2] for r in profile_rows}
 
     # 训练次数（按 student_id 分组）
     training_cnt_res = await db.execute(
@@ -103,6 +106,8 @@ async def get_student_list(
             'grade': s.grade,
             'is_minor': s.is_minor,
             'has_five_power_profile': s.id in profile_set,
+            'strongest_power': strength_map.get(s.id),
+            'weakest_power': weakness_map.get(s.id),
             'training_count': training_map.get(s.id, 0),
             'bound_parents_count': binding_map.get(s.id, 0),
             'last_login_at': s.last_login_at,
@@ -189,7 +194,7 @@ async def get_admin_list(
     page: int = 1,
     limit: int = 20,
 ):
-    q = select(AdminUser).where(AdminUser.deleted_at.is_(None))
+    q = select(AdminUser).where(AdminUser.deleted_at.is_(None), AdminUser.role == 'ADMIN')
 
     total_q = select(func.count()).select_from(q.subquery())
     total = (await db.execute(total_q)).scalar_one()
@@ -235,7 +240,7 @@ async def create_admin(db: AsyncSession, data, operator_id: int):
         phone=data.phone,  # 生产环境应加密存储
         email=data.email,
         password_hash=pwd_hash,
-        role=getattr(data, 'role', 'ADMIN'),
+        role='ADMIN',
         is_active=1,
         created_by=operator_id,
     )
@@ -288,19 +293,6 @@ async def bind_parent(db: AsyncSession, student_id: int, parent_phone: str, oper
     if not student:
         raise AppException('学生不存在', 404)
 
-    # 检查已绑定家长数（active 绑定）
-    bound_count = (
-        await db.execute(
-            select(func.count()).select_from(ParentStudentBinding).where(
-                ParentStudentBinding.student_id == student_id,
-                ParentStudentBinding.bind_status == 'active',
-                ParentStudentBinding.deleted_at.is_(None),
-            )
-        )
-    ).scalar_one()
-    if bound_count >= 2:
-        raise AppException('该学生已绑定2位家长，无法继续绑定', 409)
-
     # 查找家长账号（开发阶段 phone 未加密，直接比对）
     parent = (
         await db.execute(
@@ -321,7 +313,6 @@ async def bind_parent(db: AsyncSession, student_id: int, parent_phone: str, oper
             nickname=f'家长{parent_phone[-4:]}',
             user_type='PARENT',
             is_confirmed=False,
-            subject_prefs=[],
         )
         db.add(parent)
         await db.flush()

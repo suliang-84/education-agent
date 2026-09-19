@@ -19,7 +19,6 @@ class Student(Base, TimestampMixin):
     phone: Mapped[str | None] = mapped_column(String(64), nullable=True)  # 加密存储
     phone_masked: Mapped[str | None] = mapped_column(String(20), nullable=True)
     grade: Mapped[str | None] = mapped_column(String(10), nullable=True)
-    subject_prefs: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
     is_minor: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     is_confirmed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
