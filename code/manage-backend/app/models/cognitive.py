@@ -10,7 +10,6 @@ class CognitiveTestQuestion(Base, TimestampMixin):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     question_no: Mapped[int] = mapped_column(Integer, nullable=False)
-    display_order: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     stem: Mapped[str] = mapped_column(Text, nullable=False)
     image_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
