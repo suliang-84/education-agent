@@ -53,10 +53,11 @@ async def create_question(
     current_admin: AdminUser = Depends(get_current_admin),
 ):
     q = await cognitive_service.create(db, body, current_admin.id)
+    qid, qstatus = q.id, q.status
     await audit_service.log(db, current_admin.id, "CREATE_COGNITIVE_QUESTION",
-                            target_type="cognitive_test_questions", target_id=str(q.id))
+                            target_type="cognitive_test_questions", target_id=str(qid))
     await db.commit()
-    return ok_response({"id": q.id, "status": q.status, "created_at": q.created_at}, "题目创建成功")
+    return ok_response({"id": qid, "status": qstatus}, "题目创建成功")
 
 
 @router.patch("/cognitive-questions/{question_id}", summary="编辑测试题目")
@@ -67,10 +68,11 @@ async def update_question(
     current_admin: AdminUser = Depends(get_current_admin),
 ):
     q = await cognitive_service.update_question(db, question_id, body, current_admin.id)
+    qid = q.id
     await audit_service.log(db, current_admin.id, "UPDATE_COGNITIVE_QUESTION",
-                            target_type="cognitive_test_questions", target_id=str(q.id))
+                            target_type="cognitive_test_questions", target_id=str(qid))
     await db.commit()
-    return ok_response({"id": q.id, "updated_at": q.updated_at}, "题目已更新")
+    return ok_response({"id": qid}, "题目已更新")
 
 
 @router.patch("/cognitive-questions/{question_id}/status", summary="变更题目状态")
@@ -83,13 +85,14 @@ async def change_status(
     q, published_count = await cognitive_service.change_status(
         db, question_id, body.status, current_admin.id
     )
+    qid, qstatus = q.id, q.status
     await audit_service.log(db, current_admin.id, "CHANGE_COGNITIVE_STATUS",
-                            target_type="cognitive_test_questions", target_id=str(q.id))
+                            target_type="cognitive_test_questions", target_id=str(qid))
     await db.commit()
     msg = "题目已发布" if body.status == "published" else "题目已下架"
     return ok_response({
-        "id": q.id,
-        "status": q.status,
+        "id": qid,
+        "status": qstatus,
         "published_count": published_count,
         "test_available": published_count >= 10,
     }, msg)
