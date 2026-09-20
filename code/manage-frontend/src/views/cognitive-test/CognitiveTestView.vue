@@ -33,30 +33,21 @@
         </div>
       </div>
       <div class="status-board__counts">
-        <span class="count-chip count-chip--draft" @click="activeTab = 'draft'">草稿 {{ draftCount }}</span>
-        <span class="count-chip count-chip--published" @click="activeTab = 'published'">已发布 {{ publishedCount }}</span>
-        <span class="count-chip count-chip--archived" @click="activeTab = 'archived'">已下架 {{ archivedCount }}</span>
+        <span class="count-chip count-chip--draft">草稿 {{ draftCount }}</span>
+        <span class="count-chip count-chip--published">已发布 {{ publishedCount }}</span>
+        <span class="count-chip count-chip--archived">已下架 {{ archivedCount }}</span>
       </div>
     </div>
 
-    <!-- ── 标签页 + 筛选栏 ── -->
+    <!-- ── 筛选栏 ── -->
     <div class="surface" style="padding:0;overflow:hidden" v-loading="loading">
       <div class="tab-filter-bar">
-        <div class="tab-group">
-          <button class="tab-item" :class="{ active: activeTab === 'all' }" @click="activeTab = 'all'">
-            全部 ({{ allQuestions.length }})
-          </button>
-          <button class="tab-item" :class="{ active: activeTab === 'draft' }" @click="activeTab = 'draft'">
-            草稿 ({{ draftCount }})
-          </button>
-          <button class="tab-item" :class="{ active: activeTab === 'published' }" @click="activeTab = 'published'">
-            已发布 ({{ publishedCount }})
-          </button>
-          <button class="tab-item" :class="{ active: activeTab === 'archived' }" @click="activeTab = 'archived'">
-            已下架 ({{ archivedCount }})
-          </button>
-        </div>
         <div class="filter-group">
+          <el-select v-model="filterStatus" placeholder="全部状态" clearable size="small" style="width:120px">
+            <el-option label="草稿" value="draft" />
+            <el-option label="已发布" value="published" />
+            <el-option label="已下架" value="archived" />
+          </el-select>
           <el-input v-model="searchText" placeholder="搜索题干..." clearable size="small" style="width:220px">
             <template #prefix>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -65,6 +56,7 @@
             </template>
           </el-input>
         </div>
+        <span style="font-size:13px;color:var(--text-3)">共 {{ filteredQuestions.length }} 道</span>
       </div>
 
       <!-- ── 列表表格 ── -->
@@ -247,9 +239,7 @@ const saving = ref(false)
 const allQuestions = ref<CognitiveQuestion[]>([])
 
 // 筛选
-const activeTab = ref<'all' | 'draft' | 'published' | 'archived'>('all')
-const filterPower = ref('')
-const filterType = ref('')
+const filterStatus = ref('')
 const searchText = ref('')
 
 // 操作确认弹窗
@@ -266,9 +256,9 @@ const archivedCount = computed(() => allQuestions.value.filter(q => q.status ===
 const filteredQuestions = computed(() => {
   let list = allQuestions.value
 
-  // 标签页筛选
-  if (activeTab.value !== 'all') {
-    list = list.filter(q => q.status === activeTab.value)
+  // 状态筛选
+  if (filterStatus.value) {
+    list = list.filter(q => q.status === filterStatus.value)
   }
 
   // 搜索
