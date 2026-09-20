@@ -156,7 +156,6 @@
               </template>
               <!-- 已发布 -->
               <template v-else-if="row.status === 'published'">
-                <el-button text size="small" style="color:var(--indigo)" @click="router.push(`/cognitive-test/${row.id}/edit`)">编辑</el-button>
                 <el-button text size="small" style="color:var(--amber)" @click="confirmArchive(row)">下架</el-button>
               </template>
               <!-- 已下架 -->
