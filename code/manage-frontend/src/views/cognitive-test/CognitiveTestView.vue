@@ -274,7 +274,8 @@ const filteredQuestions = computed(() => {
 onMounted(async () => {
   loading.value = true
   try {
-    allQuestions.value = await cognitiveApi.getList()
+    const res = await cognitiveApi.getList()
+    allQuestions.value = res.list
   } finally {
     loading.value = false
   }

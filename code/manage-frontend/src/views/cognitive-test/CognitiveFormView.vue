@@ -331,11 +331,11 @@ function removeAnswer(idx: number) {
 onMounted(async () => {
   loading.value = true
   try {
-    const list = await cognitiveApi.getList()
-    publishedCount.value = list.filter(q => q.status === 'published').length
+    const res = await cognitiveApi.getList()
+    publishedCount.value = res.published_count
 
     if (isEdit.value) {
-      const q = list.find(q => q.id === Number(route.params.id))
+      const q = res.list.find(q => q.id === Number(route.params.id))
       if (q) {
         currentStatus.value     = q.status
         form.description        = q.description ?? ''
