@@ -1,8 +1,8 @@
 import type { MockMethod } from 'vite-plugin-mock'
 
-const success = (data: unknown) => ({ status: 'success', code: 0, msg: '操作成功', data })
-const paginated = (list: unknown[], total: number) =>
-  success({ list, total, has_more: false, next_cursor: null })
+const success = (data: unknown) => ({ code: 200, msg: '操作成功', data })
+const paginated = (list: unknown[], total: number, page = 1, limit = 20) =>
+  success({ list, total, page, limit, total_pages: Math.max(1, Math.ceil(total / limit)) })
 
 // Mock 题目数据
 // 五力权重模板（合计10分）
@@ -158,15 +158,15 @@ const mockRoutes: MockMethod[] = [
     url: '/api/v1/admin/questions',
     method: 'get',
     response: ({ query }) => {
-      const page = Number(query.cursor || 0)
-      const size = 20
+      const p = Math.max(1, Number(query.page || 1))
+      const size = Math.max(1, Number(query.limit || 20))
       const filtered = questions.filter(q => {
         if (query.status && q.status !== query.status) return false
         if (query.difficulty && q.difficulty !== query.difficulty) return false
         if (query.keyword && !q.stem.includes(query.keyword as string)) return false
         return true
       })
-      return paginated(filtered.slice(page, page + size), filtered.length)
+      return paginated(filtered.slice((p - 1) * size, p * size), filtered.length, p, size)
     },
   },
   {

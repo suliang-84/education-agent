@@ -160,7 +160,7 @@ async function handleSave(mode: 'draft' | 'analyze') {
   try {
     const created = await questionApi.create({ stem: form.stem })
     if (mode === 'analyze') {
-      await questionApi.analyze(created.id)
+      await questionApi.analyze(created.question_id)
       ElMessage.success('题干已保存，大模型分析任务已提交，约 10~30 秒完成')
     } else {
       ElMessage.success('草稿已保存')
