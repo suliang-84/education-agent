@@ -162,6 +162,7 @@
               <template v-else>
                 <el-button text size="small" style="color:var(--indigo)" @click="router.push(`/cognitive-test/${row.id}/edit`)">编辑</el-button>
                 <el-button text size="small" style="color:var(--green)" @click="confirmRepublish(row)">重新发布</el-button>
+                <el-button text size="small" style="color:var(--red)" @click="confirmDelete(row)">删除</el-button>
               </template>
             </div>
           </template>

@@ -269,7 +269,8 @@ const mockRoutes: MockMethod[] = [
   {
     url: '/api/v1/admin/cognitive-questions',
     method: 'get',
-    response: () => success(Array.from({ length: 25 }, (_, i) => {
+    response: () => {
+      const list = Array.from({ length: 25 }, (_, i) => {
       // 前18道已发布，19-20草稿，21-22已下架，23-24草稿
       const status = i < 18 ? 'published' : i < 20 ? 'draft' : i < 22 ? 'archived' : 'draft'
       const stems = [
@@ -324,7 +325,13 @@ const mockRoutes: MockMethod[] = [
         created_at: '2026-08-25T10:00:00Z',
         updated_at: '2026-09-01T10:00:00Z',
       }
-    })),
+    })
+      return success({
+        published_count: list.filter(q => q.status === 'published').length,
+        test_available: list.filter(q => q.status === 'published').length >= 10,
+        list,
+      })
+    },
   },
   {
     url: '/api/v1/admin/cognitive-questions',

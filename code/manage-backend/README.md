@@ -30,6 +30,10 @@ MESH AI 助教平台 · 后台管理系统后端服务
 - [代码规范](#代码规范)
 - [已实现接口](#已实现接口)
 - [待实现模块](#待实现模块)
+- [AI 大模型集成](#ai-大模型集成)
+  - [当前方案（手动分析）](#当前方案手动分析)
+  - [切换为自动分析（接入 Anthropic API）](#切换为自动分析接入-anthropic-api)
+  - [切换其他大模型](#切换其他大模型openai--国产模型)
 - [接口文档](#接口文档)
 
 ---
@@ -694,6 +698,92 @@ uv run mypy app/
 2. 在 `app/services/{module}_service.py` 实现业务逻辑
 3. 在 `app/api/v1/admin/{module}.py` 填充路由处理函数
 4. 在 `app/api/v1/admin/__init__.py` 取消注释对应路由注册
+
+---
+
+## AI 大模型集成
+
+### 当前方案（手动分析）
+
+开发阶段题库 AI 分析功能采用**手动方式**：将题干交给 Claude 等大模型分析，手动将结果填入审核页面。数据库结构、接口格式、前端页面已按自动分析流程设计，切换成本极低。
+
+### 切换为自动分析（接入 Anthropic API）
+
+**第一步：获取 API Key**
+
+前往 [console.anthropic.com](https://console.anthropic.com) 注册并创建 API Key。
+
+**第二步：配置环境变量**
+
+在 `.env` 中添加：
+
+```env
+ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxxxxx
+ANTHROPIC_MODEL=claude-opus-4-6          # 可选，默认使用最新模型
+```
+
+**第三步：安装 SDK**
+
+```bash
+uv add anthropic
+```
+
+**第四步：实现 analyze Service**
+
+在 `app/services/questions_service.py` 中实现 `analyze` 函数：
+
+```python
+import anthropic
+
+async def analyze(db: AsyncSession, question_id: int, operator_id: int):
+    """调用 Claude API 分析题干，写入 question_analyses 表"""
+    settings = get_settings()
+    client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+
+    # 1. 查题目
+    question = await db.get(Question, question_id)
+
+    # 2. 构造 Prompt
+    prompt = f"""
+    请分析以下题目，返回 JSON 格式：
+    题目：{question.stem}
+
+    返回字段：subject（科目）、grade（年级）、difficulty（basic/advanced/challenge）、
+    question_type、answer、solution、typical_error、
+    five_power_weights（INSIGHT/CONSTRUCT/DEDUCE/ADAPT/MIGRATE，整数合计10）
+    """
+
+    # 3. 调用 API
+    message = client.messages.create(
+        model=settings.ANTHROPIC_MODEL,
+        max_tokens=1024,
+        messages=[{"role": "user", "content": prompt}]
+    )
+
+    # 4. 解析结果写入数据库
+    result = json.loads(message.content[0].text)
+    analysis = QuestionAnalysis(question_id=question_id, **result)
+    db.add(analysis)
+    question.status = 'pending_review'
+    await db.flush()
+```
+
+**第五步：注册路由**
+
+在 `app/api/v1/admin/questions.py` 中取消注释 `POST /questions/{id}/analyze` 路由即可。
+
+---
+
+### 切换其他大模型（OpenAI / 国产模型）
+
+只需修改 `analyze` 函数中的客户端初始化部分，Service 接口签名和数据库写入逻辑无需改动：
+
+| 模型 | SDK | 替换位置 |
+|------|-----|---------|
+| OpenAI GPT | `openai` | `client = OpenAI(api_key=...)` |
+| 阿里通义千问 | `openai`（兼容接口） | `base_url="https://dashscope.aliyuncs.com/..."` |
+| 字节豆包 | `openai`（兼容接口） | `base_url="https://ark.cn-beijing.volces.com/..."` |
+| 自部署 Ollama | `ollama` | `client = ollama.Client(host=...)` |
 
 ---
 
