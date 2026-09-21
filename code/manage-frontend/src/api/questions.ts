@@ -78,7 +78,16 @@ export interface PublishPayload {
 
 export const questionApi = {
   /**
-   * 题目列表（支持五级知识体系节点过滤 + 状态 / 难度 / 关键词筛选）
+   * 题目状态统计（各状态数量）
+   * GET /api/v1/admin/questions/stats
+   */
+  getStats: () =>
+    request.get<unknown, { total: number; draft: number; analyzing: number; pending_review: number; published: number; archived: number }>(
+      '/questions/stats'
+    ),
+
+  /**
+   * 题目列表（支持五级知识体系节点过滤 + 状态 / 难度 / 关键词筛选，页码分页）
    * GET /api/v1/admin/questions
    * 接口文档：§9.1.1
    */

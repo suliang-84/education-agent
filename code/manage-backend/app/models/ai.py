@@ -33,8 +33,7 @@ class AiHeuristicStrategy(Base, TimestampMixin):
 class SystemConfig(Base, TimestampMixin):
     __tablename__ = "system_configs"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    key: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
+    key: Mapped[str] = mapped_column(String(100), primary_key=True)
     value: Mapped[str] = mapped_column(Text, nullable=False)
     value_type: Mapped[str] = mapped_column(String(20), nullable=False, default="string")
     description: Mapped[str | None] = mapped_column(Text, nullable=True)

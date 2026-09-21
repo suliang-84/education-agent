@@ -246,9 +246,10 @@
 
           <div class="paginator">
             <span>共 <span class="num" style="color:var(--text-1);font-weight:600">{{ total }}</span> 条题目</span>
-            <div style="display:flex;gap:6px">
-              <el-button size="small" :disabled="cursor === 0" @click="prevPage">上一页</el-button>
-              <el-button size="small" :disabled="!hasMore" @click="nextPage">下一页</el-button>
+            <div style="display:flex;align-items:center;gap:6px">
+              <el-button size="small" :disabled="page <= 1" @click="prevPage">上一页</el-button>
+              <span style="font-size:13px;color:var(--text-3);padding:0 4px">{{ page }} / {{ totalPages }}</span>
+              <el-button size="small" :disabled="page >= totalPages" @click="nextPage">下一页</el-button>
             </div>
           </div>
         </div>
@@ -280,19 +281,26 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { questionApi } from '@/api'
+import { questionApi, knowledgeTreeApi } from '@/api'
+import type { KnowledgeTreeNode } from '@/api/questions'
 import type { Question, QuestionStatus, Difficulty, FivePower } from '@/types'
 import { QuestionStatusLabels, DifficultyLabels, FivePowerLabels } from '@/types'
 
 const loading = ref(false)
 const importLoading = ref(false)
 const questions = ref<Question[]>([])
-const allQuestions = ref<Question[]>([])   // 缓存全量，用于树统计
 const total = ref(0)
-const hasMore = ref(false)
-const cursor = ref(0)
+const page = ref(1)
+const totalPages = ref(1)
+const PAGE_SIZE = 20
 const showImport = ref(false)
 const batchStems = ref('')
+
+// 状态统计（来自后端）
+const statusCounts = ref<Record<string, number>>({
+  draft: 0, analyzing: 0, pending_review: 0, published: 0, archived: 0,
+})
+const totalCount = computed(() => total.value)
 
 const filters = reactive<{ status: QuestionStatus | ''; difficulty: Difficulty | ''; keyword: string }>({
   status: '', difficulty: '', keyword: '',
@@ -312,91 +320,47 @@ const treeBreadcrumb = computed(() => {
   return parts.join(' › ')
 })
 
-// ── 左树数据（根据 allQuestions 动态构建）── ─────────────────
-const knowledgeTree = computed(() => {
-  const subjectMap = new Map<string, { count: number; open: boolean; grades: Map<string, { count: number; open: boolean; semesters: Map<string, { count: number; open: boolean; chapters: Map<string, { count: number; open: boolean; knowledge_points: Map<string, { count: number }> }> }> }> }>()
+// ── 左树数据（来自后端知识体系树接口）── ─────────────────────
+const knowledgeTree = ref<KnowledgeTreeNode[]>([])
 
-  for (const q of allQuestions.value) {
-    if (!q.subject) continue
-    const sub = q.subject, grd = q.grade || '未知年级', sem = q.semester || '未分学期', ch = q.chapter || '未分单元'
+async function loadKnowledgeTree() {
+  try {
+    const res = await knowledgeTreeApi.getTree()
+    knowledgeTree.value = res.tree
+  } catch { /* ignore */ }
+}
 
-    if (!subjectMap.has(sub)) subjectMap.set(sub, { count: 0, open: true, grades: new Map() })
-    const subNode = subjectMap.get(sub)!
-    subNode.count++
-
-    if (!subNode.grades.has(grd)) subNode.grades.set(grd, { count: 0, open: true, semesters: new Map() })
-    const grdNode = subNode.grades.get(grd)!
-    grdNode.count++
-
-    if (!grdNode.semesters.has(sem)) grdNode.semesters.set(sem, { count: 0, open: false, chapters: new Map() })
-    const semNode = grdNode.semesters.get(sem)!
-    semNode.count++
-
-    if (!semNode.chapters.has(ch)) semNode.chapters.set(ch, { count: 0, open: false, knowledge_points: new Map() })
-    const chNode = semNode.chapters.get(ch)!
-    chNode.count++
-
-    for (const kp of (q.knowledge_points || [])) {
-      chNode.knowledge_points.set(kp, { count: (chNode.knowledge_points.get(kp)?.count || 0) + 1 })
-    }
-  }
-
-  return [...subjectMap.entries()].map(([name, s]) => ({
-    name, count: s.count, open: s.open,
-    grades: [...s.grades.entries()].map(([gname, g]) => ({
-      name: gname, count: g.count, open: g.open,
-      semesters: [...g.semesters.entries()].map(([sname, sem]) => ({
-        name: sname, count: sem.count, open: sem.open,
-        chapters: [...sem.chapters.entries()].map(([cname, ch]) => ({
-          name: cname, count: ch.count, open: ch.open,
-          knowledge_points: [...ch.knowledge_points.entries()].map(([kname, kp]) => ({ name: kname, count: kp.count })),
-        })),
-      })),
-    })),
-  }))
-})
-
-// 状态计数（实时统计 allQuestions）
-const statusCounts = computed<Record<QuestionStatus, number>>(() => ({
-  draft:          allQuestions.value.filter(q => q.status === 'draft').length,
-  analyzing:      allQuestions.value.filter(q => q.status === 'analyzing').length,
-  pending_review: allQuestions.value.filter(q => q.status === 'pending_review').length,
-  published:      allQuestions.value.filter(q => q.status === 'published').length,
-  archived:       allQuestions.value.filter(q => q.status === 'archived').length,
-}))
-
-const totalCount = computed(() => allQuestions.value.length)
-const allCount   = computed(() => totalCount.value)
+const allCount = computed(() => total.value)
 
 // ── 树选择操作 ───────────────────────────────────────────────
 function clearTreeFilter() {
   Object.assign(treeFilter, { subject: '', grade: '', semester: '', chapter: '', knowledge_point: '' })
-  cursor.value = 0; loadData()
+  page.value = 1; loadData()
 }
 
 function selectSubject(s: string) {
   Object.assign(treeFilter, { subject: s, grade: '', semester: '', chapter: '', knowledge_point: '' })
-  cursor.value = 0; loadData()
+  page.value = 1; loadData()
 }
 
 function selectGrade(s: string, g: string) {
   Object.assign(treeFilter, { subject: s, grade: g, semester: '', chapter: '', knowledge_point: '' })
-  cursor.value = 0; loadData()
+  page.value = 1; loadData()
 }
 
 function selectSemester(s: string, g: string, sem: string) {
   Object.assign(treeFilter, { subject: s, grade: g, semester: sem, chapter: '', knowledge_point: '' })
-  cursor.value = 0; loadData()
+  page.value = 1; loadData()
 }
 
 function selectChapter(s: string, g: string, sem: string, ch: string) {
   Object.assign(treeFilter, { subject: s, grade: g, semester: sem, chapter: ch, knowledge_point: '' })
-  cursor.value = 0; loadData()
+  page.value = 1; loadData()
 }
 
 function selectKnowledgePoint(s: string, g: string, sem: string, ch: string, kp: string) {
   Object.assign(treeFilter, { subject: s, grade: g, semester: sem, chapter: ch, knowledge_point: kp })
-  cursor.value = 0; loadData()
+  page.value = 1; loadData()
 }
 
 // ── 工具函数 ─────────────────────────────────────────────────
@@ -408,40 +372,43 @@ function topPower(weights: Record<string, number>): string {
 async function loadData() {
   loading.value = true
   try {
-    const params: Record<string, unknown> = { cursor: cursor.value, limit: 20 }
-    if (filters.status)              params.status             = filters.status
-    if (filters.difficulty)          params.difficulty          = filters.difficulty
-    if (filters.keyword)             params.keyword             = filters.keyword
-    if (treeFilter.subject)          params.subject             = treeFilter.subject
-    if (treeFilter.grade)            params.grade               = treeFilter.grade
-    if (treeFilter.semester)         params.semester            = treeFilter.semester
-    if (treeFilter.chapter)          params.chapter             = treeFilter.chapter
-    if (treeFilter.knowledge_point)  params.knowledge_point     = treeFilter.knowledge_point
+    const params: Record<string, unknown> = { page: page.value, limit: PAGE_SIZE }
+    if (filters.status)             params.status     = filters.status
+    if (filters.difficulty)         params.difficulty  = filters.difficulty
+    if (filters.keyword)            params.keyword     = filters.keyword
+    if (treeFilter.subject)         params.subject     = treeFilter.subject
+    if (treeFilter.grade)           params.grade       = treeFilter.grade
+    if (treeFilter.semester)        params.semester    = treeFilter.semester
+    if (treeFilter.chapter)         params.chapter     = treeFilter.chapter
+    if (treeFilter.knowledge_point) params.knowledge_point = treeFilter.knowledge_point
 
     const res = await questionApi.getList(params)
     questions.value = res.list
     total.value = res.total
-    hasMore.value = res.has_more
+    totalPages.value = res.total_pages ?? 1
   } finally { loading.value = false }
 }
 
-// 初次加载时同时拉全量数据用于树统计
-async function loadAll() {
-  const res = await questionApi.getList({ limit: 200 })
-  allQuestions.value = res.list
+// 加载状态统计（来自后端独立接口）
+async function loadStats() {
+  try {
+    const res = await questionApi.getStats()
+    Object.assign(statusCounts.value, res)
+    total.value = res.total
+  } catch { /* ignore */ }
 }
 
 function selectStatus(s: QuestionStatus | '') {
-  filters.status = s; cursor.value = 0; loadData()
+  filters.status = s; page.value = 1; loadData()
 }
 
-function handleSearch() { cursor.value = 0; loadData() }
+function handleSearch() { page.value = 1; loadData() }
 function resetFilters() {
   Object.assign(filters, { status: '', difficulty: '', keyword: '' })
-  cursor.value = 0; loadData()
+  page.value = 1; loadData()
 }
-function prevPage() { cursor.value = Math.max(0, cursor.value - 20); loadData() }
-function nextPage() { cursor.value += 20; loadData() }
+function prevPage() { if (page.value > 1) { page.value--; loadData() } }
+function nextPage() { if (page.value < totalPages.value) { page.value++; loadData() } }
 
 async function handleAnalyze(row: Question) {
   await ElMessageBox.confirm(
@@ -451,21 +418,21 @@ async function handleAnalyze(row: Question) {
   )
   await questionApi.analyze(row.id)
   ElMessage.success('分析任务已提交，请稍后刷新查看结果')
-  loadData(); loadAll()
+  loadData(); loadStats()
 }
 
 async function handleArchive(row: Question) {
   await ElMessageBox.confirm(`确认下架题目 #${row.id}？下架后不再参与训练推荐。`, '确认下架', { type: 'warning' })
   await questionApi.archive(row.id)
   ElMessage.success('题目已下架')
-  loadData(); loadAll()
+  loadData(); loadStats()
 }
 
 async function handleDelete(row: Question) {
   await ElMessageBox.confirm(`确认删除草稿 #${row.id}？此操作不可恢复。`, '确认删除', { type: 'error' })
   await questionApi.delete(row.id)
   ElMessage.success('草稿已删除')
-  loadData(); loadAll()
+  loadData(); loadStats()
 }
 
 function handleFileChange() { ElMessage.info('文件已选择') }
@@ -477,11 +444,11 @@ async function handleImport() {
     await questionApi.batchImport(stems)
     ElMessage.success(`已导入 ${stems.length} 条题干，大模型分析任务已提交`)
     showImport.value = false; batchStems.value = ''
-    loadData(); loadAll()
+    loadData(); loadStats()
   } finally { importLoading.value = false }
 }
 
-onMounted(() => { loadData(); loadAll() })
+onMounted(() => { loadData(); loadStats(); loadKnowledgeTree() })
 </script>
 
 <style lang="scss" scoped>

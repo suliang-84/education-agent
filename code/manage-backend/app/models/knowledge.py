@@ -1,48 +1,50 @@
-from sqlalchemy import BigInteger, Integer, SmallInteger, String, Text
+from datetime import datetime
+
+from sqlalchemy import BigInteger, DateTime, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.models.base import Base, TimestampMixin
+from app.models.base import Base
 
 
-class Subject(Base, TimestampMixin):
+class Subject(Base):
     __tablename__ = "subjects"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(20), nullable=False)
     code: Mapped[str] = mapped_column(String(20), nullable=False, unique=True)
-    display_order: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
-class Grade(Base, TimestampMixin):
+class Grade(Base):
     __tablename__ = "grades"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     subject_id: Mapped[int] = mapped_column(Integer, nullable=False)
     name: Mapped[str] = mapped_column(String(20), nullable=False)
     code: Mapped[str] = mapped_column(String(10), nullable=False)
-    display_order: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
-class Semester(Base, TimestampMixin):
+class Semester(Base):
     __tablename__ = "semesters"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     grade_id: Mapped[int] = mapped_column(Integer, nullable=False)
     name: Mapped[str] = mapped_column(String(20), nullable=False)
     code: Mapped[str] = mapped_column(String(5), nullable=False)
-    display_order: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
-class Chapter(Base, TimestampMixin):
+class Chapter(Base):
     __tablename__ = "chapters"
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     semester_id: Mapped[int] = mapped_column(Integer, nullable=False)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
-    display_order: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
-class KnowledgePoint(Base, TimestampMixin):
+class KnowledgePoint(Base):
     __tablename__ = "knowledge_points"
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     chapter_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     code: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    display_order: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
