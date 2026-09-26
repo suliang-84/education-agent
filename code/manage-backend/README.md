@@ -1,6 +1,6 @@
-# MESH Admin Backend
+# MESH Backend
 
-MESH AI 助教平台 · 后台管理系统后端服务
+MESH AI 助教平台 · 后端服务（后台管理 + 小程序端）
 
 ---
 
@@ -11,40 +11,26 @@ MESH AI 助教平台 · 后台管理系统后端服务
 - [快速启动](#快速启动)
 - [目录结构](#目录结构)
 - [架构设计](#架构设计)
-  - [分层说明](#分层说明)
-  - [请求调用链路](#请求调用链路)
-- [核心模块](#核心模块)
-  - [core 基础设施层](#core-基础设施层)
-  - [models ORM 模型层](#models-orm-模型层)
-  - [schemas 数据校验层](#schemas-数据校验层)
-  - [api 路由层](#api-路由层)
-  - [services 业务逻辑层](#services-业务逻辑层)
 - [认证机制](#认证机制)
 - [统一规范](#统一规范)
-  - [响应格式](#响应格式)
-  - [错误码体系](#错误码体系)
-  - [分页规范](#分页规范)
 - [环境变量](#环境变量)
 - [数据库](#数据库)
 - [测试](#测试)
 - [代码规范](#代码规范)
 - [已实现接口](#已实现接口)
-- [待实现模块](#待实现模块)
 - [AI 大模型集成](#ai-大模型集成)
-  - [当前方案（手动分析）](#当前方案手动分析)
-  - [切换为自动分析（接入 Anthropic API）](#切换为自动分析接入-anthropic-api)
-  - [切换其他大模型](#切换其他大模型openai--国产模型)
 - [接口文档](#接口文档)
 
 ---
 
 ## 项目简介
 
-本服务是 MESH AI 助教平台的**后台管理系统后端**，供 `SUPER_ADMIN` 角色的管理员使用，提供题库管理、五力测试题维护、训练参数配置、用户管理、数据看板等功能。
+本服务同时提供两端 API：
 
-与前端（`manage-frontend`）对接，Base URL 为 `/api/v1/admin/`。
-
-> 当前处于**骨架阶段**：核心基础设施（认证、ORM 模型、统一响应）已完整实现，业务接口模块（题库、看板等）的路由骨架已注册，Service 层待逐模块填充。
+| 端 | Base URL | 认证方式 | 说明 |
+|----|----------|---------|------|
+| **后台管理** | `/api/v1/admin/` | JWT（管理员，8小时） | SUPER_ADMIN / ADMIN 角色，题库、五力测试题、训练配置、用户管理、看板 |
+| **微信小程序** | `/api/v1/` | JWT（学生/家长，7天 Access + 30天 Refresh） | 登录注册、五力测试、个性化训练、错题集、AI 助教 |
 
 ---
 
@@ -52,16 +38,16 @@ MESH AI 助教平台 · 后台管理系统后端服务
 
 | 类别 | 技术 | 版本 | 说明 |
 |------|------|------|------|
-| Web 框架 | FastAPI | ≥ 0.115 | 原生 async，自动生成 OpenAPI 文档 |
-| ASGI 服务器 | uvicorn | ≥ 0.30 | 开发用 `--reload`，生产用 gunicorn 管理 |
+| Web 框架 | FastAPI | ≥ 0.115 | 原生 async，自动 OpenAPI 文档 |
+| ASGI 服务器 | uvicorn | ≥ 0.30 | 开发 `--reload`，生产 gunicorn 管理 |
 | ORM | SQLAlchemy 2.0 | ≥ 2.0.36 | async 模式，`Mapped`/`mapped_column` 语法 |
 | DB 驱动 | asyncpg | ≥ 0.30 | PostgreSQL 高性能异步驱动 |
-| 数据校验 | Pydantic v2 | ≥ 2.10 | Request/Response schema，类型安全 |
+| 数据校验 | Pydantic v2 | ≥ 2.10 | Request/Response schema |
 | 配置管理 | pydantic-settings | ≥ 2.6 | 从 `.env` 读取强类型配置 |
 | 数据库迁移 | Alembic | ≥ 1.14 | async engine，支持未来迁移 |
-| 认证 | PyJWT | ≥ 2.10 | HS256 签名，8小时有效 |
+| 认证 | PyJWT | ≥ 2.10 | HS256 签名 |
 | 密码哈希 | bcrypt | ≥ 4.0 | 直接调用（不经 passlib）|
-| 缓存/黑名单 | Redis (redis-py async) | ≥ 5.2 | JWT 黑名单、看板缓存 |
+| 缓存/黑名单 | redis-py async | ≥ 5.2 | JWT 黑名单、看板缓存 |
 | 日志 | loguru | ≥ 0.7.3 | 结构化日志，自动轮转 |
 | 依赖管理 | uv | — | 快速安装，锁定版本 |
 | 代码规范 | ruff | ≥ 0.8 | lint + format 一体 |
@@ -75,7 +61,7 @@ MESH AI 助教平台 · 后台管理系统后端服务
 
 - Python 3.13+
 - PostgreSQL 16+（数据库 `mesh_edu` 已存在）
-- Redis 7+
+- Redis 7+（或使用 fakeredis 开发环境自动 mock）
 
 ### 1. 安装依赖
 
@@ -93,7 +79,7 @@ uv sync --all-extras
 
 ```bash
 cp .env.example .env
-# 编辑 .env，修改 JWT_SECRET_KEY 为随机字符串
+# 编辑 .env，修改 JWT_SECRET_KEY（必须）和 WX_APPID/WX_SECRET（小程序登录必须）
 python3 -c "import secrets; print(secrets.token_hex(32))"
 ```
 
@@ -106,8 +92,8 @@ uv run uvicorn app.main:app --reload --port 8000
 ### 4. 验证运行
 
 ```
-GET  http://localhost:8000/health           → {"status":"success","data":{"status":"healthy"}}
-GET  http://localhost:8000/api/docs         → Swagger UI
+GET  http://localhost:8000/health           → {"code":200,"data":{"status":"healthy"}}
+GET  http://localhost:8000/api/docs         → Swagger UI（所有接口可交互调试）
 GET  http://localhost:8000/api/openapi.json → OpenAPI JSON
 ```
 
@@ -117,6 +103,10 @@ GET  http://localhost:8000/api/openapi.json → OpenAPI JSON
 用户名：admin
 密  码：qwer123#
 ```
+
+### 小程序开发模式
+
+微信登录需配置 `WX_APPID` 和 `WX_SECRET`。短信验证码开发阶段固定为 `123456`，无需真实短信平台。
 
 ---
 
@@ -132,76 +122,84 @@ code/manage-backend/
 │
 ├── app/
 │   ├── main.py                 # FastAPI 入口：注册路由、中间件、异常处理、lifespan
-│   ├── dependencies.py         # 公共依赖注入：get_db()、get_current_admin()
+│   ├── dependencies.py         # 公共依赖注入：get_db()、get_current_admin()、get_current_student()
 │   │
 │   ├── core/                   # ── 基础设施层（无业务逻辑）──────────────────
-│   │   ├── config.py           # Settings（pydantic-settings 读 .env）
+│   │   ├── config.py           # Settings（pydantic-settings 读 .env）含 WX_APPID/WX_SECRET
 │   │   ├── database.py         # async engine + AsyncSession 工厂 + get_db()
-│   │   ├── redis.py            # Redis 连接池单例 + get_redis() / close_redis()
-│   │   ├── security.py         # JWT 签发/解码、bcrypt 密码哈希/验证
-│   │   ├── response.py         # 统一响应封装：ok() / fail() / error() / ok_response()
+│   │   ├── redis.py            # Redis 连接池单例
+│   │   ├── security.py         # JWT 签发/解码（管理员 8h / 学生 7d+30d Refresh）
+│   │   ├── response.py         # 统一响应：ok_response() / fail_response()
 │   │   ├── exceptions.py       # AppException + 全局异常处理器
 │   │   ├── middleware.py       # RequestLogMiddleware（请求日志 + 耗时）
-│   │   └── logger.py           # loguru 配置（stdout + logs/app.log）
+│   │   └── logger.py           # loguru 配置
 │   │
-│   ├── models/                 # ── ORM 模型层（映射现有 34 张 DB 表）──────────
+│   ├── models/                 # ── ORM 模型层（映射现有数据库全部表）──────────
 │   │   ├── base.py             # Base（DeclarativeBase）+ TimestampMixin
-│   │   ├── admin.py            # AdminUser（admin_users）
+│   │   ├── admin.py            # AdminUser
 │   │   ├── question.py         # Question、QuestionAnalysis
 │   │   ├── cognitive.py        # CognitiveTestQuestion
 │   │   ├── knowledge.py        # Subject / Grade / Semester / Chapter / KnowledgePoint
-│   │   ├── training.py         # TrainingDimensionConfig、TrainingConfigVersion、TrainingSession、TrainingAnswerRecord
-│   │   ├── student.py          # Student、ParentStudentBinding、FivePowerProfile、FivePowerTrainingProfile
-│   │   │                       # TestSession、TestAnswerRecord、WrongAnswerRecord、StudentKpStat
-│   │   │                       # InviteCode、SmsCode
-│   │   ├── ai.py               # AiHeuristicStrategy、SystemConfig、AiChatSession、AiChatMessage
-│   │   │                       # AiStrategyEvent、AiStudentStrategyProfile、AiTokenUsageLog
-│   │   │                       # StudentAiPromptSummary、StudentPromptInsight、SystemDowngradeLog
+│   │   ├── training.py         # TrainingDimensionConfig、TrainingConfigVersion
+│   │   │                       # TrainingSession、TrainingAnswerRecord
+│   │   ├── student.py          # Student（含 semester 字段）、ParentStudentBinding
+│   │   │                       # FivePowerProfile、FivePowerTrainingProfile
+│   │   │                       # TestSession、TestAnswerRecord、WrongAnswerRecord
+│   │   │                       # StudentKpStat、InviteCode、SmsCode
+│   │   ├── ai.py               # AiChatSession、AiChatMessage、AiStrategyEvent
+│   │   │                       # AiHeuristicStrategy、SystemConfig
+│   │   │                       # StudentAiPromptSummary、StudentPromptInsight
 │   │   └── audit.py            # AdminAuditLog
 │   │
-│   ├── schemas/                # ── Pydantic 校验层（Request/Response 模型）────
-│   │   ├── common.py           # PageResp[T]（游标分页）、PageParams
-│   │   ├── auth.py             # LoginReq、TwoFAReq、TokenResp、AdminInfo
-│   │   ├── question.py         # 待填充（题库管理）
-│   │   ├── cognitive.py        # 待填充（五力测试题）
-│   │   ├── training.py         # 待填充（训练参数配置）
-│   │   ├── dashboard.py        # 待填充（数据看板）
-│   │   ├── user.py             # 待填充（用户管理）
-│   │   ├── audit.py            # 待填充（审计日志）
-│   │   └── system.py           # 待填充（系统参数）
+│   ├── schemas/                # ── Pydantic 校验层 ────────────────────────────
+│   │   ├── common.py           # PageResp[T]、PageParams
+│   │   ├── auth.py             # LoginReq、TokenResp、AdminInfo
+│   │   └── users.py            # 用户管理相关 Schema
 │   │
 │   ├── api/
-│   │   └── v1/admin/           # ── 路由层（prefix: /api/v1/admin）───────────
-│   │       ├── __init__.py     # 汇总注册所有子路由
-│   │       ├── auth.py         # ✅ POST /auth/login、POST /auth/logout
-│   │       ├── questions.py    # 🔲 题库管理（骨架）
-│   │       ├── cognitive.py    # 🔲 五力测试题（骨架）
-│   │       ├── training.py     # 🔲 训练参数配置（骨架）
-│   │       ├── system.py       # 🔲 系统参数 + 启发策略（骨架）
-│   │       ├── dashboard.py    # 🔲 数据看板（骨架）
-│   │       ├── users.py        # 🔲 用户管理（骨架）
-│   │       └── audit.py        # 🔲 审计日志（骨架）
+│   │   └── v1/
+│   │       ├── admin/          # ── 后台管理路由（prefix: /api/v1/admin）──────
+│   │       │   ├── __init__.py # 汇总注册
+│   │       │   ├── auth.py     # ✅ 管理员登录 / 2FA / 退出
+│   │       │   ├── users.py    # ✅ 学生/家长/管理员账号管理
+│   │       │   ├── cognitive.py# ✅ 五力测试题 CRUD + 发布/下架/软删除
+│   │       │   ├── questions.py# ✅ 题库管理（录入/模型分析/发布/驳回）
+│   │       │   ├── training.py # ✅ 五维度训练参数配置
+│   │       │   ├── system.py   # ✅ 系统参数 + 启发策略
+│   │       │   ├── dashboard.py# ✅ 数据看板
+│   │       │   └── audit.py    # ✅ 审计日志（含权限分级）
+│   │       │
+│   │       └── miniapp/        # ── 小程序端路由（prefix: /api/v1）──────────
+│   │           ├── __init__.py # 汇总注册
+│   │           ├── auth.py     # ✅ 微信登录 / 短信验证 / 绑手机 / 刷新Token / 退出 / 邀请码
+│   │           ├── profile.py  # ✅ 个人信息 / 五力画像 / 知识点练习统计
+│   │           ├── test.py     # ✅ 五力认知测试（获取题卷/提交/完成/结果轮询/历史）
+│   │           ├── training.py # ✅ 个性化训练（五维度会话/答题/错题统计/完成）
+│   │           ├── wrong_answers.py # ✅ 错题集（列表/发起AI复盘）
+│   │           ├── assistant.py     # ✅ AI助教（会话管理/发消息/历史/评分）[Mock]
+│   │           └── knowledge.py     # ✅ 知识点导航（学科/年级/知识点，自动学期过滤）
 │   │
-│   └── services/               # ── 业务逻辑层（所有规则在这里）─────────────
-│       ├── auth_service.py     # ✅ login()、logout() — 登录验证、锁定、JWT
-│       └── audit_service.py    # ✅ log() — 写 admin_audit_logs（供其他 service 调用）
+│   └── services/               # ── 业务逻辑层 ────────────────────────────────
+│       ├── auth_service.py     # ✅ 管理员登录验证、锁定、JWT
+│       ├── audit_service.py    # ✅ 写 admin_audit_logs
+│       ├── users_service.py    # ✅ 用户/家长/绑定管理、AI摘要
+│       ├── cognitive_service.py# ✅ 五力测试题业务逻辑
+│       └── questions_service.py# ✅ 题库管理（含模型分析 Mock）
 │
-├── migrations/                 # Alembic 迁移（现有 DB 已建好，此目录供未来迁移用）
-│   ├── env.py                  # async engine 配置，自动发现所有 ORM 模型
-│   └── versions/               # 迁移版本文件（当前为空）
+├── migrations/                 # Alembic 迁移（供未来新增表使用）
+│   ├── env.py
+│   └── versions/
 │
-├── tests/
-│   ├── conftest.py             # pytest fixture：fakeredis mock + async HTTP client
-│   ├── test_auth.py            # 认证接口测试（登录/退出/黑名单验证）
-│   ├── test_core.py            # 核心工具测试（密码哈希、JWT、响应格式）
-│   ├── test_health.py          # 健康检查测试
-│   ├── test_integration.py     # 端到端认证流程集成测试
-│   └── test_models.py          # ORM 模型导入和表名映射测试
-│
-└── scripts/                    # 运维脚本（待添加）
+└── tests/
+    ├── conftest.py             # pytest fixture：fakeredis + async HTTP client
+    ├── test_auth.py            # 认证接口测试
+    ├── test_core.py            # 核心工具测试
+    ├── test_health.py          # 健康检查
+    ├── test_integration.py     # 端到端集成测试
+    └── test_models.py          # ORM 模型测试
 ```
 
-> **图例：** ✅ 已完整实现 | 🔲 骨架（路由已注册，Service 待填充）
+> **图例：** ✅ 已完整实现 | [Mock] 占位实现，待接入大模型
 
 ---
 
@@ -212,308 +210,80 @@ code/manage-backend/
 ```
 ┌─────────────────────────────────────────────────────┐
 │  api 层（路由控制器）                                  │
-│  解析请求参数、校验 Token、调用 service、返回响应       │
-│  不写业务逻辑，不直接操作 DB                           │
+│  解析请求、校验 Token、调用 service、返回响应           │
 ├─────────────────────────────────────────────────────┤
 │  service 层（业务逻辑）                                │
-│  实现所有业务规则、编排多个 DB 操作、写审计日志         │
-│  不处理 HTTP 请求/响应                                 │
+│  所有业务规则、DB 操作编排、审计日志                   │
 ├─────────────────────────────────────────────────────┤
 │  model 层（ORM）                                      │
-│  定义数据库表结构，映射现有 PostgreSQL 34 张表          │
-│  不写业务逻辑                                          │
-├─────────────────────────────────────────────────────┤
-│  schema 层（Pydantic v2）                             │
-│  定义请求/响应数据结构和校验规则                       │
-│  不操作数据库                                          │
+│  映射 PostgreSQL 数据库表结构                          │
 ├─────────────────────────────────────────────────────┤
 │  core 层（基础设施）                                   │
-│  JWT、DB 连接、Redis、配置、日志、异常处理              │
-│  不写业务逻辑                                          │
+│  JWT、DB、Redis、配置、日志、异常处理                   │
 └─────────────────────────────────────────────────────┘
 ```
 
-### 请求调用链路
-
-以 `POST /api/v1/admin/auth/login` 为例：
+### 请求链路示例
 
 ```
-HTTP Request
-    ↓
-RequestLogMiddleware        记录请求日志、计算耗时
-    ↓
-CORSMiddleware              跨域检查
-    ↓
-api/v1/admin/auth.py        解析 LoginReq，调用 auth_service.login()
-    ↓
-services/auth_service.py    查询 AdminUser，验证密码，检查锁定/状态
-                            调用 create_access_token() 签发 JWT
-                            调用 audit_service.log() 写审计日志
-    ↓
-models/admin.py             SQLAlchemy ORM 执行 SELECT/UPDATE
-    ↓
-PostgreSQL (mesh_edu)
-    ↓
-schemas/auth.py             TokenResp 序列化返回数据
-    ↓
-core/response.py            ok_response() 包装为统一格式
-    ↓
-HTTP Response: {"status":"success","code":0,"msg":"登录成功","data":{...}}
-```
+# 后台管理：POST /api/v1/admin/auth/login
+HTTP Request → Middleware → api/auth.py → services/auth_service.py
+    → models/admin.py → PostgreSQL → schemas/auth.py → ok_response()
 
----
-
-## 核心模块
-
-### core 基础设施层
-
-#### `core/config.py` — 配置管理
-
-```python
-from app.core.config import get_settings
-
-settings = get_settings()
-settings.DATABASE_URL    # DB 连接串
-settings.JWT_SECRET_KEY  # JWT 密钥
-settings.APP_DEBUG       # 是否 debug 模式
-```
-
-单例模式，全局只创建一次 `Settings` 实例。
-
-#### `core/database.py` — 数据库连接
-
-```python
-from app.core.database import get_db  # 用于 FastAPI 依赖注入
-
-# 路由层用法
-async def my_route(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Model))
-```
-
-连接池：`pool_size=10, max_overflow=20`。
-
-#### `core/redis.py` — Redis 连接
-
-```python
-from app.core.redis import get_redis
-
-redis = await get_redis()
-await redis.set("key", "value", ex=300)
-await redis.get("key")
-```
-
-单例，应用启动时预热（lifespan），关闭时释放。
-
-#### `core/security.py` — 认证工具
-
-```python
-from app.core.security import (
-    hash_password,      # bcrypt 哈希
-    verify_password,    # bcrypt 验证
-    create_access_token,# 签发 JWT（HS256，8小时）
-    decode_token,       # 解码并验证 JWT，失败抛 jwt.PyJWTError
-)
-```
-
-JWT Payload 结构：
-```json
-{
-  "jti": "uuid-唯一标识",
-  "sub": "1",
-  "username": "admin",
-  "role": "SUPER_ADMIN",
-  "iat": 1234567890,
-  "exp": 1234567890,
-  "iss": "mesh-auth-service"
-}
-```
-
-#### `core/response.py` — 统一响应
-
-```python
-from app.core.response import ok, fail, error, ok_response, fail_response
-
-# 在路由中使用
-return ok_response({"id": 1}, "创建成功")          # 200
-return fail_response("LOGIN-001", "密码错误", 401)   # 401
-
-# 在 service 层构造数据时
-data = ok({"list": items, "total": 100})
-```
-
-#### `core/exceptions.py` — 异常处理
-
-```python
-from app.core.exceptions import AppException
-
-# 在 service 层抛出
-raise AppException("AUTH-001", "Token 已过期", 401)
-raise AppException("LOGIN-002", "账号已锁定", 403)
-```
-
-`AppException` 会被全局处理器捕获，自动转为统一响应格式。非业务异常（500）在 `APP_DEBUG=false` 时隐藏详情。
-
----
-
-### models ORM 模型层
-
-所有模型继承 `Base`（`DeclarativeBase`），需要时混入 `TimestampMixin`（提供 `created_at` / `updated_at`）。
-
-**软删除表（查询时必须过滤 `deleted_at IS NULL`）：**
-
-| 模型 | 表名 | 说明 |
-|------|------|------|
-| `Question` | `questions` | 训练题目 |
-| `Student` | `students` | 学生/家长账号 |
-| `ParentStudentBinding` | `parent_student_bindings` | 家长-学生绑定关系 |
-
-**使用示例：**
-
-```python
-from app.models import Question, Student, AdminUser
-
-# 查询时过滤软删除
-result = await db.execute(
-    select(Question)
-    .where(Question.deleted_at.is_(None))
-    .where(Question.status == "published")
-)
-```
-
-**数据库表一览（34 张）：**
-
-| 模型文件 | 包含模型 |
-|---------|---------|
-| `admin.py` | `AdminUser` |
-| `question.py` | `Question`、`QuestionAnalysis` |
-| `cognitive.py` | `CognitiveTestQuestion` |
-| `knowledge.py` | `Subject`、`Grade`、`Semester`、`Chapter`、`KnowledgePoint` |
-| `training.py` | `TrainingDimensionConfig`、`TrainingConfigVersion`、`TrainingSession`、`TrainingAnswerRecord` |
-| `student.py` | `Student`、`ParentStudentBinding`、`FivePowerProfile`、`FivePowerTrainingProfile`、`TestSession`、`TestAnswerRecord`、`WrongAnswerRecord`、`StudentKpStat`、`InviteCode`、`SmsCode` |
-| `ai.py` | `AiHeuristicStrategy`、`SystemConfig`、`AiChatSession`、`AiChatMessage`、`AiStrategyEvent`、`AiStudentStrategyProfile`、`AiTokenUsageLog`、`StudentAiPromptSummary`、`StudentPromptInsight`、`SystemDowngradeLog` |
-| `audit.py` | `AdminAuditLog` |
-
----
-
-### schemas 数据校验层
-
-**已完整实现：**
-
-```python
-from app.schemas.common import PageResp, PageParams
-from app.schemas.auth import LoginReq, TwoFAReq, TokenResp, AdminInfo
-
-# 分页参数（Query Params）
-class PageParams(BaseModel):
-    limit: int = 20       # 每页数量，最大 100
-    before_id: int | None # 游标 ID（上一页最后一条）
-
-# 分页响应（泛型）
-class PageResp[T](BaseModel):
-    list: list[T]
-    total: int
-    has_more: bool
-    next_cursor: int | None
-```
-
-**其余模块**（`question.py`, `cognitive.py`, `training.py`, `dashboard.py`, `user.py`, `audit.py`, `system.py`）目前为空骨架，对应业务模块实现时填充。
-
----
-
-### api 路由层
-
-所有管理后台路由前缀：`/api/v1/admin`
-
-路由注册入口：`app/api/v1/admin/__init__.py`，添加新模块时在此注册：
-
-```python
-# 示例：添加题库管理路由
-from app.api.v1.admin.questions import router as questions_router
-router.include_router(questions_router, prefix="/questions", tags=["题库管理"])
-```
-
-**路由层职责：**
-- 接收 HTTP 请求，解析 Pydantic Schema
-- 通过 `Depends(get_current_admin)` 验证 Token 和权限
-- 调用对应 Service
-- 调用 `audit_service.log()` 写审计（service 层 add，router 层 commit）
-- 返回 `ok_response()` 或 `fail_response()`
-
----
-
-### services 业务逻辑层
-
-**约定：**
-- Service 函数接收 `db: AsyncSession` 参数
-- Service 负责 `db.add()` 但**不 commit**，由路由层统一 `await db.commit()`
-- 业务校验失败抛 `AppException`
-- 写操作调用 `audit_service.log()`
-
-**添加新 Service 示例：**
-
-```python
-# app/services/question_service.py
-from sqlalchemy.ext.asyncio import AsyncSession
-from app.core.exceptions import AppException
-from app.models.question import Question
-from app.services.audit_service import log as audit_log
-
-async def create_question(db: AsyncSession, stem: str, admin_id: int) -> Question:
-    q = Question(stem=stem, status="draft", created_by=admin_id)
-    db.add(q)
-    await db.flush()  # 获取 ID，不提交
-    await audit_log(db, admin_id, "CREATE_QUESTION", "questions", str(q.id))
-    return q
-    # 路由层负责 await db.commit()
+# 小程序：POST /api/v1/auth/wx-login
+HTTP Request → api/miniapp/auth.py
+    → 调用微信 jscode2session API（获取 openid）
+    → 查询/创建 Student → 签发 7天 JWT → ok_response()
 ```
 
 ---
 
 ## 认证机制
 
-### 登录流程
+### 管理员认证（后台）
 
 ```
 POST /api/v1/admin/auth/login  { username, password }
-    ↓
-验证密码（bcrypt）
-    ↓
-检查账号状态：
-  is_active = 0 → AUTH-003（已停用）
-  is_active = 2 → LOGIN-003（首次登录需改密）
-  is_active = 1 → 继续
-    ↓
-失败 ≥ 5 次 → locked_until 设置 30 分钟 → LOGIN-002
-    ↓
-成功 → 签发 JWT → 返回 TokenResp
+    ↓ bcrypt 验证密码
+    ↓ 检查账号状态（is_active: 0=停用, 1=正常）
+    ↓ 失败 ≥ 5 次 → 锁定 30 分钟
+    ↓ 成功 → 签发 HS256 JWT（8小时）
 ```
 
-### 受保护路由
+**权限分级：**
+- `SUPER_ADMIN`：全部功能 + 管理员账号管理
+- `ADMIN`：除「管理员账号」Tab 外的全部功能
 
-所有受保护路由通过 `get_current_admin` 依赖注入验证：
+### 小程序学生认证
+
+```
+POST /api/v1/auth/wx-login  { code, nickname? }
+    ↓ 调用微信 jscode2session（code → openid）
+    ├─ 已注册 → 更新登录时间 → 签发 JWT（7天 Access + 30天 Refresh）
+    └─ 新用户 → 返回 temp_token → 引导绑定手机号
+
+POST /api/v1/auth/bind-phone-with-token
+    ↓ 验证 temp_token + 短信验证码（开发固定 123456）
+    ↓ 创建 Student 记录 → 签发正式 JWT
+```
+
+### 受保护路由依赖
 
 ```python
-from app.dependencies import get_current_admin
+# 后台路由
+from app.dependencies import get_current_admin, require_super_admin
 
-@router.get("/protected")
-async def protected_route(admin: AdminUser = Depends(get_current_admin)):
+@router.get("/admin-only")
+async def admin_route(admin: AdminUser = Depends(require_super_admin)):
+    ...
+
+# 小程序路由
+from app.dependencies import get_current_student
+
+@router.get("/profile")
+async def profile(student: Student = Depends(get_current_student)):
     ...
 ```
-
-验证链路：
-1. 解析 `Authorization: Bearer {token}` Header
-2. 验证 JWT 签名和过期时间
-3. 查询 Redis 黑名单 `blacklist:{jti}`
-4. 检查 `role == SUPER_ADMIN`
-5. 查询 AdminUser 是否存在且未停用
-
-### 退出登录
-
-```
-POST /api/v1/admin/auth/logout
-```
-
-将当前 Token 的 `jti` 写入 Redis 黑名单，TTL = Token 剩余有效期，自动过期无需手动清理。
 
 ---
 
@@ -521,82 +291,59 @@ POST /api/v1/admin/auth/logout
 
 ### 响应格式
 
-所有接口返回统一结构：
-
 ```json
 {
-  "status": "success",   // "success" | "fail" | "error"
-  "code": 0,             // 0=成功；字符串=业务错误码
+  "code": 200,
   "msg": "操作成功",
-  "data": {}             // 成功时为数据，失败时为 null
+  "data": {}
 }
 ```
 
-### 错误码体系
+失败时 `code` 为 HTTP 状态码，`data` 为 `null`。
 
-| 前缀 | 说明 | 常见示例 |
-|------|------|---------|
-| `AUTH-*` | 认证/Token | `AUTH-001`=Token 无效, `AUTH-003`=权限不足 |
-| `LOGIN-*` | 登录流程 | `LOGIN-001`=密码错误, `LOGIN-002`=账号锁定, `LOGIN-003`=需改初始密码 |
-| `BIND-*` | 家长绑定 | `BIND-002`=绑定数超限 |
-| `COGQ-*` | 五力测试题 | `COGQ-001`=题目数超上限 |
-| `SYS-*` | 系统错误 | `SYS-000`=未知异常 |
+### 错误码
 
-HTTP 状态码映射：
-- `200` 成功 | `400` 参数/业务错误 | `401` 未认证 | `403` 权限不足/锁定 | `404` 不存在 | `409` 冲突 | `429` 限流 | `500` 服务器错误
+| 前缀 | 说明 |
+|------|------|
+| `TRAIN-001` | 未完成五力测试 |
+| `TRAIN-002` | 范围内题目不足 |
+| `TRAIN-003` | 错题集为空 |
+| `COGQ-001` | 五力测试题已达上限 |
+| `BIND-002` | 绑定家长数超限 |
 
-### 分页规范
-
-**请求参数（Query Params）：**
+### 分页规范（后台管理端）
 
 ```
-?limit=20&before_id=5000
-```
-
-- `limit`：每页数量，默认 20，最大 100
-- `before_id`：上一页最后一条记录的 ID（第一页不传）
-- **禁止 OFFSET 分页**（大数据量性能差）
-
-**响应结构：**
-
-```json
-{
-  "status": "success",
-  "data": {
-    "list": [...],
-    "total": 1280,
-    "has_more": true,
-    "next_cursor": 5000
-  }
-}
+请求：?page=1&limit=20
+响应：{ list, total, page, limit, total_pages }
 ```
 
 ---
 
 ## 环境变量
 
-`.env.example` 中所有字段：
-
 ```ini
 # 数据库（必须）
 DATABASE_URL=postgresql+asyncpg://suliang@localhost:5432/mesh_edu
 
-# Redis（必须，用于 JWT 黑名单）
+# Redis
 REDIS_URL=redis://localhost:6379/0
 
-# JWT（生产环境必须修改 SECRET_KEY）
+# JWT（生产环境必须修改）
 JWT_SECRET_KEY=your-64-char-random-secret-here
 JWT_ALGORITHM=HS256
-JWT_EXPIRE_HOURS=8
+JWT_EXPIRE_HOURS=8          # 管理员 Token 有效期（小程序固定 7天/30天）
+
+# 微信小程序（小程序登录必须配置）
+WX_APPID=                   # 微信小程序 AppID
+WX_SECRET=                  # 微信小程序 AppSecret
 
 # 应用
-APP_ENV=development          # development | production
-APP_DEBUG=true               # false 时隐藏错误详情
-
-# 前端 CORS 白名单（JSON 数组格式）
+APP_ENV=development
+APP_DEBUG=true
 CORS_ORIGINS=["http://localhost:5174"]
 
-# 数据看板 Redis 缓存 TTL（秒）
+# 看板缓存
 DASHBOARD_CACHE_TTL=300
 ```
 
@@ -605,11 +352,8 @@ DASHBOARD_CACHE_TTL=300
 ## 数据库
 
 - **数据库名：** `mesh_edu`
-- **用户：** `suliang`
-- **连接：** `localhost:5432`
-- **状态：** 已建好（34 张表，含种子数据）
-
-后端通过 SQLAlchemy 2.0 async 连接，不使用 Alembic 管理现有表结构。`migrations/versions/` 目录供未来新增表时使用。
+- **用户：** `suliang` / **端口：** `5432`
+- **状态：** 已建好（含全部表结构和种子数据）
 
 ```bash
 # 连接数据库
@@ -617,10 +361,9 @@ psql -U suliang -d mesh_edu
 
 # 查看所有表
 \dt
-
-# 检查现有迁移状态
-uv run alembic current
 ```
+
+> 后端通过 SQLAlchemy 2.0 async 连接。`migrations/versions/` 供未来新增表时使用，现有表不通过 Alembic 管理。
 
 ---
 
@@ -630,160 +373,118 @@ uv run alembic current
 # 运行全部测试
 uv run pytest tests/ -v
 
-# 运行特定测试
+# 运行特定模块
 uv run pytest tests/test_auth.py -v
-
-# 查看覆盖率
-uv run pytest tests/ --tb=short
 ```
 
-**测试约定：**
-- 使用 `fakeredis` mock Redis（`conftest.py` 中自动注入，无需真实 Redis）
-- 需要真实 PostgreSQL（`mesh_edu`）连接
-- 所有测试共享 session 级 event loop（避免 asyncpg 连接池问题）
-- 测试文件以 `test_` 开头，测试函数以 `async def test_` 开头
+**约定：**
+- 使用 `fakeredis` mock Redis（`conftest.py` 自动注入，无需真实 Redis）
+- 需要真实 PostgreSQL 连接（`mesh_edu`）
+- 所有测试函数以 `async def test_` 开头
 
 ---
 
 ## 代码规范
 
 ```bash
-# 检查（lint + import 排序）
-uv run ruff check app/ tests/
-
-# 自动修复
-uv run ruff check app/ tests/ --fix
-
-# 格式化
-uv run ruff format app/ tests/
-
-# 类型检查
-uv run mypy app/
+uv run ruff check app/ tests/ --fix   # lint + 自动修复
+uv run ruff format app/ tests/        # 格式化
+uv run mypy app/                      # 类型检查
 ```
-
-**规范要点：**
-- 行宽 100 字符
-- Python 3.13+ 类型注解（`str | None` 而非 `Optional[str]`）
-- import 按 stdlib → third-party → local 分组排序
-- 禁止裸 `except:` 和未使用的 import
 
 ---
 
 ## 已实现接口
 
-| 方法 | 路径 | 说明 | 认证 |
-|------|------|------|------|
-| `GET` | `/health` | 服务健康检查 | 无 |
-| `POST` | `/api/v1/admin/auth/login` | 管理员登录，返回 JWT | 无 |
-| `POST` | `/api/v1/admin/auth/logout` | 退出登录，撤销 Token | 需要 |
+### 后台管理（`/api/v1/admin/`）
 
----
+| 模块 | 接口数 | 说明 |
+|------|--------|------|
+| 认证 | 3 | 登录 / 2FA / 退出 |
+| 用户管理 | 11 | 学生/家长/管理员 CRUD + 绑定解绑 + 知识点统计 + AI摘要 |
+| 题库管理 | 8 | 录入/模型分析/发布/驳回（Mock AI）|
+| 五力测试题 | 5 | 列表/新增/编辑/状态变更/软删除 |
+| 训练配置 | 5 | 五维度参数版本化管理 |
+| 系统参数 | 4 | 参数热更新 + 启发策略管理 |
+| 数据看板 | 3 | 统计指标（Mock 数据）|
+| 审计日志 | 1 | 权限分级查询 |
 
-## 待实现模块
+### 小程序端（`/api/v1/`）
 
-以下模块路由骨架已注册，Service 层待填充：
-
-| 模块 | 路由前缀 | 接口文档章节 |
-|------|---------|------------|
-| 题库管理 | `/api/v1/admin/questions` | §9.1 |
-| 五力测试题维护 | `/api/v1/admin/cognitive-questions` | §9.3 |
-| 训练参数配置 | `/api/v1/admin/training` | §9.4 |
-| 系统参数 + 启发策略 | `/api/v1/admin/system-configs` | §9.5、§9.6 |
-| 数据看板 | `/api/v1/admin/dashboard` | §9.7 |
-| 用户管理 | `/api/v1/admin/students`、`/parents`、`/admin-users` | §9.8 |
-| 审计日志 | `/api/v1/admin/audit-logs` | §9.9 |
-
-**添加新模块步骤：**
-1. 在 `app/schemas/{module}.py` 填充 Pydantic Schema
-2. 在 `app/services/{module}_service.py` 实现业务逻辑
-3. 在 `app/api/v1/admin/{module}.py` 填充路由处理函数
-4. 在 `app/api/v1/admin/__init__.py` 取消注释对应路由注册
+| 模块 | 接口数 | 说明 |
+|------|--------|------|
+| 认证 | 6 | 微信登录 / 短信 / 绑手机 / 刷新Token / 退出 / 邀请码 |
+| 个人信息 | 3 | 获取/更新信息 / 五力画像 / 知识点统计 |
+| 知识导航 | 3 | 学科/年级/知识点（自动学期过滤）|
+| 五力测试 | 5 | 题卷/答题/评分/结果轮询/历史 |
+| 训练 | 6 | 五维度选题 / 答题 / RAG（Mock）/ 完成 / 错题统计 |
+| 错题集 | 2 | 列表 / 发起AI复盘 |
+| AI助教 | 6 | 会话管理 / 发消息（Mock）/ 历史 / 评分 / 结束 |
 
 ---
 
 ## AI 大模型集成
 
-### 当前方案（手动分析）
+### 当前状态（Mock 占位）
 
-开发阶段题库 AI 分析功能采用**手动方式**：将题干交给 Claude 等大模型分析，手动将结果填入审核页面。数据库结构、接口格式、前端页面已按自动分析流程设计，切换成本极低。
+以下功能已搭建接口框架，返回占位数据，待接入大模型后替换：
 
-### 切换为自动分析（接入 Anthropic API）
+| 功能 | 文件 | 替换位置 |
+|------|------|---------|
+| 题干模型分析 | `services/questions_service.py` | `analyze()` 函数 |
+| 训练 RAG 解题引导 | `api/v1/miniapp/training.py` | `get_rag_status()` |
+| AI助教对话回复 | `api/v1/miniapp/assistant.py` | `send_message()` |
+| 五力测试评分 | `api/v1/miniapp/test.py` | `complete_test()` |
+
+### 接入 Anthropic API
 
 **第一步：获取 API Key**
 
 前往 [console.anthropic.com](https://console.anthropic.com) 注册并创建 API Key。
 
-**第二步：配置环境变量**
-
-在 `.env` 中添加：
-
-```env
-ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxxxxx
-ANTHROPIC_MODEL=claude-opus-4-6          # 可选，默认使用最新模型
-```
-
-**第三步：安装 SDK**
+**第二步：配置**
 
 ```bash
+# .env 中添加
+ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxxxxx
+ANTHROPIC_MODEL=claude-opus-4-6
+
+# 安装 SDK
 uv add anthropic
 ```
 
-**第四步：实现 analyze Service**
+**第三步：替换 Mock 实现**
 
-在 `app/services/questions_service.py` 中实现 `analyze` 函数：
+以题库分析为例：
 
 ```python
-import anthropic
+# app/services/questions_service.py
+import anthropic, json
 
 async def analyze(db: AsyncSession, question_id: int, operator_id: int):
-    """调用 Claude API 分析题干，写入 question_analyses 表"""
     settings = get_settings()
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-
-    # 1. 查题目
     question = await db.get(Question, question_id)
 
-    # 2. 构造 Prompt
-    prompt = f"""
-    请分析以下题目，返回 JSON 格式：
-    题目：{question.stem}
-
-    返回字段：subject（科目）、grade（年级）、difficulty（basic/advanced/challenge）、
-    question_type、answer、solution、typical_error、
-    five_power_weights（INSIGHT/CONSTRUCT/DEDUCE/ADAPT/MIGRATE，整数合计10）
-    """
-
-    # 3. 调用 API
     message = client.messages.create(
         model=settings.ANTHROPIC_MODEL,
         max_tokens=1024,
-        messages=[{"role": "user", "content": prompt}]
+        messages=[{
+            "role": "user",
+            "content": f"分析题目：{question.stem}\n返回JSON含：subject、grade、difficulty、five_power_weights（整数合计10）..."
+        }]
     )
-
-    # 4. 解析结果写入数据库
     result = json.loads(message.content[0].text)
-    analysis = QuestionAnalysis(question_id=question_id, **result)
-    db.add(analysis)
-    question.status = 'pending_review'
-    await db.flush()
+    # 写入 question_analyses 表...
 ```
 
-**第五步：注册路由**
+### 切换其他大模型
 
-在 `app/api/v1/admin/questions.py` 中取消注释 `POST /questions/{id}/analyze` 路由即可。
-
----
-
-### 切换其他大模型（OpenAI / 国产模型）
-
-只需修改 `analyze` 函数中的客户端初始化部分，Service 接口签名和数据库写入逻辑无需改动：
-
-| 模型 | SDK | 替换位置 |
-|------|-----|---------|
-| OpenAI GPT | `openai` | `client = OpenAI(api_key=...)` |
-| 阿里通义千问 | `openai`（兼容接口） | `base_url="https://dashscope.aliyuncs.com/..."` |
-| 字节豆包 | `openai`（兼容接口） | `base_url="https://ark.cn-beijing.volces.com/..."` |
-| 自部署 Ollama | `ollama` | `client = ollama.Client(host=...)` |
+| 模型 | 替换方式 |
+|------|---------|
+| OpenAI GPT | `client = openai.AsyncOpenAI(api_key=...)` |
+| 阿里通义千问 | OpenAI 兼容接口，`base_url="https://dashscope.aliyuncs.com/..."` |
+| 字节豆包 | OpenAI 兼容接口，`base_url="https://ark.cn-beijing.volces.com/..."` |
 
 ---
 
