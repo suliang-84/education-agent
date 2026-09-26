@@ -72,8 +72,10 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 # 注册路由
 from app.api.v1.admin import router as admin_router  # noqa: E402
+from app.api.v1.miniapp import router as miniapp_router  # noqa: E402
 
 app.include_router(admin_router, prefix="/api/v1/admin")
+app.include_router(miniapp_router, prefix="/api/v1")
 
 
 @app.get("/health", tags=["健康检查"])

@@ -7,8 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.exceptions import AppException
 from app.core.redis import get_redis
-from app.core.security import decode_token
+from app.core.security import decode_token, decode_student_token
 from app.models.admin import AdminUser
+from app.models.student import Student
 
 security = HTTPBearer()
 
@@ -58,3 +59,34 @@ async def require_super_admin(
     if current_admin.role != "SUPER_ADMIN":
         raise AppException("该操作仅超级管理员可执行", 403)
     return current_admin
+
+
+async def get_current_student(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: AsyncSession = Depends(get_db),
+) -> Student:
+    """小程序端学生/家长身份验证"""
+    token = credentials.credentials
+    try:
+        payload = decode_student_token(token)
+    except jwt.ExpiredSignatureError:
+        raise AppException("Token 已过期，请重新登录", 401)
+    except jwt.PyJWTError:
+        raise AppException("Token 无效", 401)
+
+    # 黑名单检查
+    redis = await get_redis()
+    jti = payload.get("jti", "")
+    if await redis.get(f"blacklist:{jti}"):
+        raise AppException("Token 已撤销", 401)
+
+    # token_type=refresh 不能访问业务接口
+    if payload.get("token_type") == "refresh":
+        raise AppException("请使用 access_token", 401)
+
+    student_id = int(payload["sub"])
+    result = await db.execute(select(Student).where(Student.id == student_id))
+    student = result.scalar_one_or_none()
+    if not student or not student.is_active or student.deleted_at:
+        raise AppException("账号不存在或已停用", 401)
+    return student

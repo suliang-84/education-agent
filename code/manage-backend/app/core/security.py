@@ -40,3 +40,43 @@ def decode_token(token: str) -> dict:
         algorithms=[settings.JWT_ALGORITHM],
         options={"require": ["jti", "sub", "role", "exp"]},
     )
+
+
+def decode_student_token(token: str) -> dict:
+    """解码学生/家长 JWT（不要求 role 字段）"""
+    return jwt.decode(
+        token,
+        settings.JWT_SECRET_KEY,
+        algorithms=[settings.JWT_ALGORITHM],
+        options={"require": ["jti", "sub", "exp"]},
+    )
+
+
+def create_student_access_token(student_id: int, user_type: str = "STUDENT") -> str:
+    import uuid
+
+    now = datetime.now(UTC)
+    payload = {
+        "jti": str(uuid.uuid4()),
+        "sub": str(student_id),
+        "user_type": user_type,
+        "iat": now,
+        "exp": now + timedelta(days=7),
+        "iss": "mesh-auth-service",
+    }
+    return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+
+
+def create_student_refresh_token(student_id: int) -> str:
+    import uuid
+
+    now = datetime.now(UTC)
+    payload = {
+        "jti": str(uuid.uuid4()),
+        "sub": str(student_id),
+        "token_type": "refresh",
+        "iat": now,
+        "exp": now + timedelta(days=30),
+        "iss": "mesh-auth-service",
+    }
+    return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)

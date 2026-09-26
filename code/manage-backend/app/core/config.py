@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     # Dashboard cache TTL
     DASHBOARD_CACHE_TTL: int = 300
 
+    # WeChat miniprogram
+    WX_APPID: str = ""
+    WX_SECRET: str = ""
+
 
 _settings: Settings | None = None
 
