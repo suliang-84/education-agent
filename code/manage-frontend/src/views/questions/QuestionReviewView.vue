@@ -369,17 +369,20 @@ const powers = ['INSIGHT', 'CONSTRUCT', 'DEDUCE', 'ADAPT', 'MIGRATE'] as const
 // ── 知识体系树（用于下拉选项）────────────────────────────────
 const allNodes = ref<KnowledgeTreeNode[]>([])
 
+// 使用树原始结构（有父子关系），不用扁平 map，避免 ID 冲突
+const rawTree = ref<KnowledgeTreeNode[]>([])
+
 const subjectOptions = computed(() =>
-  allNodes.value.filter(n => n.type === 'subject').map(n => ({ id: n.id, name: n.name }))
+  rawTree.value.map(n => ({ id: n.id, name: n.name }))
 )
 const gradeOptions = computed(() => {
   if (!form.subject_id) return []
-  const sub = allNodes.value.find(n => n.type === 'subject' && n.id === form.subject_id)
+  const sub = rawTree.value.find(n => n.id === form.subject_id)
   return (sub?.children ?? []).map(n => ({ id: n.id, name: n.name }))
 })
 const semesterOptions = computed(() => {
   if (!form.grade_id) return []
-  const sub = allNodes.value.find(n => n.type === 'subject' && n.id === form.subject_id)
+  const sub = rawTree.value.find(n => n.id === form.subject_id)
   const grade = (sub?.children ?? []).find(n => n.id === form.grade_id)
   return (grade?.children ?? []).map(n => ({ id: n.id, name: n.name }))
 })
@@ -501,7 +504,7 @@ onMounted(async () => {
       knowledgeTreeApi.getTree(),
     ])
 
-    // 展平树节点供下拉使用
+    rawTree.value = treeRes.tree
     allNodes.value = flattenTree(treeRes.tree)
 
     question.value = raw
