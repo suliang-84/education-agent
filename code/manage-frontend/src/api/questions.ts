@@ -100,7 +100,7 @@ export const questionApi = {
    * 接口文档：§9.1.4
    */
   getOne: (questionId: number) =>
-    request.get<unknown, Question>(`/questions/${questionId}`),
+    request.get<unknown, Question & { latest_analysis: Record<string, any> | null }>(`/questions/${questionId}`),
 
   /**
    * 录入题干（创建题目）—— 仅需 stem + 可选 image_url

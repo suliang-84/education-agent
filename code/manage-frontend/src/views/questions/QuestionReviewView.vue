@@ -64,31 +64,28 @@
           <el-row :gutter="20">
             <el-col :span="5">
               <el-form-item label="科目">
-                <el-select v-model="form.subject" :disabled="!isEditable" style="width:100%">
-                  <el-option label="数学" value="数学" />
-                  <el-option label="物理" value="物理" />
-                  <el-option label="化学" value="化学" />
+                <el-select v-model="form.subject_id" :disabled="!isEditable" style="width:100%" @change="onSubjectChange">
+                  <el-option v-for="s in subjectOptions" :key="s.id" :label="s.name" :value="s.id" />
                 </el-select>
               </el-form-item>
             </el-col>
             <el-col :span="5">
               <el-form-item label="年级">
-                <el-select v-model="form.grade" :disabled="!isEditable" style="width:100%">
-                  <el-option v-for="g in grades" :key="g" :label="g" :value="g" />
+                <el-select v-model="form.grade_id" :disabled="!isEditable" style="width:100%" @change="onGradeChange">
+                  <el-option v-for="g in gradeOptions" :key="g.id" :label="g.name" :value="g.id" />
                 </el-select>
               </el-form-item>
             </el-col>
             <el-col :span="5">
               <el-form-item label="学期">
-                <el-select v-model="form.semester" :disabled="!isEditable" style="width:100%">
-                  <el-option label="上学期" value="上学期" />
-                  <el-option label="下学期" value="下学期" />
+                <el-select v-model="form.semester_id" :disabled="!isEditable" style="width:100%">
+                  <el-option v-for="s in semesterOptions" :key="s.id" :label="s.name" :value="s.id" />
                 </el-select>
               </el-form-item>
             </el-col>
             <el-col :span="9">
               <el-form-item label="单元">
-                <el-input v-model="form.chapter" :disabled="!isEditable" placeholder="如：第三章 方程与方程组" />
+                <el-input v-model="form.chapter_name" :disabled="!isEditable" placeholder="如：第三章 方程与方程组" />
               </el-form-item>
             </el-col>
           </el-row>
@@ -322,11 +319,6 @@
             </div>
           </el-form-item>
 
-          <!-- 保存修改按钮（仅 pending_review 状态） -->
-          <div v-if="isEditable" style="display:flex;justify-content:flex-end;padding-top:8px">
-            <el-button type="primary" :loading="saving" @click="handleSaveAnalysis">保存修改</el-button>
-          </div>
-
         </el-form>
       </div>
 
@@ -358,8 +350,8 @@
 import { ref, reactive, computed, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { questionApi } from '@/api'
-import type { Question, QuestionStatus, QuestionType, FivePower, Difficulty } from '@/types'
+import { questionApi, knowledgeTreeApi, type KnowledgeTreeNode } from '@/api/questions'
+import type { QuestionStatus, QuestionType, FivePower, Difficulty } from '@/types'
 import { QuestionStatusLabels, FivePowerLabels } from '@/types'
 
 const route  = useRoute()
@@ -367,14 +359,40 @@ const router = useRouter()
 
 const loading = ref(false)
 const saving  = ref(false)
-const question = ref<Question | null>(null)
+const question = ref<any>(null)
 
 const rejectDialogVisible = ref(false)
 const rejectReason = ref('')
 
 const powers = ['INSIGHT', 'CONSTRUCT', 'DEDUCE', 'ADAPT', 'MIGRATE'] as const
-const grades = ['七年级', '八年级', '九年级', '高一', '高二', '高三']
 
+// ── 知识体系树（用于下拉选项）────────────────────────────────
+const allNodes = ref<KnowledgeTreeNode[]>([])
+
+const subjectOptions = computed(() =>
+  allNodes.value.filter(n => n.type === 'subject').map(n => ({ id: n.id, name: n.name }))
+)
+const gradeOptions = computed(() => {
+  if (!form.subject_id) return []
+  const sub = allNodes.value.find(n => n.type === 'subject' && n.id === form.subject_id)
+  return (sub?.children ?? []).map(n => ({ id: n.id, name: n.name }))
+})
+const semesterOptions = computed(() => {
+  if (!form.grade_id) return []
+  const sub = allNodes.value.find(n => n.type === 'subject' && n.id === form.subject_id)
+  const grade = (sub?.children ?? []).find(n => n.id === form.grade_id)
+  return (grade?.children ?? []).map(n => ({ id: n.id, name: n.name }))
+})
+
+function onSubjectChange() {
+  form.grade_id = null
+  form.semester_id = null
+}
+function onGradeChange() {
+  form.semester_id = null
+}
+
+// ── 页面标题 / 可编辑状态 ─────────────────────────────────────
 const isEditable = computed(() => question.value?.status === 'pending_review')
 
 const pageTitle = computed(() => {
@@ -396,33 +414,31 @@ const answerTypeHint = computed(() => {
   return form.question_type ? map[form.question_type as QuestionType] : ''
 })
 
-// ── 可编辑表单 ───────────────────────────────────────────────
+// ── 可编辑表单（使用 ID）────────────────────────────────────
 const form = reactive({
-  subject:            '' as string,
-  grade:              '' as string,
-  semester:           '' as string,
-  chapter:            '' as string,
-  knowledge_points:   [] as string[],
-  question_type:      'APPLICATION' as QuestionType,
-  difficulty:         'basic' as Difficulty,
-  // 答案各题型分开存储，保存时按 question_type 聚合
-  answer_single:      'A' as string,
-  answer_multi:       [] as string[],
-  answer_blanks:      [''] as string[],
-  answer_tf:          true as boolean,
-  answer_final:       '' as string,
-  answer_steps:       [''] as string[],
-  // 其余分析字段
-  solution:           '' as string,
-  typical_error:      '' as string,
-  five_power_weights:  { INSIGHT: 2, CONSTRUCT: 5, DEDUCE: 2, ADAPT: 1, MIGRATE: 0 } as Record<FivePower, number>,
-  five_power_thoughts: { INSIGHT: '', CONSTRUCT: '', DEDUCE: '', ADAPT: '', MIGRATE: '' } as Record<FivePower, string>,
+  subject_id:           null as number | null,
+  grade_id:             null as number | null,
+  semester_id:          null as number | null,
+  chapter_id:           null as number | null,
+  chapter_name:         '' as string,
+  knowledge_points:     [] as string[],
+  question_type:        'APPLICATION' as QuestionType,
+  difficulty:           'basic' as Difficulty,
+  answer_single:        'A' as string,
+  answer_multi:         [] as string[],
+  answer_blanks:        [''] as string[],
+  answer_tf:            true as boolean,
+  answer_final:         '' as string,
+  answer_steps:         [''] as string[],
+  solution:             '' as string,
+  typical_error:        '' as string,
+  five_power_weights:   { INSIGHT: 2, CONSTRUCT: 5, DEDUCE: 2, ADAPT: 1, MIGRATE: 0 } as Record<FivePower, number>,
+  five_power_thoughts:  { INSIGHT: '', CONSTRUCT: '', DEDUCE: '', ADAPT: '', MIGRATE: '' } as Record<FivePower, string>,
   migration_directions: [] as string[],
 })
 
 const weightTotal = computed(() => Object.values(form.five_power_weights).reduce((s, v) => s + v, 0))
 
-// 切换题型时重置答案
 function onQuestionTypeChange() {
   form.answer_single = 'A'
   form.answer_multi  = []
@@ -432,22 +448,19 @@ function onQuestionTypeChange() {
   form.answer_steps  = ['']
 }
 
-// 从 Question.answer 反序列化到各字段
-function deserializeAnswer(q: Question) {
-  const a = q.answer
-  if (!a) return
-  form.question_type = a.type as QuestionType
-  if (a.type === 'SINGLE_CHOICE')   form.answer_single = a.correct
-  if (a.type === 'MULTIPLE_CHOICE') form.answer_multi  = [...a.correct]
-  if (a.type === 'FILL_BLANK')      form.answer_blanks = a.correct.length ? [...a.correct] : ['']
-  if (a.type === 'TRUE_FALSE')      form.answer_tf     = a.correct
-  if (a.type === 'APPLICATION') {
-    form.answer_final = a.final_answer
-    form.answer_steps = a.key_steps.length ? [...a.key_steps] : ['']
+function deserializeAnswer(answer: any) {
+  if (!answer) return
+  form.question_type = answer.type as QuestionType
+  if (answer.type === 'SINGLE_CHOICE')   form.answer_single = answer.correct
+  if (answer.type === 'MULTIPLE_CHOICE') form.answer_multi  = [...(answer.correct ?? [])]
+  if (answer.type === 'FILL_BLANK')      form.answer_blanks = answer.correct?.length ? [...answer.correct] : ['']
+  if (answer.type === 'TRUE_FALSE')      form.answer_tf     = answer.correct
+  if (answer.type === 'APPLICATION') {
+    form.answer_final = answer.final_answer ?? ''
+    form.answer_steps = answer.key_steps?.length ? [...answer.key_steps] : ['']
   }
 }
 
-// 序列化答案为后端格式
 function serializeAnswer() {
   const t = form.question_type
   if (t === 'SINGLE_CHOICE')   return { type: t, correct: form.answer_single }
@@ -483,51 +496,64 @@ function addMigrationDir() {
 onMounted(async () => {
   loading.value = true
   try {
-    const q = await questionApi.getOne(Number(route.params.id))
-    question.value = q
-    form.subject            = q.subject ?? ''
-    form.grade              = q.grade ?? ''
-    form.semester           = q.semester ?? '上学期'
-    form.chapter            = q.chapter ?? ''
-    form.knowledge_points   = q.knowledge_points ? [...q.knowledge_points] : []
-    form.question_type      = (q.question_type ?? 'APPLICATION') as QuestionType
-    form.difficulty         = q.difficulty ?? 'basic'
-    form.solution           = q.solution ?? ''
-    form.typical_error      = q.typical_error ?? ''
-    form.migration_directions = q.migration_directions ? [...q.migration_directions] : []
-    if (q.five_power_weights)  Object.assign(form.five_power_weights, q.five_power_weights)
-    if (q.five_power_thoughts) Object.assign(form.five_power_thoughts, q.five_power_thoughts)
-    deserializeAnswer(q)
+    const [raw, treeRes] = await Promise.all([
+      questionApi.getOne(Number(route.params.id)),
+      knowledgeTreeApi.getTree(),
+    ])
+
+    // 展平树节点供下拉使用
+    allNodes.value = flattenTree(treeRes.tree)
+
+    question.value = raw
+    const ana = (raw as any).latest_analysis
+
+    // 优先使用 latest_analysis 的 ai_* 字段，回退到题目已确认字段
+    form.subject_id          = ana?.ai_subject_id  ?? (raw as any).subject_id  ?? null
+    form.grade_id            = ana?.ai_grade_id    ?? (raw as any).grade_id    ?? null
+    form.semester_id         = ana?.ai_semester_id ?? (raw as any).semester_id ?? null
+    form.chapter_id          = ana?.ai_chapter_id  ?? (raw as any).chapter_id  ?? null
+    form.chapter_name        = ''
+    form.knowledge_points    = [...(ana?.ai_knowledge_point_ids ?? (raw as any).knowledge_point_ids ?? [])].map(String)
+    form.question_type       = (ana?.ai_question_type ?? (raw as any).question_type ?? 'APPLICATION') as QuestionType
+    form.difficulty          = (ana?.ai_difficulty   ?? (raw as any).difficulty   ?? 'basic') as Difficulty
+    form.solution            = ana?.ai_solution      ?? (raw as any).solution      ?? ''
+    form.typical_error       = ana?.ai_common_error  ?? (raw as any).common_error  ?? ''
+    form.migration_directions = [...(ana?.ai_transfer_directions ?? (raw as any).transfer_direction ?? [])]
+
+    if (ana?.ai_five_power_weights)
+      Object.assign(form.five_power_weights, ana.ai_five_power_weights)
+    else if ((raw as any).five_power_weights)
+      Object.assign(form.five_power_weights, (raw as any).five_power_weights)
+
+    if (ana?.ai_power_solutions)
+      Object.assign(form.five_power_thoughts, ana.ai_power_solutions)
+    else if ((raw as any).power_solutions)
+      Object.assign(form.five_power_thoughts, (raw as any).power_solutions)
+
+    deserializeAnswer(ana?.ai_answer ?? (raw as any).answer)
   } finally { loading.value = false }
 })
 
-// ── 保存修改 ─────────────────────────────────────────────────
-async function handleSaveAnalysis() {
-  saving.value = true
-  try {
-    await questionApi.update(Number(route.params.id), {
-      subject:              form.subject,
-      grade:                form.grade,
-      semester:             form.semester,
-      chapter:              form.chapter,
-      knowledge_points:     [...form.knowledge_points],
-      question_type:        form.question_type,
-      answer:               serializeAnswer(),
-      difficulty:           form.difficulty,
-      solution:             form.solution,
-      typical_error:        form.typical_error,
-      five_power_weights:   { ...form.five_power_weights },
-      five_power_thoughts:  { ...form.five_power_thoughts },
-      migration_directions: [...form.migration_directions],
-    })
-    ElMessage.success('修改已保存')
-  } finally { saving.value = false }
+function flattenTree(nodes: KnowledgeTreeNode[]): KnowledgeTreeNode[] {
+  const result: KnowledgeTreeNode[] = []
+  function walk(arr: KnowledgeTreeNode[]) {
+    for (const n of arr) {
+      result.push(n)
+      if (n.children?.length) walk(n.children)
+    }
+  }
+  walk(nodes ?? [])
+  return result
 }
 
 // ── 发布 ─────────────────────────────────────────────────────
 async function handlePublish() {
   if (weightTotal.value !== 10) {
     ElMessage.warning('五力权重合计必须等于10分，请调整后再发布')
+    return
+  }
+  if (!form.subject_id || !form.grade_id || !form.semester_id) {
+    ElMessage.warning('请选择科目、年级和学期')
     return
   }
   await ElMessageBox.confirm(
@@ -537,17 +563,22 @@ async function handlePublish() {
   )
   saving.value = true
   try {
-    await questionApi.update(Number(route.params.id), {
-      subject: form.subject, grade: form.grade, semester: form.semester, chapter: form.chapter,
-      knowledge_points: [...form.knowledge_points], question_type: form.question_type,
-      answer: serializeAnswer(), difficulty: form.difficulty,
-      solution: form.solution, typical_error: form.typical_error,
-      five_power_weights: { ...form.five_power_weights },
-      five_power_thoughts: { ...form.five_power_thoughts },
-      migration_directions: [...form.migration_directions],
+    await questionApi.publish(Number(route.params.id), {
+      subject_id:          form.subject_id!,
+      grade_id:            form.grade_id!,
+      semester_id:         form.semester_id!,
+      chapter_id:          form.chapter_id ?? undefined as any,
+      knowledge_point_ids: [],
+      question_type:       form.question_type,
+      answer:              serializeAnswer() as any,
+      difficulty:          form.difficulty,
+      solution:            form.solution,
+      common_error:        form.typical_error,
+      power_solutions:     { ...form.five_power_thoughts },
+      five_power_weights:  { ...form.five_power_weights },
+      transfer_directions: [...form.migration_directions],
     })
-    await questionApi.publish(Number(route.params.id))
-    ElMessage.success('题目已发布，向量化任务已提交')
+    ElMessage.success('题目已发布')
     router.push('/questions')
   } finally { saving.value = false }
 }
@@ -613,7 +644,6 @@ async function handleReject() {
   &--archived       { background: var(--bg-muted);    color: var(--text-3); border-color: var(--border-hover); }
 }
 
-// 小节标题
 .sub-section-title {
   font-size: 12px;
   font-weight: 700;
@@ -636,7 +666,6 @@ async function handleReject() {
   letter-spacing: 0;
 }
 
-// ── 答案区块 ─────────────────────────────────────────────────
 .answer-block {
   background: var(--bg-muted);
   border-radius: var(--r-lg);
@@ -650,7 +679,6 @@ async function handleReject() {
   margin-top: 6px;
 }
 
-// 填空题多空
 .fill-blank-answers {
   display: flex;
   flex-direction: column;
@@ -670,7 +698,6 @@ async function handleReject() {
   white-space: nowrap;
 }
 
-// 应用题步骤
 .key-steps {
   display: flex;
   flex-direction: column;
@@ -697,7 +724,6 @@ async function handleReject() {
   flex-shrink: 0;
 }
 
-// 五力权重合计
 .weight-total {
   font-size: 12px;
   font-weight: 600;
@@ -708,7 +734,6 @@ async function handleReject() {
   &--err { background: var(--red-dim);   color: var(--red); }
 }
 
-// 五力权重输入网格
 .power-weights-grid {
   display: flex;
   gap: 16px;

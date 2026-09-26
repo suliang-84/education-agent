@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, Integer, SmallInteger, String, Text
+from sqlalchemy import BigInteger, Boolean, DateTime, Integer, SmallInteger, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -31,10 +31,10 @@ class Question(Base, TimestampMixin):
     analysis_round: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
     rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     embedding_status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
-    embedded_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    embedded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_seed_data: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_by: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
-    deleted_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class QuestionAnalysis(Base, TimestampMixin):
