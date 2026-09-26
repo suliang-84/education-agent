@@ -188,9 +188,9 @@
             <!-- 归属：五级体系（科目·年级·学期） -->
             <el-table-column label="归属" width="150">
               <template #default="{ row }">
-                <span v-if="row.subject" style="font-size:12.5px;color:var(--text-2);line-height:1.6">
-                  {{ row.subject }} · {{ row.grade }}<br>
-                  <span style="color:var(--text-3);font-size:11.5px">{{ row.semester }} · {{ row.chapter }}</span>
+                <span v-if="row.subject_id" style="font-size:12.5px;color:var(--text-2);line-height:1.6">
+                  {{ nodeName(row.subject_id) }} · {{ nodeName(row.grade_id) }}<br>
+                  <span style="color:var(--text-3);font-size:11.5px">{{ nodeName(row.semester_id) }}</span>
                 </span>
                 <span v-else style="font-size:12px;color:var(--text-3)">待分析</span>
               </template>
@@ -331,6 +331,22 @@ async function loadKnowledgeTree() {
 }
 
 const allCount = computed(() => total.value)
+
+// ── 知识体系 ID → 名称映射 ────────────────────────────────────
+const nodeNameById = computed<Record<number, string>>(() => {
+  const map: Record<number, string> = {}
+  function walk(nodes: KnowledgeTreeNode[]) {
+    for (const n of nodes) {
+      map[n.id] = n.name
+      if (n.children?.length) walk(n.children)
+    }
+  }
+  walk(knowledgeTree.value)
+  return map
+})
+function nodeName(id: number | null | undefined): string {
+  return id ? (nodeNameById.value[id] ?? '') : ''
+}
 
 // ── 树选择操作 ───────────────────────────────────────────────
 function clearTreeFilter() {

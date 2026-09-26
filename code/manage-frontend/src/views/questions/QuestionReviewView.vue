@@ -327,7 +327,7 @@
     <!-- ── 驳回弹窗 ── -->
     <el-dialog v-model="rejectDialogVisible" title="填写驳回意见" width="540px" :close-on-click-modal="false">
       <div style="font-size:13.5px;color:var(--text-2);margin-bottom:14px;line-height:1.6">
-        驳回意见将连同原始题干一起提交给大模型，系统将自动触发第 {{ (question?.analysis_round || 1) + 1 }} 次分析。
+        驳回后题目将回到草稿状态，驳回意见会保存。返回列表后手动点击「AI 分析」，驳回意见将自动携带给大模型。
       </div>
       <el-input
         v-model="rejectReason"
@@ -338,7 +338,7 @@
       <template #footer>
         <el-button @click="rejectDialogVisible = false">取消</el-button>
         <el-button type="danger" :loading="saving" :disabled="!rejectReason.trim()" @click="handleReject">
-          提交驳回并重新分析
+          提交驳回
         </el-button>
       </template>
     </el-dialog>
@@ -595,7 +595,7 @@ async function handleReject() {
   try {
     await questionApi.reject(Number(route.params.id), { rejection_reason: rejectReason.value })
     rejectDialogVisible.value = false
-    ElMessage.success('驳回成功，大模型重新分析任务已提交')
+    ElMessage.success('驳回成功，题目已回到草稿状态，请返回列表手动触发重新分析')
     router.push('/questions')
   } finally { saving.value = false }
 }

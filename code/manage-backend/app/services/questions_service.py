@@ -185,18 +185,39 @@ async def analyze(db: AsyncSession, question_id: int, operator_id: int) -> Quest
         if api_key:
             import anthropic, json
             client = anthropic.Anthropic(api_key=api_key)
+            if q.rejection_reason:
+                user_content = f"请重新分析以下题目（上次驳回意见：{q.rejection_reason}）：\n\n{q.stem}"
+            else:
+                user_content = f"请分析以下题目：\n\n{q.stem}"
             msg = client.messages.create(
                 model=getattr(settings, 'ANTHROPIC_MODEL', 'claude-opus-4-6'),
                 max_tokens=2048,
                 system=system_prompt,
-                messages=[{"role": "user", "content": f"请分析以下题目：\n\n{q.stem}"}]
+                messages=[{"role": "user", "content": user_content}]
             )
             result = json.loads(msg.content[0].text)
             _write_analysis(db, q, result, current_round)
+            # 同步更新题目展示字段（分析后列表立即可见）
+            q.difficulty = result.get('difficulty')
+            weights = result.get('five_power_weights') or {}
+            if weights:
+                q.five_power_weights = weights
+                flag_modified(q, 'five_power_weights')
+                q.primary_power = max(weights, key=weights.get)
+            # 解析归属 ID（按 code 查表）
+            await _apply_knowledge_ids_from_codes(db, q, result)
         else:
-            # 无 API Key：写入空白分析，状态置为 pending_review 供手动填写
             _write_mock_analysis(db, q, current_round)
+            # 同步更新题目展示字段（模拟数据）
+            q.subject_id  = 1
+            q.grade_id    = 1
+            q.semester_id = 1
+            q.difficulty  = 'basic'
+            q.five_power_weights = {"INSIGHT": 2, "CONSTRUCT": 4, "DEDUCE": 2, "ADAPT": 1, "MIGRATE": 1}
+            flag_modified(q, 'five_power_weights')
+            q.primary_power = 'CONSTRUCT'
 
+        q.rejection_reason = None
         q.status = 'pending_review'
     except Exception:
         q.status = 'draft'
@@ -307,43 +328,7 @@ async def reject(db: AsyncSession, question_id: int, reason: str, operator_id: i
         raise AppException('仅待审核状态的题目可驳回', 400)
 
     q.rejection_reason = reason
-    q.status = 'analyzing'
-    q.analysis_round = (q.analysis_round or 0) + 1
-    current_round = q.analysis_round
-    await db.flush()
-
-    try:
-        from app.core.config import get_settings
-        from app.models.ai import SystemConfig
-        settings = get_settings()
-        api_key = getattr(settings, 'ANTHROPIC_API_KEY', None)
-        cfg = (await db.execute(
-            select(SystemConfig).where(SystemConfig.key == 'question_analysis_prompt')
-        )).scalar_one_or_none()
-        system_prompt = cfg.value if cfg else ''
-
-        if api_key:
-            import anthropic, json
-            client = anthropic.Anthropic(api_key=api_key)
-            msg = client.messages.create(
-                model=getattr(settings, 'ANTHROPIC_MODEL', 'claude-opus-4-6'),
-                max_tokens=2048,
-                system=system_prompt,
-                messages=[{
-                    "role": "user",
-                    "content": f"请重新分析以下题目（驳回意见：{reason}）：\n\n{q.stem}"
-                }]
-            )
-            result = json.loads(msg.content[0].text)
-            _write_analysis(db, q, result, current_round)
-        else:
-            _write_mock_analysis(db, q, current_round)
-
-        q.status = 'pending_review'
-    except Exception:
-        q.status = 'draft'
-        q.analysis_round = max(0, current_round - 1)
-
+    q.status = 'draft'
     await db.flush()
     return q
 
@@ -361,6 +346,38 @@ async def archive(db: AsyncSession, question_id: int) -> Question:
     q.status = 'archived'
     await db.flush()
     return q
+
+
+# ── 知识体系 code → ID 解析 ───────────────────────────────────
+
+async def _apply_knowledge_ids_from_codes(db: AsyncSession, q: Question, result: dict):
+    """将 AI 返回的科目/年级/学期 code 解析为数据库 ID 并写入题目"""
+    subject_code   = result.get('subject')    # e.g. "MATH"
+    grade_code     = result.get('grade')      # e.g. "G7"
+    semester_code  = result.get('semester')   # e.g. "S1"
+    if not subject_code:
+        return
+    sub = (await db.execute(
+        select(Subject).where(Subject.code == subject_code)
+    )).scalar_one_or_none()
+    if not sub:
+        return
+    q.subject_id = sub.id
+    if not grade_code:
+        return
+    grade = (await db.execute(
+        select(Grade).where(Grade.code == grade_code, Grade.subject_id == sub.id)
+    )).scalar_one_or_none()
+    if not grade:
+        return
+    q.grade_id = grade.id
+    if not semester_code:
+        return
+    sem = (await db.execute(
+        select(Semester).where(Semester.code == semester_code, Semester.grade_id == grade.id)
+    )).scalar_one_or_none()
+    if sem:
+        q.semester_id = sem.id
 
 
 # ── 软删除 ────────────────────────────────────────────────────
