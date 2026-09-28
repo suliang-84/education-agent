@@ -1,0 +1,89 @@
+// ── 全局基础样式 ──────────────────────────────────────────────────────────
+page {
+  background-color: $bg-page;
+  font-size: $font-size-base;
+  color: $text-1;
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+}
+
+view, text, input, button, image {
+  box-sizing: border-box;
+}
+
+// ── 通用工具类 ────────────────────────────────────────────────────────────
+
+// 文字
+.text-primary   { color: $primary; }
+.text-success   { color: $success; }
+.text-warning   { color: $warning; }
+.text-danger    { color: $danger; }
+.text-muted     { color: $text-3; }
+.text-bold      { font-weight: 600; }
+.text-center    { text-align: center; }
+
+// Flex 布局
+.flex           { display: flex; }
+.flex-col       { display: flex; flex-direction: column; }
+.flex-center    { display: flex; align-items: center; justify-content: center; }
+.flex-between   { display: flex; align-items: center; justify-content: space-between; }
+.flex-1         { flex: 1; }
+.flex-wrap      { flex-wrap: wrap; }
+.gap-1          { gap: $space-1; }
+.gap-2          { gap: $space-2; }
+.gap-3          { gap: $space-3; }
+
+// 间距
+.p-0  { padding: 0; }
+.p-2  { padding: $space-2; }
+.p-3  { padding: $space-3; }
+.p-4  { padding: $space-4; }
+.px-3 { padding-left: $space-3; padding-right: $space-3; }
+.py-2 { padding-top: $space-2; padding-bottom: $space-2; }
+
+// 卡片
+.card {
+  background: $bg-surface;
+  border-radius: $r-xl;
+  box-shadow: $shadow-sm;
+  padding: $space-4;
+}
+
+// CTA 按钮
+.btn-primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: $pink;
+  color: #fff;
+  border-radius: $r-pill;
+  height: 96rpx;
+  font-size: $font-size-lg;
+  font-weight: 600;
+  box-shadow: 0 8rpx 28rpx rgba(244, 63, 126, 0.4);
+  transition: $transition-fast;
+
+  &:active { opacity: 0.85; transform: scale(0.98); }
+}
+
+.btn-outline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2rpx solid $border-hover;
+  border-radius: $r-pill;
+  height: 96rpx;
+  font-size: $font-size-base;
+  color: $text-2;
+  background: transparent;
+}
+
+// 分割线
+.divider {
+  height: 1rpx;
+  background: $border;
+  margin: $space-2 0;
+}
+
+// 安全区
+.safe-bottom { padding-bottom: constant(safe-area-inset-bottom); padding-bottom: env(safe-area-inset-bottom); }

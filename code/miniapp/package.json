@@ -1,0 +1,36 @@
+{
+  "name": "mesh-miniapp",
+  "version": "1.0.0",
+  "description": "MESH AI助教微信小程序 - uni-app + Vue3",
+  "scripts": {
+    "dev:mp-weixin": "uni -p mp-weixin",
+    "build:mp-weixin": "uni build -p mp-weixin",
+    "lint": "eslint src --ext .vue,.js,.ts --fix",
+    "format": "prettier --write \"src/**/*.{vue,js,ts,scss}\"",
+    "type-check": "vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "@dcloudio/uni-app": "^3.0.0-alpha-3090820240930001",
+    "@dcloudio/uni-mp-weixin": "^3.0.0-alpha-3090820240930001",
+    "@dcloudio/uni-ui": "^1.5.5",
+    "pinia": "^2.1.7",
+    "tdesign-miniprogram": "^1.7.0",
+    "vue": "^3.4.0"
+  },
+  "devDependencies": {
+    "@dcloudio/types": "*",
+    "@dcloudio/uni-app-types": "^1.2.0",
+    "@types/node": "^22.0.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "@vitejs/plugin-vue": "^5.0.0",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.1.3",
+    "eslint-plugin-vue": "^9.25.0",
+    "prettier": "^3.2.5",
+    "sass": "^1.75.0",
+    "typescript": "^5.4.0",
+    "vue-tsc": "^2.0.0"
+  }
+}
