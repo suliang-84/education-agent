@@ -139,9 +139,13 @@ async def submit_answer(
     return ok_response({"question_index": body.question_index, "recorded": True})
 
 
+class CompleteTestReq(BaseModel):
+    session_id: int
+
+
 @router.post("/complete", summary="提交测试（触发评分）")
 async def complete_test(
-    session_id: int,
+    body: CompleteTestReq,
     student: Student = Depends(get_current_student),
     db: AsyncSession = Depends(get_db),
 ):
@@ -149,7 +153,7 @@ async def complete_test(
     session = (
         await db.execute(
             select(TestSession).where(
-                TestSession.id == session_id,
+                TestSession.id == body.session_id,
                 TestSession.student_id == student.id,
             )
         )
