@@ -327,3 +327,68 @@ async def generate_invite_code(
     db.add(invite)
     await db.commit()
     return ok_response({"code": code, "expire_at": expires_at.isoformat(), "expire_hours": 48})
+
+
+# ── 开发专用登录（仅 APP_ENV=development 时生效）────────────────────────────
+
+class DevLoginReq(BaseModel):
+    phone: str = Field(..., pattern=r"^\d{11}$")
+    nickname: str = "开发测试用户"
+    grade: str = "G9"
+    semester: str = "S1"
+
+
+@router.post("/dev-login", summary="开发专用登录（跳过微信授权，仅开发环境）")
+async def dev_login(body: DevLoginReq, db: AsyncSession = Depends(get_db)):
+    """
+    开发环境专用接口，用手机号直接换取 Token，跳过微信 code 换 openid 步骤。
+    生产环境（APP_ENV != development）调用时返回 403。
+    """
+    if settings.APP_ENV != "development":
+        raise AppException("该接口仅开发环境可用", 403)
+
+    phone_hash = _hash(body.phone)
+
+    # 查找已有学生
+    result = await db.execute(
+        select(Student).where(Student.phone_hash == phone_hash, Student.deleted_at == None)
+    )
+    student = result.scalar_one_or_none()
+
+    if not student:
+        # 自动创建开发测试学生账号
+        openid = f"dev_openid_{body.phone}"
+        student = Student(
+            user_type="STUDENT",
+            openid=openid,
+            openid_hash=_hash(openid),
+            phone=body.phone,
+            phone_masked=_mask_phone(body.phone),
+            phone_hash=phone_hash,
+            nickname=body.nickname,
+            grade=body.grade,
+            semester=body.semester,
+            is_minor=True,
+            is_active=True,
+            is_confirmed=True,
+            last_login_at=datetime.now(UTC),
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+        )
+        db.add(student)
+        await db.flush()
+
+    student.last_login_at = datetime.now(UTC)
+    await db.commit()
+
+    resp = _build_token_resp(student)
+    from app.models.student import FivePowerProfile
+    has_profile = (
+        await db.execute(
+            select(FivePowerProfile.id)
+            .where(FivePowerProfile.student_id == student.id, FivePowerProfile.is_latest == True)
+        )
+    ).scalar_one_or_none() is not None
+    resp["user_info"]["has_five_power_profile"] = has_profile
+
+    return ok_response(resp, "开发登录成功")

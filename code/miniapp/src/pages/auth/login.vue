@@ -3,12 +3,54 @@ import { ref } from 'vue'
 import { authApi } from '@/api'
 import { useAuthStore } from '@/store'
 import { PAGES } from '@/constants'
+import { http } from '@/utils/request'
 
 const authStore = useAuthStore()
 const loading = ref(false)
 
+// 开发模式：是否显示开发登录入口
+const IS_DEV = import.meta.env.VITE_APP_ENV === 'development'
+const devPhone = ref('13800138000')  // 开发用测试手机号
+
+/** 路由到首页（复用逻辑） */
+function routeAfterLogin(resp: { access_token: string; refresh_token: string; user_info: any }) {
+  authStore.setAuth({
+    access_token: resp.access_token,
+    refresh_token: resp.refresh_token,
+    user_info: resp.user_info,
+  })
+  if (resp.user_info.has_five_power_profile) {
+    uni.switchTab({ url: PAGES.TRAINING_HOME })
+  } else {
+    uni.reLaunch({ url: PAGES.TEST_HOME })
+  }
+}
+
 /**
- * 微信一键登录流程:
+ * 开发环境专用登录：跳过微信授权，直接用手机号换 Token
+ * 对应后端 POST /api/v1/auth/dev-login（仅 APP_ENV=development 时开放）
+ */
+async function handleDevLogin() {
+  if (loading.value) return
+  loading.value = true
+  try {
+    const resp = await http.post<any>('/auth/dev-login', {
+      phone: devPhone.value,
+      nickname: '开发测试',
+      grade: 'G9',
+      semester: 'S1',
+    }, { skipAuth: true } as never)
+    routeAfterLogin(resp)
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : '开发登录失败'
+    uni.showToast({ title: msg, icon: 'none' })
+  } finally {
+    loading.value = false
+  }
+}
+
+/**
+ * 正式微信登录流程:
  * 1. wx.login() 获取临时 code
  * 2. 发送 code 到后端换取 Token 或 temp_token
  * 3. 新用户 → 绑定手机号页; 老用户 → 按 has_five_power_profile 路由
@@ -18,7 +60,6 @@ async function handleWxLogin() {
   loading.value = true
 
   try {
-    // Step 1: 获取微信 code
     const loginRes = await new Promise<UniApp.LoginRes>((resolve, reject) => {
       uni.login({ provider: 'weixin', success: resolve, fail: reject })
     })
@@ -26,29 +67,14 @@ async function handleWxLogin() {
     const code = loginRes.code
     if (!code) throw new Error('未获取到微信授权码')
 
-    // Step 2: 发送 code 到后端
     const resp = await authApi.wxLogin({ code })
 
-    // Step 3: 判断是新用户还是老用户
     if ('temp_token' in resp) {
-      // 新用户 — 需要绑定手机号
       uni.navigateTo({
         url: `${PAGES.AUTH_BIND_PHONE}?temp_token=${resp.temp_token}`,
       })
     } else {
-      // 老用户 — 保存认证信息
-      authStore.setAuth({
-        access_token: resp.access_token,
-        refresh_token: resp.refresh_token,
-        user_info: resp.user_info,
-      })
-
-      // 根据是否完成五力测试路由到不同首页
-      if (resp.user_info.has_five_power_profile) {
-        uni.switchTab({ url: PAGES.TRAINING_HOME })
-      } else {
-        uni.reLaunch({ url: PAGES.TEST_HOME })
-      }
+      routeAfterLogin(resp as any)
     }
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : '登录失败，请重试'
@@ -81,7 +107,6 @@ async function handleWxLogin() {
         class="wx-login-btn"
         :class="{ 'wx-login-btn--loading': loading }"
         :disabled="loading"
-        open-type="getPhoneNumber"
         @tap="handleWxLogin"
       >
         <view class="btn-inner">
@@ -92,6 +117,28 @@ async function handleWxLogin() {
       </button>
 
       <text class="hint-text">登录即代表同意《用户协议》和《隐私政策》</text>
+
+      <!-- 开发模式快速登录入口（仅 development 环境显示） -->
+      <view v-if="IS_DEV" class="dev-login-wrap">
+        <view class="dev-divider"><text class="dev-divider-text">开发模式</text></view>
+        <view class="dev-input-row">
+          <input
+            v-model="devPhone"
+            class="dev-input"
+            type="number"
+            maxlength="11"
+            placeholder="测试手机号"
+          />
+          <button
+            class="dev-btn"
+            :disabled="loading"
+            @tap="handleDevLogin"
+          >
+            快速登录
+          </button>
+        </view>
+        <text class="dev-hint">跳过微信授权 · 仅本地开发使用</text>
+      </view>
     </view>
 
     <!-- 底部产品说明 -->
@@ -262,5 +309,72 @@ async function handleWxLogin() {
   color: $text-3;
   text-align: center;
   line-height: 1.8;
+}
+
+// 开发模式快速登录
+.dev-login-wrap {
+  margin-top: $space-5;
+  width: 100%;
+}
+
+.dev-divider {
+  display: flex;
+  align-items: center;
+  margin-bottom: $space-3;
+
+  &::before, &::after {
+    content: '';
+    flex: 1;
+    height: 1rpx;
+    background: $border;
+  }
+
+  &-text {
+    font-size: $font-size-xs;
+    color: $text-3;
+    padding: 0 $space-2;
+    background: rgba(244, 63, 126, 0.08);
+    border-radius: $r-sm;
+    color: $pink;
+  }
+}
+
+.dev-input-row {
+  display: flex;
+  gap: $space-2;
+  align-items: center;
+}
+
+.dev-input {
+  flex: 1;
+  height: 80rpx;
+  border: 2rpx solid $border-hover;
+  border-radius: $r-md;
+  padding: 0 $space-3;
+  font-size: $font-size-sm;
+  color: $text-1;
+  background: #fff;
+}
+
+.dev-btn {
+  height: 80rpx;
+  padding: 0 $space-4;
+  background: $pink;
+  color: #fff;
+  border-radius: $r-md;
+  font-size: $font-size-sm;
+  font-weight: 600;
+  border: none;
+  white-space: nowrap;
+
+  &::after { border: none; }
+}
+
+.dev-hint {
+  display: block;
+  font-size: $font-size-xs;
+  color: $text-3;
+  text-align: center;
+  margin-top: $space-1;
 }
 </style>
