@@ -1,13 +1,20 @@
 import { defineConfig } from 'vite'
 import uni from '@dcloudio/vite-plugin-uni'
+import path from 'path'
 
 export default defineConfig({
   plugins: [uni()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, 'src'),
+    },
+  },
   css: {
     preprocessorOptions: {
       scss: {
-        // 全局注入设计变量，所有组件可直接使用
-        additionalData: `@import "@/styles/variables.scss";`,
+        api: 'modern-compiler',
+        additionalData: `@use "@/styles/variables.scss" as *;`,
+        silenceDeprecations: ['legacy-js-api'],
       },
     },
   },

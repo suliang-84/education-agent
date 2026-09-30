@@ -268,7 +268,6 @@ function goToAssistant() {
 </template>
 
 <style lang="scss" scoped>
-@import '@/styles/variables.scss';
 
 .result-page {
   min-height: 100vh;

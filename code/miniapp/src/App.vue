@@ -20,5 +20,5 @@ onShow(() => {
 </template>
 
 <style lang="scss">
-@import '@/styles/global.scss';
+@use '@/styles/global.scss';
 </style>

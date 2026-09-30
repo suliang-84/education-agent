@@ -280,7 +280,6 @@ function goToTraining() {
 </template>
 
 <style lang="scss" scoped>
-@import '@/styles/variables.scss';
 
 .profile-page {
   min-height: 100vh;

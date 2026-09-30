@@ -214,7 +214,6 @@ function goToTest() {
 </template>
 
 <style lang="scss" scoped>
-@import '@/styles/variables.scss';
 
 .training-page {
   min-height: 100vh;

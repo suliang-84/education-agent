@@ -175,7 +175,6 @@ const statusLabels: Record<string, string> = {
 </template>
 
 <style lang="scss" scoped>
-@import '@/styles/variables.scss';
 
 .assistant-page {
   min-height: 100vh;

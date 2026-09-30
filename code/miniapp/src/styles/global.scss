@@ -1,3 +1,5 @@
+@use './variables.scss' as *;
+
 // ── 全局基础样式 ──────────────────────────────────────────────────────────
 page {
   background-color: $bg-page;

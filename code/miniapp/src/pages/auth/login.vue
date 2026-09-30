@@ -105,7 +105,6 @@ async function handleWxLogin() {
 </template>
 
 <style lang="scss" scoped>
-@import '@/styles/variables.scss';
 
 .login-page {
   position: relative;

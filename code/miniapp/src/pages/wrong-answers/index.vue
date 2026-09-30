@@ -219,7 +219,6 @@ function truncate(text: string, len = 60): string {
 </template>
 
 <style lang="scss" scoped>
-@import '@/styles/variables.scss';
 
 .wrong-answers-page {
   min-height: 100vh;

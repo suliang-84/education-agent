@@ -281,7 +281,6 @@ onUnmounted(() => {
 </template>
 
 <style lang="scss" scoped>
-@import '@/styles/variables.scss';
 
 .questions-page {
   min-height: 100vh;

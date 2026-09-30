@@ -297,7 +297,6 @@ const weakestPowers = computed(() => {
 </template>
 
 <style lang="scss" scoped>
-@import '@/styles/variables.scss';
 
 .chat-page {
   height: 100vh;
