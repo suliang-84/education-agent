@@ -104,18 +104,36 @@ async def submit_answer(
     if not session:
         raise AppException("测试会话不存在或已结束", 404)
 
-    record = TestAnswerRecord(
-        session_id=body.session_id,
-        question_id=body.question_id,
-        question_index=body.question_index,
-        selected_option=body.selected_option,
-        time_spent_sec=body.time_spent_sec,
-        modify_count=body.modify_count,
-        is_rushed=body.time_spent_sec < 5,
-        answered_at=datetime.now(UTC),
-        created_at=datetime.now(UTC),
-    )
-    db.add(record)
+    # 幂等写入：重复提交同一题视为修改答案，执行 UPDATE
+    existing = (
+        await db.execute(
+            select(TestAnswerRecord).where(
+                TestAnswerRecord.session_id == body.session_id,
+                TestAnswerRecord.question_index == body.question_index,
+            )
+        )
+    ).scalar_one_or_none()
+
+    if existing:
+        existing.selected_option = body.selected_option
+        existing.time_spent_sec = body.time_spent_sec
+        existing.modify_count = (existing.modify_count or 0) + 1
+        existing.is_rushed = body.time_spent_sec < 5
+        existing.answered_at = datetime.now(UTC)
+    else:
+        record = TestAnswerRecord(
+            session_id=body.session_id,
+            question_id=body.question_id,
+            question_index=body.question_index,
+            selected_option=body.selected_option,
+            time_spent_sec=body.time_spent_sec,
+            modify_count=body.modify_count,
+            is_rushed=body.time_spent_sec < 5,
+            answered_at=datetime.now(UTC),
+            created_at=datetime.now(UTC),
+        )
+        db.add(record)
+
     session.current_question_index = body.question_index + 1
     await db.commit()
     return ok_response({"question_index": body.question_index, "recorded": True})

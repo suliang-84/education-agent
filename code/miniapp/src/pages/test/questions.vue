@@ -33,6 +33,7 @@ onMounted(async () => {
       const parsed = JSON.parse(cached)
       if (parsed.questions?.length) {
         questions.value = parsed.questions
+        if (parsed.session_id) sessionId.value = parsed.session_id
         if (isResume) {
           currentIndex.value = parsed.current_index || 0
           answers.value = parsed.answers || new Array(parsed.questions.length).fill(null)
