@@ -167,8 +167,9 @@ async function completeTest() {
   stopTimer()
   try {
     const profile = await testApi.completeTest(sessionId.value)
-    // 清除本地缓存
+    // 清除答题缓存，保存画像数据供结果页使用
     uni.removeStorageSync('mesh_test_session')
+    uni.setStorageSync('mesh_test_profile', JSON.stringify(profile))
     uni.redirectTo({
       url: `${PAGES.TEST_RESULT}?profile_id=${profile.profile_id}`,
     })

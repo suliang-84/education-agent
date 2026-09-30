@@ -59,11 +59,11 @@ const pollCount = ref(0)
 const MAX_POLLS = 10
 let pollTimer: ReturnType<typeof setTimeout> | null = null
 
-// 五力分数数组（按 FIVE_POWERS 顺序排列）
+// 五力分数数组（按 FIVE_POWERS 顺序排列，final 已是 0-100 整数）
 const scores = computed(() => {
   if (!profile.value) return [0, 0, 0, 0, 0]
   const forces = profile.value.forces
-  return FIVE_POWERS.map((p) => Math.round((forces[p]?.final ?? 0) * 100))
+  return FIVE_POWERS.map((p) => Math.round(forces[p]?.final ?? 0))
 })
 
 const radarPoints = computed(() => calcRadarPoints(scores.value))
@@ -93,15 +93,14 @@ async function pollResult() {
   }
 }
 
-// 初次进入时从路由传过来的 profile 数据（completeTest 返回的）
-// 同时保存 authStore 的 profileFlag
+// 初次进入：从本地存储读取 completeTest 返回的画像数据
 onMounted(() => {
-  // 尝试从本地存储获取 profile（completeTest 返回值应由 questions.vue redirect 时传入）
   const cachedProfile = uni.getStorageSync('mesh_test_profile')
   if (cachedProfile) {
     try {
       profile.value = JSON.parse(cachedProfile)
       authStore.setProfileFlag(true)
+      uni.removeStorageSync('mesh_test_profile')
     } catch { /* ignore */ }
   }
 })

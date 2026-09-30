@@ -178,7 +178,8 @@ async def complete_test(
         primary_strength="INSIGHT", primary_entry="INSIGHT",
         recommended_mode="TRAIN_WEAKNESS", preferred_force="INSIGHT",
         is_latest=True,
-        ai_analysis_status="pending",
+        ai_analysis_status="completed",
+        ai_analysis_text="（模拟分析）你的洞察力最强，擅长从题目中快速识别关键信息；迁移力相对薄弱，建议多练习跨情境应用题，尝试找出不同题目的底层结构共性。",
         created_at=datetime.now(UTC),
     )
     # 标记旧画像非最新（update旧记录）
