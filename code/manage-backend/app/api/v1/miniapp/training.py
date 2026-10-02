@@ -1,4 +1,5 @@
 """小程序端训练模块 — §5"""
+import re
 import uuid
 from datetime import UTC, datetime
 
@@ -14,7 +15,7 @@ from app.dependencies import get_current_student
 from app.models.student import (
     FivePowerProfile, FivePowerTrainingProfile, Student, WrongAnswerRecord,
 )
-from app.models.training import TrainingAnswerRecord, TrainingDimensionConfig, TrainingSession
+from app.models.training import TrainingAnswerRecord, TrainingDimensionConfig, TrainingSession, TrainingInterrupt
 from app.models.question import Question
 from app.models.knowledge import KnowledgePoint, Chapter, Semester, Subject
 
@@ -36,6 +37,17 @@ class SubmitAnswerReq(BaseModel):
     student_answer: str | None = None
     time_spent_sec: int
     hint_level_used: int = 0
+
+
+class SaveInterruptReq(BaseModel):
+    session_id: str
+    subject_code: str
+    training_dimension: str
+    scope_info: dict = {}
+    scope_label: str = ""
+    questions_snapshot: list = []
+    answers_snapshot: list = []
+    current_question_index: int = 0
 
 
 @router.get("/wrong-summary", summary="错题科目统计（进入错题集前调用）")
@@ -184,7 +196,6 @@ async def create_session(
         session_status="active",
         total_questions=len(selected_qs),
         started_at=datetime.now(UTC),
-        created_at=datetime.now(UTC),
     )
     db.add(session)
     await db.commit()
@@ -243,8 +254,8 @@ async def submit_answer(
     if not question:
         raise AppException("题目不存在", 404)
 
-    # 简单判题（Mock）
-    is_correct = True  # 实际需要对比答案
+    # 判题：按题型比对答案
+    is_correct = _judge_answer(question.answer, question.question_type, body.student_answer)
 
     record = TrainingAnswerRecord(
         session_id=body.session_id,
@@ -348,6 +359,19 @@ async def complete_session(
     session.is_early_end = total < (session.total_questions or 5)
     await db.commit()
 
+    # 完成后自动清除关联的中断记录
+    interrupt = (
+        await db.execute(
+            select(TrainingInterrupt).where(
+                TrainingInterrupt.session_id == session_id,
+                TrainingInterrupt.student_id == student.id,
+            )
+        )
+    ).scalar_one_or_none()
+    if interrupt:
+        await db.delete(interrupt)
+        await db.commit()
+
     return ok_response({
         "session_id": session_id,
         "summary": {
@@ -358,3 +382,174 @@ async def complete_session(
         "profile_update_status": "pending",
         "wrong_answer_count": total - correct,
     }, "训练完成")
+
+
+@router.get("/interrupt", summary="查询训练中断记录")
+async def get_interrupt(
+    subject_code: str = Query(...),
+    training_dimension: str = Query(...),
+    student: Student = Depends(get_current_student),
+    db: AsyncSession = Depends(get_db),
+):
+    record = (
+        await db.execute(
+            select(TrainingInterrupt).where(
+                TrainingInterrupt.student_id == student.id,
+                TrainingInterrupt.subject_code == subject_code,
+                TrainingInterrupt.training_dimension == training_dimension,
+            )
+        )
+    ).scalar_one_or_none()
+
+    if not record:
+        return ok_response({"has_interrupt": False, "interrupt": None})
+
+    return ok_response({
+        "has_interrupt": True,
+        "interrupt": {
+            "interrupt_id": record.id,
+            "subject_code": record.subject_code,
+            "training_dimension": record.training_dimension,
+            "scope_label": record.scope_label,
+            "scope_info": record.scope_info,
+            "questions_snapshot": record.questions_snapshot,
+            "answers_snapshot": record.answers_snapshot,
+            "current_question_index": record.current_question_index,
+            "total_questions": record.total_questions,
+            "session_id": record.session_id,
+            "interrupted_at": record.interrupted_at.isoformat() if record.interrupted_at else None,
+        },
+    })
+
+
+@router.post("/interrupt", summary="保存训练中断状态")
+async def save_interrupt(
+    body: SaveInterruptReq,
+    student: Student = Depends(get_current_student),
+    db: AsyncSession = Depends(get_db),
+):
+    now = datetime.now(UTC)
+    # 先查是否存在
+    existing = (
+        await db.execute(
+            select(TrainingInterrupt).where(
+                TrainingInterrupt.student_id == student.id,
+                TrainingInterrupt.subject_code == body.subject_code,
+                TrainingInterrupt.training_dimension == body.training_dimension,
+            )
+        )
+    ).scalar_one_or_none()
+
+    if existing:
+        existing.session_id = body.session_id
+        existing.scope_label = body.scope_label
+        existing.scope_info = body.scope_info
+        existing.questions_snapshot = body.questions_snapshot
+        existing.answers_snapshot = body.answers_snapshot
+        existing.current_question_index = body.current_question_index
+        existing.total_questions = len(body.questions_snapshot)
+        existing.interrupted_at = now
+        existing.updated_at = now
+        record = existing
+    else:
+        record = TrainingInterrupt(
+            id=str(uuid.uuid4()),
+            student_id=student.id,
+            subject_code=body.subject_code,
+            training_dimension=body.training_dimension,
+            scope_label=body.scope_label,
+            scope_info=body.scope_info,
+            questions_snapshot=body.questions_snapshot,
+            answers_snapshot=body.answers_snapshot,
+            current_question_index=body.current_question_index,
+            total_questions=len(body.questions_snapshot),
+            session_id=body.session_id,
+            interrupted_at=now,
+            updated_at=now,
+        )
+        db.add(record)
+
+    await db.commit()
+
+    return ok_response({
+        "interrupt_id": record.id,
+        "interrupted_at": record.interrupted_at.isoformat(),
+    })
+
+
+@router.delete("/interrupt", summary="删除训练中断记录")
+async def delete_interrupt(
+    subject_code: str = Query(...),
+    training_dimension: str = Query(...),
+    student: Student = Depends(get_current_student),
+    db: AsyncSession = Depends(get_db),
+):
+    record = (
+        await db.execute(
+            select(TrainingInterrupt).where(
+                TrainingInterrupt.student_id == student.id,
+                TrainingInterrupt.subject_code == subject_code,
+                TrainingInterrupt.training_dimension == training_dimension,
+            )
+        )
+    ).scalar_one_or_none()
+
+    if record:
+        await db.delete(record)
+        await db.commit()
+
+    return ok_response(None, msg="中断记录已清除")
+
+
+# ── 判题逻辑 ──────────────────────────────────────────────────────────────────
+
+def _normalize(s: str) -> str:
+    """去除空白、统一全半角、转小写"""
+    s = s.strip().lower()
+    s = s.replace('，', ',').replace('。', '.').replace(' ', '')
+    return s
+
+def _judge_answer(answer: dict | None, question_type: str | None, student_answer: str | None) -> bool:
+    """按题型比对学生答案，无法判断时返回 False"""
+    if not answer or not student_answer:
+        return False
+    sa = _normalize(student_answer)
+    qtype = (question_type or answer.get('type', '')).upper()
+
+    if qtype == 'SINGLE_CHOICE':
+        correct = str(answer.get('correct', '')).upper()
+        return sa.upper() == correct
+
+    if qtype == 'MULTIPLE_CHOICE':
+        correct = set(str(c).upper() for c in answer.get('correct', []))
+        submitted = set(re.findall(r'[A-Da-d]', student_answer.upper()))
+        return submitted == correct
+
+    if qtype == 'TRUE_FALSE':
+        correct = answer.get('correct', None)
+        true_vals  = {'true', '对', '正确', '√', 'yes', '1'}
+        false_vals = {'false', '错', '错误', '×', 'no', '0'}
+        if correct is True:
+            return sa in true_vals
+        if correct is False:
+            return sa in false_vals
+        return False
+
+    if qtype == 'FILL_BLANK':
+        correct_list = [_normalize(str(c)) for c in answer.get('correct', [])]
+        # 单空直接比；多空按逗号/分号拆分
+        if len(correct_list) == 1:
+            return sa == correct_list[0]
+        parts = [_normalize(p) for p in re.split(r'[,;，；]', student_answer)]
+        return parts == correct_list
+
+    if qtype == 'APPLICATION':
+        # 应用题：比对 final_answer 中的关键数字是否都出现在学生答案中
+        final = _normalize(str(answer.get('final_answer', '')))
+        # 提取标准答案中所有数字
+        nums = re.findall(r'\d+\.?\d*', final)
+        if not nums:
+            return False
+        return all(n in sa for n in nums)
+
+    return False

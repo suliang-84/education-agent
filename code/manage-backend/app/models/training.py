@@ -1,4 +1,5 @@
-from datetime import datetime
+import uuid
+from datetime import UTC, datetime
 from decimal import Decimal
 
 from sqlalchemy import BigInteger, Boolean, DateTime, Integer, Numeric, SmallInteger, String, Text
@@ -81,7 +82,6 @@ class TrainingSession(Base):
     is_early_end: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
 class TrainingAnswerRecord(Base):
@@ -107,3 +107,23 @@ class TrainingAnswerRecord(Base):
     is_seed_data: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     answered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class TrainingInterrupt(Base):
+    """训练中断记录（答题卡中断恢复）"""
+
+    __tablename__ = "training_interrupts"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
+    student_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    subject_code: Mapped[str] = mapped_column(String(20), nullable=False)
+    training_dimension: Mapped[str] = mapped_column(String(30), nullable=False)
+    scope_label: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    scope_info: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    questions_snapshot: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    answers_snapshot: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    current_question_index: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
+    total_questions: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
+    session_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    interrupted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))

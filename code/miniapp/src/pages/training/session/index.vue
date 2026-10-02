@@ -67,10 +67,9 @@ async function submitAnswer() {
 
     submitted.value = true
     isCorrect.value = resp.is_correct
+    trainingStore.recordAnswer(question.value.question_index, studentAnswer.value.trim(), resp.is_correct)
 
-    if (resp.is_correct) {
-      trainingStore.markCorrect()
-    } else {
+    if (!resp.is_correct) {
       wrongCount.value++
       // 答错后立刻轮询 RAG 生成
       if (resp.answer_record_id) {
@@ -136,6 +135,76 @@ function goToAssistant() {
   uni.navigateTo({ url: PAGES.ASSISTANT_CHAT })
 }
 
+// ── 退出确认弹窗 ──────────────────────────────────────────────────────────
+const showExitDialog = ref(false)
+const savingInterrupt = ref(false)
+
+async function handleExit() {
+  showExitDialog.value = true
+}
+
+async function confirmExit() {
+  if (savingInterrupt.value) return
+  savingInterrupt.value = true
+  stopTimer()
+  stopRag()
+
+  try {
+    await trainingApi.saveInterrupt({
+      session_id: trainingStore.sessionId!,
+      subject_code: trainingStore.subjectCode!,
+      training_dimension: trainingStore.dimension!,
+      scope_info: trainingStore.scopeInfo,
+      scope_label: trainingStore.scopeLabel,
+      questions_snapshot: trainingStore.questions,
+      answers_snapshot: trainingStore.getAnswersSnapshot(),
+      current_question_index: trainingStore.currentIndex,
+    })
+  } catch {
+    // 保存失败不阻断退出
+  } finally {
+    savingInterrupt.value = false
+  }
+
+  showExitDialog.value = false
+  trainingStore.reset()
+  uni.navigateBack()
+}
+
+function cancelExit() {
+  showExitDialog.value = false
+  if (!submitted.value) startTimer()
+}
+
+// ── 答题卡面板 ────────────────────────────────────────────────────────────
+const showAnswerCard = ref(false)
+
+function openAnswerCard() {
+  showAnswerCard.value = true
+}
+
+function closeAnswerCard() {
+  showAnswerCard.value = false
+}
+
+function jumpToQuestion(index: number) {
+  closeAnswerCard()
+  trainingStore.jumpToQuestion(index)
+  const answered = trainingStore.isAnswered(index)
+  if (answered) {
+    const snap = trainingStore.answers[index]
+    studentAnswer.value = snap.student_answer
+    submitted.value = true
+    isCorrect.value = snap.is_correct
+    ragContent.value = null
+    staticSolution.value = null
+    ragStatus.value = 'idle'
+    stopTimer()
+  } else {
+    resetQuestion()
+  }
+}
+
 onMounted(() => {
   startTimer()
 })
@@ -150,24 +219,25 @@ onUnmounted(() => {
   <view class="session-page">
     <!-- ── 自定义导航栏 ──────────────────────────────────────── -->
     <view class="nav-bar">
-      <view class="nav-back" @tap="uni.navigateBack()">
-        <text class="nav-back__icon">‹</text>
-      </view>
-      <!-- 进度点 -->
+      <!-- 退出按钮（左侧） -->
+      <button class="exit-btn" @tap="handleExit">
+        <text class="exit-btn__text">✕ 退出</text>
+      </button>
+      <!-- 进度点（中间） -->
       <view class="progress-dots">
         <view
-          v-for="i in totalQuestions"
+          v-for="(q, i) in trainingStore.questions"
           :key="i"
           class="dot"
           :class="{
-            'dot--done': i - 1 < currentIndex,
-            'dot--current': i - 1 === currentIndex,
+            'dot--done': trainingStore.isAnswered(i),
+            'dot--current': i === currentIndex,
           }"
         />
       </view>
-      <!-- 计时器 -->
-      <view class="timer">
-        <text class="timer__text">{{ formatSeconds(elapsed) }}</text>
+      <!-- 答题卡按钮（右侧） -->
+      <view class="card-btn" @tap="openAnswerCard">
+        <text class="card-btn__text">答题卡</text>
       </view>
     </view>
 
@@ -177,6 +247,12 @@ onUnmounted(() => {
     </view>
 
     <template v-else>
+      <!-- ── 借强补弱提示横幅（仅首题且有 tips 时展示） ──────── -->
+      <view v-if="currentIndex === 0 && trainingStore.tipsHint" class="tips-banner">
+        <text class="tips-banner__icon">✨</text>
+        <text class="tips-banner__text">{{ trainingStore.tipsHint }}</text>
+      </view>
+
       <!-- ── 题目元信息 ────────────────────────────────────────── -->
       <view class="question-meta">
         <view
@@ -295,6 +371,64 @@ onUnmounted(() => {
       <button class="ai-bar__btn" @tap="goToAssistant">去聊聊</button>
       <text class="ai-bar__close" @tap="showAiBar = false">✕</text>
     </view>
+
+    <!-- 退出确认弹窗 -->
+    <view v-if="showExitDialog" class="dialog-mask">
+      <view class="dialog">
+        <text class="dialog__title">确认退出训练？</text>
+        <text class="dialog__desc">当前训练进度将自动保存，下次可继续</text>
+        <view class="dialog__btns">
+          <button class="dialog-btn dialog-btn--cancel" @tap="cancelExit">继续训练</button>
+          <button class="dialog-btn dialog-btn--confirm" :disabled="savingInterrupt" @tap="confirmExit">
+            {{ savingInterrupt ? '保存中...' : '退出并保存' }}
+          </button>
+        </view>
+      </view>
+    </view>
+
+    <!-- 答题卡浮层 -->
+    <view v-if="showAnswerCard" class="card-mask" @tap.self="closeAnswerCard">
+      <view class="answer-card">
+        <view class="answer-card__header">
+          <text class="answer-card__title">答题卡</text>
+          <text class="answer-card__sub">{{ trainingStore.scopeLabel || trainingStore.dimension }}</text>
+          <text class="answer-card__close" @tap="closeAnswerCard">×</text>
+        </view>
+        <text class="answer-card__stat">
+          {{ Object.keys(trainingStore.answers).length }}/{{ totalQuestions }} 题已完成
+        </text>
+        <view class="card-grid">
+          <view
+            v-for="(q, i) in trainingStore.questions"
+            :key="i"
+            class="card-item"
+            :class="{
+              'card-item--done': trainingStore.isAnswered(i),
+              'card-item--current': i === currentIndex,
+            }"
+            @tap="jumpToQuestion(i)"
+          >
+            <text class="card-item__num">{{ i + 1 }}</text>
+            <text v-if="trainingStore.isAnswered(i)" class="card-item__check">✓</text>
+          </view>
+        </view>
+        <!-- 图例 -->
+        <view class="card-legend">
+          <view class="legend-item">
+            <view class="legend-dot legend-dot--done" />
+            <text class="legend-text">已答（只读）</text>
+          </view>
+          <view class="legend-item">
+            <view class="legend-dot legend-dot--current" />
+            <text class="legend-text">当前题</text>
+          </view>
+          <view class="legend-item">
+            <view class="legend-dot" />
+            <text class="legend-text">未答</text>
+          </view>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -317,20 +451,6 @@ onUnmounted(() => {
   background: $bg-surface;
   box-shadow: $shadow-sm;
   padding-top: env(safe-area-inset-top);
-}
-
-.nav-back {
-  width: 64rpx;
-  height: 64rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  &__icon {
-    font-size: 48rpx;
-    color: $text-1;
-    font-weight: 300;
-  }
 }
 
 .progress-dots {
@@ -371,6 +491,37 @@ onUnmounted(() => {
     font-size: $font-size-sm;
     color: $text-2;
     font-variant-numeric: tabular-nums;
+  }
+}
+
+// ── 导航栏按钮 ────────────────────────────────────────────────────────────
+.exit-btn {
+  flex-shrink: 0;
+  height: 64rpx;
+  padding: 0 $space-3;
+  background: transparent;
+  border: 2rpx solid $border;
+  border-radius: $r-pill;
+  display: flex;
+  align-items: center;
+
+  &::after { border: none; }
+
+  &__text {
+    font-size: $font-size-xs;
+    color: $text-2;
+  }
+}
+
+.card-btn {
+  flex-shrink: 0;
+  width: 100rpx;
+  text-align: right;
+
+  &__text {
+    font-size: $font-size-xs;
+    color: $primary;
+    font-weight: 600;
   }
 }
 
@@ -740,5 +891,226 @@ onUnmounted(() => {
 @keyframes shimmer {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
+}
+
+// ── 借强补弱提示横幅 ──────────────────────────────────────────────────────
+.tips-banner {
+  margin: $space-3 $space-4 0;
+  padding: $space-3 $space-4;
+  background: linear-gradient(135deg, $primary-light 0%, rgba(244, 63, 126, 0.06) 100%);
+  border-radius: $r-lg;
+  border-left: 6rpx solid $primary;
+  display: flex;
+  align-items: flex-start;
+  gap: $space-2;
+
+  &__icon {
+    font-size: 28rpx;
+    flex-shrink: 0;
+    margin-top: 4rpx;
+  }
+
+  &__text {
+    font-size: $font-size-sm;
+    color: $primary;
+    line-height: 1.7;
+    flex: 1;
+  }
+}
+
+// ── 退出确认弹窗 ──────────────────────────────────────────────────────────
+.dialog-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: $space-6;
+}
+
+.dialog {
+  background: $bg-surface;
+  border-radius: $r-xl;
+  padding: $space-5;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+
+  &__title {
+    font-size: $font-size-lg;
+    color: $text-1;
+    font-weight: 700;
+    text-align: center;
+  }
+
+  &__desc {
+    font-size: $font-size-sm;
+    color: $text-3;
+    text-align: center;
+  }
+
+  &__btns {
+    display: flex;
+    gap: $space-3;
+    margin-top: $space-2;
+  }
+}
+
+.dialog-btn {
+  flex: 1;
+  height: 88rpx;
+  border-radius: $r-lg;
+  font-size: $font-size-base;
+  font-weight: 600;
+  border: none;
+
+  &::after { border: none; }
+
+  &--cancel {
+    background: $bg-muted;
+    color: $text-2;
+  }
+
+  &--confirm {
+    background: $pink;
+    color: #fff;
+
+    &[disabled] {
+      opacity: 0.7;
+    }
+  }
+}
+
+// ── 答题卡面板 ────────────────────────────────────────────────────────────
+.card-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: flex-end;
+  z-index: 200;
+}
+
+.answer-card {
+  width: 100%;
+  background: $bg-surface;
+  border-radius: $r-xl $r-xl 0 0;
+  padding: $space-4;
+  padding-bottom: calc($space-4 + env(safe-area-inset-bottom));
+  max-height: 65vh;
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+  }
+
+  &__title {
+    font-size: $font-size-lg;
+    color: $text-1;
+    font-weight: 700;
+    flex: 1;
+  }
+
+  &__sub {
+    font-size: $font-size-xs;
+    color: $text-3;
+  }
+
+  &__close {
+    font-size: 44rpx;
+    color: $text-3;
+    padding: 0 $space-1;
+  }
+
+  &__stat {
+    font-size: $font-size-sm;
+    color: $text-2;
+  }
+}
+
+.card-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-2;
+}
+
+.card-item {
+  width: 100rpx;
+  height: 100rpx;
+  border-radius: $r-md;
+  border: 2rpx solid $border;
+  background: $bg-surface;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4rpx;
+  position: relative;
+  transition: $transition-fast;
+
+  &--done {
+    background: $success-light;
+    border-color: $success;
+  }
+
+  &--current {
+    border-color: $primary;
+    border-width: 4rpx;
+  }
+
+  &__num {
+    font-size: $font-size-sm;
+    color: $text-1;
+    font-weight: 600;
+  }
+
+  &__check {
+    font-size: $font-size-xs;
+    color: $success;
+  }
+}
+
+.card-legend {
+  display: flex;
+  gap: $space-4;
+  justify-content: center;
+  padding-top: $space-2;
+  border-top: 1rpx solid $border;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: $space-1;
+}
+
+.legend-dot {
+  width: 24rpx;
+  height: 24rpx;
+  border-radius: $r-sm;
+  border: 2rpx solid $border;
+  background: $bg-surface;
+
+  &--done {
+    background: $success-light;
+    border-color: $success;
+  }
+
+  &--current {
+    border-color: $primary;
+    border-width: 3rpx;
+  }
+}
+
+.legend-text {
+  font-size: $font-size-xs;
+  color: $text-3;
 }
 </style>

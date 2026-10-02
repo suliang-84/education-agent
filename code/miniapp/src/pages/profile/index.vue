@@ -51,7 +51,7 @@ const labelPositions = FIVE_POWERS.map((_, i) => {
 const scores = computed(() => {
   if (!fivePower.value?.profile) return FIVE_POWERS.map(() => 0)
   const forces = fivePower.value.profile.forces
-  return FIVE_POWERS.map((p) => Math.round((forces[p]?.final ?? 0) * 100))
+  return FIVE_POWERS.map((p) => Math.round(forces[p]?.final ?? 0))
 })
 
 const radarPoints = computed(() => calcRadarPoints(scores.value))
@@ -65,10 +65,10 @@ const dimensionRows = computed(() =>
     score: scores.value[idx],
     level: getPowerLevel(scores.value[idx]),
     abilityScore: fivePower.value?.profile
-      ? Math.round((fivePower.value.profile.forces[power]?.ability ?? 0) * 100)
+      ? Math.round(fivePower.value.profile.forces[power]?.ability ?? 0)
       : 0,
     preferScore: fivePower.value?.profile
-      ? Math.round((fivePower.value.profile.forces[power]?.preference ?? 0) * 100)
+      ? Math.round(fivePower.value.profile.forces[power]?.preference ?? 0)
       : 0,
   }))
 )
