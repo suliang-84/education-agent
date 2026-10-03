@@ -1,459 +1,359 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { assistantApi } from '@/api'
-import { PAGES, SESSION_MODE_LABELS } from '@/constants'
 import { fromNow } from '@/utils'
-import type { ChatSession } from '@/api/assistant'
+import type { ChatMessage } from '@/api/assistant'
 
-const sessions = ref<ChatSession[]>([])
+const sessionId = ref('')
+const messages = ref<ChatMessage[]>([])
 const loading = ref(true)
-const creating = ref(false)
+const sending = ref(false)
+const inputText = ref('')
+const ratings = ref<Record<number, 'like' | 'dislike'>>({})
 
 onMounted(async () => {
-  await loadSessions()
-})
-
-async function loadSessions() {
   loading.value = true
   try {
-    sessions.value = await assistantApi.getSessions()
+    const resp = await assistantApi.createSession({ session_mode: 'free_chat' })
+    sessionId.value = resp.session_id
+    messages.value = await assistantApi.getMessages(resp.session_id)
   } catch {
-    sessions.value = []
+    messages.value = []
   } finally {
     loading.value = false
+    scrollToBottom()
   }
-}
+})
 
-// ── 创建新对话（自由聊天） ────────────────────────────────────────────────
-async function createFreeChat() {
-  if (creating.value) return
-  creating.value = true
+async function sendMessage() {
+  const content = inputText.value.trim()
+  if (!content || sending.value) return
+  sending.value = true
+  inputText.value = ''
+
+  const tempMsg: ChatMessage = {
+    message_id: Date.now(),
+    role: 'student',
+    content,
+    is_aha_trigger: false,
+    created_at: new Date().toISOString(),
+  }
+  messages.value.push(tempMsg)
+  scrollToBottom()
+
   try {
-    const resp = await assistantApi.createSession({ session_mode: 'free_chat' })
-    uni.navigateTo({
-      url: `${PAGES.ASSISTANT_CHAT}?session_id=${resp.session_id}&mode=${resp.session_mode}`,
-    })
+    const aiResp = await assistantApi.sendMessage(sessionId.value, content)
+    messages.value.push(aiResp)
+    scrollToBottom()
   } catch {
-    uni.showToast({ title: '创建对话失败', icon: 'none' })
+    uni.showToast({ title: '发送失败，请重试', icon: 'none' })
+    messages.value.pop()
+    inputText.value = content
   } finally {
-    creating.value = false
+    sending.value = false
   }
 }
 
-// ── 创建错题复盘对话 ──────────────────────────────────────────────────────
-async function createWrongReview() {
-  if (creating.value) return
-  creating.value = true
+async function rateMessage(msg: ChatMessage, rating: 'like' | 'dislike') {
+  if (ratings.value[msg.message_id] === rating) return
+  ratings.value[msg.message_id] = rating
   try {
-    const resp = await assistantApi.createSession({ session_mode: 'wrong_review' })
-    uni.navigateTo({
-      url: `${PAGES.ASSISTANT_CHAT}?session_id=${resp.session_id}&mode=${resp.session_mode}`,
-    })
+    await assistantApi.rateMessage(msg.message_id, rating)
   } catch {
-    uni.showToast({ title: '创建对话失败', icon: 'none' })
-  } finally {
-    creating.value = false
+    delete ratings.value[msg.message_id]
   }
 }
 
-// ── 进入历史对话 ──────────────────────────────────────────────────────────
-function enterSession(s: ChatSession) {
-  uni.navigateTo({
-    url: `${PAGES.ASSISTANT_CHAT}?session_id=${s.session_id}&mode=${s.session_mode}`,
-  })
-}
-
-// 获取会话模式标签样式颜色
-const modeColors: Record<string, string> = {
-  free_chat: '#4F46E5',
-  wrong_review: '#E11D48',
-  training_error_guidance: '#D97706',
-}
-
-// 获取状态标签
-const statusLabels: Record<string, string> = {
-  active: '进行中',
-  ended: '已结束',
+function scrollToBottom() {
+  // scroll-into-view 由模板绑定实现
 }
 </script>
 
 <template>
-  <view class="assistant-page">
-    <!-- ── 页面标题 ──────────────────────────────────────────── -->
-    <view class="page-header">
-      <text class="page-title">AI 助教</text>
-      <button class="new-chat-btn" :disabled="creating" @tap="createFreeChat">
-        <text class="new-chat-icon">+</text>
-        <text class="new-chat-text">{{ creating ? '创建中...' : '新对话' }}</text>
-      </button>
-    </view>
+  <view class="chat-page">
 
-    <!-- ── 快捷入口 ──────────────────────────────────────────── -->
-    <view class="quick-actions">
-      <view class="quick-card" @tap="createWrongReview">
-        <text class="quick-icon">🔁</text>
-        <view class="quick-info">
-          <text class="quick-title">错题复盘</text>
-          <text class="quick-desc">AI 带你突破错题</text>
-        </view>
-        <text class="quick-arrow">›</text>
+    <!-- ── 消息列表 ────────────────────────────────────────────── -->
+    <scroll-view
+      class="message-list"
+      scroll-y
+      :scroll-into-view="messages.length > 0 ? `msg-${messages[messages.length - 1]?.message_id}` : ''"
+      scroll-with-animation
+    >
+      <view v-if="loading" class="loading-state">
+        <view v-for="i in 3" :key="i" class="skel-msg" :class="i % 2 === 0 ? 'skel-msg--right' : 'skel-msg--left'" />
       </view>
-      <view class="quick-card" @tap="createFreeChat">
-        <text class="quick-icon">💬</text>
-        <view class="quick-info">
-          <text class="quick-title">随便问问</text>
-          <text class="quick-desc">自由提问，解惑答疑</text>
+
+      <template v-else>
+        <view v-if="messages.length === 0" class="empty-chat">
+          <text class="empty-chat__icon">🤖</text>
+          <text class="empty-chat__title">你好，我是 MESH</text>
+          <text class="empty-chat__text">有什么数理化问题，尽管问我～</text>
         </view>
-        <text class="quick-arrow">›</text>
-      </view>
-    </view>
 
-    <!-- ── 历史会话列表 ─────────────────────────────────────── -->
-    <view class="section-header">
-      <text class="section-title">历史对话</text>
-      <text class="session-count">{{ sessions.length }} 个会话</text>
-    </view>
-
-    <!-- 加载骨架 -->
-    <view v-if="loading" class="skeleton-list">
-      <view v-for="i in 3" :key="i" class="skel-card">
-        <view class="skel-badge" />
-        <view class="skel-content">
-          <view class="skel-line skel-line--title" />
-          <view class="skel-line skel-line--desc" />
-        </view>
-      </view>
-    </view>
-
-    <!-- 空状态 -->
-    <view v-else-if="sessions.length === 0" class="empty-state">
-      <text class="empty-icon">🗨️</text>
-      <text class="empty-title">还没有对话记录</text>
-      <text class="empty-desc">点击右上角「新对话」开始你的第一次 AI 对话</text>
-    </view>
-
-    <!-- 会话列表 -->
-    <view v-else class="session-list">
-      <view
-        v-for="s in sessions"
-        :key="s.session_id"
-        class="session-card"
-        @tap="enterSession(s)"
-      >
-        <!-- 模式徽标 -->
         <view
-          class="mode-badge"
-          :style="{ background: (modeColors[s.session_mode] || '#64748B') + '15', color: modeColors[s.session_mode] || '#64748B' }"
+          v-for="msg in messages"
+          :key="msg.message_id"
+          :id="`msg-${msg.message_id}`"
+          class="msg-row"
+          :class="msg.role === 'student' ? 'msg-row--right' : 'msg-row--left'"
         >
-          <text class="mode-badge__text">{{ SESSION_MODE_LABELS[s.session_mode] || s.session_mode }}</text>
-        </view>
+          <view v-if="msg.role === 'assistant'" class="ai-avatar">
+            <text class="ai-avatar__icon">🤖</text>
+          </view>
 
-        <view class="session-info">
-          <!-- 话题摘要 -->
-          <text class="session-summary">
-            {{ s.session_summary || '新对话' }}
-          </text>
-
-          <!-- 元数据行 -->
-          <view class="session-meta">
-            <view
-              class="status-dot"
-              :class="s.status === 'active' ? 'status-dot--active' : 'status-dot--ended'"
-            />
-            <text class="session-status">{{ statusLabels[s.status] || s.status }}</text>
-            <text class="session-sep">·</text>
-            <text class="session-turns">{{ s.aha_count }} 个 aha</text>
-            <text class="session-sep">·</text>
-            <text class="session-time">{{ fromNow(s.started_at) }}</text>
+          <view class="msg-bubble-wrap" :class="msg.role === 'student' ? 'msg-bubble-wrap--right' : ''">
+            <view v-if="msg.is_aha_trigger" class="aha-tag">
+              <text class="aha-tag__text">💡 思维突破</text>
+            </view>
+            <view class="msg-bubble" :class="msg.role === 'student' ? 'msg-bubble--student' : 'msg-bubble--ai'">
+              <text class="msg-text" :class="msg.role === 'student' ? 'msg-text--student' : ''">{{ msg.content }}</text>
+            </view>
+            <view v-if="msg.role === 'assistant'" class="msg-actions">
+              <text class="msg-time">{{ fromNow(msg.created_at) }}</text>
+              <view class="rating-bar">
+                <view class="rating-btn" :class="{ 'rating-btn--active': ratings[msg.message_id] === 'like' }" @tap="rateMessage(msg, 'like')">
+                  <text class="rating-icon">👍</text>
+                </view>
+                <view class="rating-btn" :class="{ 'rating-btn--active': ratings[msg.message_id] === 'dislike' }" @tap="rateMessage(msg, 'dislike')">
+                  <text class="rating-icon">👎</text>
+                </view>
+              </view>
+            </view>
+            <text v-if="msg.role === 'student'" class="msg-time msg-time--right">{{ fromNow(msg.created_at) }}</text>
           </view>
         </view>
 
-        <text class="session-arrow">›</text>
-      </view>
+        <view v-if="sending" class="msg-row msg-row--left">
+          <view class="ai-avatar">
+            <text class="ai-avatar__icon">🤖</text>
+          </view>
+          <view class="typing-indicator">
+            <view class="typing-dot" />
+            <view class="typing-dot" />
+            <view class="typing-dot" />
+          </view>
+        </view>
+      </template>
+    </scroll-view>
+
+    <!-- ── 底部输入栏（常驻）──────────────────────────────────── -->
+    <view class="input-bar">
+      <textarea
+        v-model="inputText"
+        class="input-textarea"
+        placeholder="输入消息..."
+        placeholder-class="input-placeholder"
+        :maxlength="1000"
+        :auto-height="true"
+        :show-confirm-bar="false"
+      />
+      <button
+        class="send-btn"
+        :class="{ 'send-btn--disabled': !inputText.trim() || sending }"
+        :disabled="!inputText.trim() || sending"
+        @tap="sendMessage"
+      >
+        <text class="send-btn__icon">{{ sending ? '⏳' : '▶' }}</text>
+      </button>
     </view>
+
   </view>
 </template>
 
 <style lang="scss" scoped>
-
-.assistant-page {
-  min-height: 100vh;
+.chat-page {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
   background: $bg-page;
+}
+
+.message-list {
+  flex: 1;
   padding: $space-4;
-  padding-bottom: 160rpx;
+  overflow: hidden;
 }
 
-// 页面标题
-.page-header {
+.loading-state {
   display: flex;
+  flex-direction: column;
+  gap: $space-3;
+}
+
+.skel-msg {
+  height: 80rpx;
+  background: $bg-muted;
+  border-radius: $r-lg;
+  animation: shimmer 1.2s ease-in-out infinite;
+  width: 65%;
+  &--right { margin-left: auto; }
+}
+
+.empty-chat {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: space-between;
+  padding-top: 160rpx;
+  gap: $space-2;
+
+  &__icon { font-size: 120rpx; }
+  &__title { font-size: $font-size-xl; font-weight: 700; color: $text-1; margin-top: $space-2; }
+  &__text { font-size: $font-size-sm; color: $text-3; }
+}
+
+.msg-row {
+  display: flex;
+  align-items: flex-end;
+  gap: $space-2;
   margin-bottom: $space-4;
+  &--right { flex-direction: row-reverse; }
 }
 
-.page-title {
-  font-size: $font-size-2xl;
-  color: $text-1;
-  font-weight: 800;
-}
-
-.new-chat-btn {
+.ai-avatar {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4F46E5, #7C3AED);
   display: flex;
   align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  &__icon { font-size: 36rpx; }
+}
+
+.msg-bubble-wrap {
+  max-width: 72%;
+  display: flex;
+  flex-direction: column;
   gap: 8rpx;
-  height: 68rpx;
-  padding: 0 $space-3;
-  background: $primary;
+  &--right { align-items: flex-end; }
+}
+
+.aha-tag {
+  background: rgba(251, 191, 36, 0.15);
   border-radius: $r-pill;
+  padding: 4rpx 20rpx;
+  align-self: flex-start;
+  &__text { font-size: $font-size-xs; color: #D97706; font-weight: 600; }
+}
+
+.msg-bubble {
+  padding: $space-3 $space-4;
+  border-radius: 24rpx;
+  line-height: 1.7;
+
+  &--ai {
+    background: $bg-surface;
+    border-bottom-left-radius: 8rpx;
+    box-shadow: $shadow-sm;
+  }
+  &--student {
+    background: $primary;
+    border-bottom-right-radius: 8rpx;
+  }
+}
+
+.msg-text {
+  font-size: $font-size-base;
+  color: $text-1;
+  &--student { color: #fff; }
+}
+
+.msg-actions {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  padding: 0 4rpx;
+}
+
+.msg-time {
+  font-size: $font-size-xs;
+  color: $text-3;
+  &--right { display: block; text-align: right; }
+}
+
+.rating-bar { display: flex; gap: $space-1; }
+
+.rating-btn {
+  width: 44rpx;
+  height: 44rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: $bg-muted;
+  &--active { background: rgba(79, 70, 229, 0.12); }
+}
+
+.rating-icon { font-size: 24rpx; }
+
+.typing-indicator {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  padding: $space-3 $space-4;
+  background: $bg-surface;
+  border-radius: 24rpx;
+  border-bottom-left-radius: 8rpx;
+  box-shadow: $shadow-sm;
+}
+
+.typing-dot {
+  width: 14rpx;
+  height: 14rpx;
+  border-radius: 50%;
+  background: $primary;
+  animation: bounce 0.9s ease-in-out infinite;
+  &:nth-child(2) { animation-delay: 0.2s; }
+  &:nth-child(3) { animation-delay: 0.4s; }
+}
+
+.input-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: $space-2;
+  padding: $space-3 $space-4;
+  padding-bottom: calc(#{$space-3} + env(safe-area-inset-bottom));
+  background: $bg-surface;
+  border-top: 1rpx solid $border;
+}
+
+.input-textarea {
+  flex: 1;
+  min-height: 72rpx;
+  max-height: 240rpx;
+  padding: $space-2 $space-3;
+  background: $bg-page;
+  border-radius: $r-xl;
+  font-size: $font-size-base;
+  color: $text-1;
+  line-height: 1.6;
+}
+
+.send-btn {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 50%;
+  background: $primary;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: none;
+  flex-shrink: 0;
 
   &::after { border: none; }
-}
-
-.new-chat-icon {
-  font-size: 36rpx;
-  color: #fff;
-  font-weight: 300;
-  line-height: 1;
-}
-
-.new-chat-text {
-  font-size: $font-size-sm;
-  color: #fff;
-  font-weight: 600;
-}
-
-// 快捷入口
-.quick-actions {
-  display: flex;
-  flex-direction: column;
-  gap: $space-2;
-  margin-bottom: $space-4;
-}
-
-.quick-card {
-  background: $bg-surface;
-  border-radius: $r-lg;
-  padding: $space-3 $space-4;
-  display: flex;
-  align-items: center;
-  gap: $space-3;
-  box-shadow: $shadow-sm;
-  transition: $transition-fast;
-
-  &:active {
-    opacity: 0.85;
-    transform: scale(0.99);
-  }
-}
-
-.quick-icon {
-  font-size: 44rpx;
-  flex-shrink: 0;
-}
-
-.quick-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 4rpx;
-}
-
-.quick-title {
-  font-size: $font-size-base;
-  color: $text-1;
-  font-weight: 600;
-}
-
-.quick-desc {
-  font-size: $font-size-xs;
-  color: $text-3;
-}
-
-.quick-arrow {
-  font-size: 36rpx;
-  color: $text-3;
-  flex-shrink: 0;
-}
-
-// section 头
-.section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: $space-3;
-}
-
-.section-title {
-  font-size: $font-size-lg;
-  color: $text-1;
-  font-weight: 700;
-}
-
-.session-count {
-  font-size: $font-size-xs;
-  color: $text-3;
-}
-
-// 骨架屏
-.skeleton-list {
-  display: flex;
-  flex-direction: column;
-  gap: $space-2;
-}
-
-.skel-card {
-  background: $bg-surface;
-  border-radius: $r-lg;
-  padding: $space-3 $space-4;
-  display: flex;
-  gap: $space-3;
-  box-shadow: $shadow-sm;
-}
-
-.skel-badge {
-  width: 120rpx;
-  height: 40rpx;
-  background: $bg-muted;
-  border-radius: $r-pill;
-  animation: shimmer 1.2s ease-in-out infinite;
-  flex-shrink: 0;
-}
-
-.skel-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: $space-2;
-}
-
-.skel-line {
-  height: 24rpx;
-  background: $bg-muted;
-  border-radius: $r-pill;
-  animation: shimmer 1.2s ease-in-out infinite;
-
-  &--title { width: 70%; }
-  &--desc { width: 50%; }
-}
-
-// 空状态
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: $space-3;
-  padding: 100rpx $space-4;
-}
-
-.empty-icon {
-  font-size: 100rpx;
-}
-
-.empty-title {
-  font-size: $font-size-lg;
-  color: $text-2;
-  font-weight: 600;
-}
-
-.empty-desc {
-  font-size: $font-size-sm;
-  color: $text-3;
-  text-align: center;
-  line-height: 1.7;
-}
-
-// 会话列表
-.session-list {
-  display: flex;
-  flex-direction: column;
-  gap: $space-2;
-}
-
-.session-card {
-  background: $bg-surface;
-  border-radius: $r-lg;
-  padding: $space-3 $space-4;
-  display: flex;
-  align-items: flex-start;
-  gap: $space-3;
-  box-shadow: $shadow-sm;
-  transition: $transition-fast;
-
-  &:active {
-    opacity: 0.85;
-    transform: scale(0.99);
-  }
-}
-
-.mode-badge {
-  flex-shrink: 0;
-  padding: 6rpx 20rpx;
-  border-radius: $r-pill;
-  margin-top: 4rpx;
-
-  &__text {
-    font-size: $font-size-xs;
-    font-weight: 600;
-  }
-}
-
-.session-info {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: $space-2;
-}
-
-.session-summary {
-  font-size: $font-size-base;
-  color: $text-1;
-  font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  display: block;
-}
-
-.session-meta {
-  display: flex;
-  align-items: center;
-  gap: $space-1;
-  flex-wrap: wrap;
-}
-
-.status-dot {
-  width: 12rpx;
-  height: 12rpx;
-  border-radius: 50%;
-
-  &--active {
-    background: $success;
-  }
-
-  &--ended {
-    background: $text-3;
-  }
-}
-
-.session-status,
-.session-turns,
-.session-time,
-.session-sep {
-  font-size: $font-size-xs;
-  color: $text-3;
-}
-
-.session-arrow {
-  font-size: 36rpx;
-  color: $text-3;
-  flex-shrink: 0;
-  margin-top: 4rpx;
+  &--disabled { background: $bg-muted; }
+  &__icon { font-size: 28rpx; color: #fff; }
 }
 
 @keyframes shimmer {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
+}
+
+@keyframes bounce {
+  0%, 80%, 100% { transform: scale(0.7); opacity: 0.5; }
+  40% { transform: scale(1); opacity: 1; }
 }
 </style>

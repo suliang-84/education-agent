@@ -7,7 +7,8 @@
     { "path": "pages/test/index",          "style": { "navigationBarTitleText": "五力认知测试" } },
     { "path": "pages/test/questions",      "style": { "navigationBarTitleText": "测试答题", "navigationStyle": "custom" } },
     { "path": "pages/test/result",         "style": { "navigationBarTitleText": "测试结果" } },
-    { "path": "pages/assistant/index",     "style": { "navigationBarTitleText": "AI 助教" } },
+    { "path": "pages/assistant/index",     "style": { "navigationBarTitleText": "AI 助教", "navigationStyle": "custom" } },
+    { "path": "pages/assistant/history",   "style": { "navigationBarTitleText": "历史对话" } },
     { "path": "pages/assistant/chat",      "style": { "navigationBarTitleText": "对话", "navigationStyle": "custom" } },
     { "path": "pages/profile/index",       "style": { "navigationBarTitleText": "我的五力" } },
     { "path": "pages/wrong-answers/index", "style": { "navigationBarTitleText": "错题集" } }

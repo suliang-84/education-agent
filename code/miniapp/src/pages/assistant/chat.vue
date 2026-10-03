@@ -130,7 +130,7 @@ function scrollToBottom() {
 const weakestPowers = computed(() => {
   if (!fivePower.value?.profile) return []
   return Object.entries(fivePower.value.profile.forces)
-    .map(([k, v]) => ({ key: k, score: Math.round(v.final * 100) }))
+    .map(([k, v]) => ({ key: k, score: Math.round(v.final ?? 0) }))
     .sort((a, b) => a.score - b.score)
     .slice(0, 3)
 })

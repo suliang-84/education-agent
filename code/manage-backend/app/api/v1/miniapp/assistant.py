@@ -32,25 +32,40 @@ class RateMessageReq(BaseModel):
     rating: str  # like / dislike
 
 
-@router.post("/session", summary="创建对话会话")
+@router.post("/session", summary="获取或创建永久会话")
 async def create_session(
     body: CreateSessionReq,
     student: Student = Depends(get_current_student),
     db: AsyncSession = Depends(get_db),
 ):
+    """单一永久会话：用户只有一个会话，有则复用，无则新建"""
+    existing = (
+        await db.execute(
+            select(AiChatSession)
+            .where(
+                AiChatSession.student_id == student.id,
+                AiChatSession.session_mode == "free_chat",
+            )
+            .order_by(AiChatSession.created_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+
+    if existing:
+        return ok_response({"session_id": existing.id, "session_mode": existing.session_mode})
+
     session_id = str(uuid.uuid4())
     session = AiChatSession(
         id=session_id,
         student_id=student.id,
-        session_mode=body.session_mode,
+        session_mode="free_chat",
         status="active",
-        linked_question_id=body.linked_question_id,
         started_at=datetime.now(UTC),
         created_at=datetime.now(UTC),
     )
     db.add(session)
     await db.commit()
-    return ok_response({"session_id": session_id, "session_mode": body.session_mode})
+    return ok_response({"session_id": session_id, "session_mode": "free_chat"})
 
 
 @router.post("/message", summary="发送消息（Mock）")
@@ -100,7 +115,13 @@ async def get_messages(
         )
     ).scalars().all()
     return ok_response([
-        {"message_id": m.id, "role": m.role, "content": m.content, "created_at": m.created_at.isoformat()}
+        {
+            "message_id": m.id,
+            "role": m.role,
+            "content": m.content,
+            "is_aha_trigger": m.is_aha_trigger,
+            "created_at": m.created_at.isoformat(),
+        }
         for m in msgs
     ])
 
