@@ -5,6 +5,7 @@ import { useAuthStore } from '@/store'
 import { PAGES, FIVE_POWERS, FIVE_POWER_LABELS, FIVE_POWER_COLORS } from '@/constants'
 import { getPowerLevel, formatDate } from '@/utils'
 import type { FivePowerProfile } from '@/api/profile'
+import RadarChart from '@/components/charts/RadarChart.vue'
 
 const authStore = useAuthStore()
 
@@ -17,44 +18,12 @@ const showGrowthTrend = ref(false)
 // 这里简化：实际应对比 profile 的 created_at
 const canRetest = ref(true) // 实际应从接口获取创建时间比对
 
-// ── 五力雷达图配置（SVG） ──────────────────────────────────────────────────
-const SVG_CX = 375
-const SVG_CY = 375
-const SVG_R = 260
-
-function calcRadarPoints(scores: number[]): string {
-  return scores
-    .map((score, i) => {
-      const angle = ((i * 72 - 90) * Math.PI) / 180
-      const r = (score / 100) * SVG_R
-      return `${SVG_CX + r * Math.cos(angle)},${SVG_CY + r * Math.sin(angle)}`
-    })
-    .join(' ')
-}
-
-const bgGridPoints = [1.0, 0.6, 0.3].map((ratio) =>
-  calcRadarPoints([100, 100, 100, 100, 100].map((v) => v * ratio))
-)
-
-const axisPoints = FIVE_POWERS.map((_, i) => {
-  const angle = ((i * 72 - 90) * Math.PI) / 180
-  return { x2: SVG_CX + SVG_R * Math.cos(angle), y2: SVG_CY + SVG_R * Math.sin(angle) }
-})
-
-const labelPositions = FIVE_POWERS.map((_, i) => {
-  const angle = ((i * 72 - 90) * Math.PI) / 180
-  const r = SVG_R + 52
-  return { x: SVG_CX + r * Math.cos(angle), y: SVG_CY + r * Math.sin(angle) }
-})
-
 // ── 计算分数 ──────────────────────────────────────────────────────────────
 const scores = computed(() => {
   if (!fivePower.value?.profile) return FIVE_POWERS.map(() => 0)
   const forces = fivePower.value.profile.forces
   return FIVE_POWERS.map((p) => Math.round(forces[p]?.final ?? 0))
 })
-
-const radarPoints = computed(() => calcRadarPoints(scores.value))
 
 // 维度详细信息列表
 const dimensionRows = computed(() =>
@@ -160,57 +129,17 @@ function goToTraining() {
         </view>
       </view>
 
-      <!-- ── 五力雷达图 SVG ──────────────────────────────── -->
+      <!-- ── 五力雷达图 ──────────────────────────────────── -->
       <view class="radar-card">
         <text class="card-title">五力分布图</text>
         <view class="radar-wrap">
-          <svg class="radar-svg" viewBox="0 0 750 750" xmlns="http://www.w3.org/2000/svg">
-            <!-- 背景网格 -->
-            <polygon
-              v-for="(pts, gi) in bgGridPoints"
-              :key="gi"
-              :points="pts"
-              fill="none"
-              stroke="#E2E8F0"
-              stroke-width="2"
-            />
-            <!-- 轴线 -->
-            <line
-              v-for="(ax, ai) in axisPoints"
-              :key="ai"
-              :x1="SVG_CX" :y1="SVG_CY"
-              :x2="ax.x2" :y2="ax.y2"
-              stroke="#E2E8F0" stroke-width="2"
-            />
-            <!-- 数据多边形 -->
-            <polygon
-              :points="radarPoints"
-              fill="rgba(79, 70, 229, 0.15)"
-              stroke="#4F46E5"
-              stroke-width="4"
-              stroke-linejoin="round"
-            />
-            <!-- 维度标签 -->
-            <text
-              v-for="(lp, li) in labelPositions"
-              :key="li"
-              :x="lp.x" :y="lp.y"
-              font-size="28"
-              text-anchor="middle"
-              dominant-baseline="middle"
-              :fill="FIVE_POWER_COLORS[FIVE_POWERS[li]]"
-              font-weight="600"
-            >{{ FIVE_POWER_LABELS[FIVE_POWERS[li]] }}</text>
-            <!-- 数据点（分开循环避免 v-if + v-for 混用） -->
-            <template v-for="(score, si) in scores" :key="si">
-              <circle
-                :cx="SVG_CX + (score / 100) * SVG_R * Math.cos(((si * 72 - 90) * Math.PI) / 180)"
-                :cy="SVG_CY + (score / 100) * SVG_R * Math.sin(((si * 72 - 90) * Math.PI) / 180)"
-                r="10"
-                :fill="FIVE_POWER_COLORS[FIVE_POWERS[si]]"
-              />
-            </template>
-          </svg>
+          <RadarChart
+            canvas-id="profileRadar"
+            :scores="scores"
+            :labels="FIVE_POWERS.map(p => FIVE_POWER_LABELS[p])"
+            :colors="FIVE_POWERS.map(p => FIVE_POWER_COLORS[p])"
+            :size="300"
+          />
         </view>
       </view>
 
@@ -501,10 +430,6 @@ function goToTraining() {
   justify-content: center;
 }
 
-.radar-svg {
-  width: 560rpx;
-  height: 560rpx;
-}
 
 // 维度列表
 .dimension-list {
