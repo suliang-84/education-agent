@@ -1,4 +1,5 @@
 """题库管理路由 — §9.1"""
+import asyncio
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select, func, case
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -109,12 +110,17 @@ async def analyze_question(
     db: AsyncSession = Depends(get_db),
     current_admin: AdminUser = Depends(get_current_admin),
 ):
-    q = await questions_service.analyze(db, question_id, current_admin.id)
-    qid, qstatus, qround = q.id, q.status, q.analysis_round
+    # 第一步：立即将状态改为 analyzing 并提交，前端可感知
+    q = await questions_service.set_analyzing(db, question_id)
+    qid, qround = q.id, q.analysis_round
     await audit_service.log(db, current_admin.id, "ANALYZE_QUESTION",
                             target_type="questions", target_id=str(qid))
     await db.commit()
-    return ok_response({"question_id": qid, "status": qstatus, "analysis_round": qround}, "分析完成")
+
+    # 第二步：后台异步跑 LLM，传入已确认的 round 值避免时序问题
+    asyncio.create_task(questions_service.run_analysis(question_id, current_admin.id, qround))
+
+    return ok_response({"question_id": qid, "status": "analyzing", "analysis_round": qround}, "分析任务已提交，请稍候")
 
 
 @router.post("/questions/{question_id}/publish", summary="发布题目（审核通过）")

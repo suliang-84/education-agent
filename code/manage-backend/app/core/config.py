@@ -27,6 +27,12 @@ class Settings(BaseSettings):
     WX_APPID: str = ""
     WX_SECRET: str = ""
 
+    # LLM (OpenAI-compatible，当前接入 DeepSeek)
+    LLM_API_KEY: str = ""
+    LLM_BASE_URL: str = "https://api.deepseek.com/v1"
+    LLM_MODEL: str = "deepseek-flash"
+    LLM_MAX_TOKENS: int = 2048
+
 
 _settings: Settings | None = None
 

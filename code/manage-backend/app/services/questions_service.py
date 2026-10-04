@@ -152,9 +152,10 @@ async def create(db: AsyncSession, data, operator_id: int) -> Question:
     return q
 
 
-# ── 触发分析 ──────────────────────────────────────────────────
+# ── 触发分析（第一步：改状态，立即返回）────────────────────────
 
-async def analyze(db: AsyncSession, question_id: int, operator_id: int) -> Question:
+async def set_analyzing(db: AsyncSession, question_id: int) -> Question:
+    """将题目状态改为 analyzing 并 flush，供路由层 commit 后立即返回给前端"""
     q = (await db.execute(
         select(Question).where(Question.id == question_id, Question.deleted_at.is_(None))
     )).scalar_one_or_none()
@@ -162,69 +163,80 @@ async def analyze(db: AsyncSession, question_id: int, operator_id: int) -> Quest
         raise AppException('题目不存在', 404)
     if q.status not in ('draft', 'pending_review'):
         raise AppException('当前状态不支持触发分析', 400)
-
-    # 读取 system prompt
-    from app.models.ai import SystemConfig
-    cfg = (await db.execute(
-        select(SystemConfig).where(SystemConfig.key == 'question_analysis_prompt')
-    )).scalar_one_or_none()
-    system_prompt = cfg.value if cfg else ''
-
-    # 更新题目状态
     q.status = 'analyzing'
     q.analysis_round = (q.analysis_round or 0) + 1
-    current_round = q.analysis_round
-    await db.flush()
-
-    # 尝试调用 Anthropic API
-    try:
-        from app.core.config import get_settings
-        settings = get_settings()
-        api_key = getattr(settings, 'ANTHROPIC_API_KEY', None)
-
-        if api_key:
-            import anthropic, json
-            client = anthropic.Anthropic(api_key=api_key)
-            if q.rejection_reason:
-                user_content = f"请重新分析以下题目（上次驳回意见：{q.rejection_reason}）：\n\n{q.stem}"
-            else:
-                user_content = f"请分析以下题目：\n\n{q.stem}"
-            msg = client.messages.create(
-                model=getattr(settings, 'ANTHROPIC_MODEL', 'claude-opus-4-6'),
-                max_tokens=2048,
-                system=system_prompt,
-                messages=[{"role": "user", "content": user_content}]
-            )
-            result = json.loads(msg.content[0].text)
-            _write_analysis(db, q, result, current_round)
-            # 同步更新题目展示字段（分析后列表立即可见）
-            q.difficulty = result.get('difficulty')
-            weights = result.get('five_power_weights') or {}
-            if weights:
-                q.five_power_weights = weights
-                flag_modified(q, 'five_power_weights')
-                q.primary_power = max(weights, key=weights.get)
-            # 解析归属 ID（按 code 查表）
-            await _apply_knowledge_ids_from_codes(db, q, result)
-        else:
-            _write_mock_analysis(db, q, current_round)
-            # 同步更新题目展示字段（模拟数据）
-            q.subject_id  = 1
-            q.grade_id    = 1
-            q.semester_id = 1
-            q.difficulty  = 'basic'
-            q.five_power_weights = {"INSIGHT": 2, "CONSTRUCT": 4, "DEDUCE": 2, "ADAPT": 1, "MIGRATE": 1}
-            flag_modified(q, 'five_power_weights')
-            q.primary_power = 'CONSTRUCT'
-
-        q.rejection_reason = None
-        q.status = 'pending_review'
-    except Exception:
-        q.status = 'draft'
-        q.analysis_round = max(0, current_round - 1)
-
     await db.flush()
     return q
+
+
+# ── 触发分析（第二步：后台异步跑 LLM）───────────────────────────
+
+async def run_analysis(question_id: int, operator_id: int, analysis_round: int) -> None:
+    """后台任务：独立 DB session 调用 LLM，完成后更新题目状态"""
+    from app.core.database import AsyncSessionLocal as async_session_factory
+    from app.core.config import get_settings
+    from app.core.llm import chat_json
+    from app.models.ai import SystemConfig
+
+    async with async_session_factory() as db:
+        try:
+            q = (await db.execute(
+                select(Question).where(Question.id == question_id, Question.deleted_at.is_(None))
+            )).scalar_one_or_none()
+            if not q:
+                return
+
+            current_round = analysis_round  # 使用路由层传入的 round，避免时序读取问题
+
+            # 读取 system prompt
+            cfg = (await db.execute(
+                select(SystemConfig).where(SystemConfig.key == 'question_analysis_prompt')
+            )).scalar_one_or_none()
+            system_prompt = cfg.value if cfg else ''
+
+            settings = get_settings()
+            if settings.LLM_API_KEY:
+                if q.rejection_reason:
+                    user_content = f"请重新分析以下题目（上次驳回意见：{q.rejection_reason}）：\n\n{q.stem}"
+                else:
+                    user_content = f"请分析以下题目：\n\n{q.stem}"
+                result = await chat_json(system_prompt, user_content)
+                _write_analysis(db, q, result, current_round)
+                q.difficulty = result.get('difficulty')
+                weights = result.get('five_power_weights') or {}
+                if weights:
+                    q.five_power_weights = weights
+                    flag_modified(q, 'five_power_weights')
+                    q.primary_power = max(weights, key=weights.get)
+                await _apply_knowledge_ids_from_codes(db, q, result)
+            else:
+                _write_mock_analysis(db, q, current_round)
+                q.subject_id  = 1
+                q.grade_id    = 1
+                q.semester_id = 1
+                q.difficulty  = 'basic'
+                q.five_power_weights = {"INSIGHT": 2, "CONSTRUCT": 4, "DEDUCE": 2, "ADAPT": 1, "MIGRATE": 1}
+                flag_modified(q, 'five_power_weights')
+                q.primary_power = 'CONSTRUCT'
+
+            q.rejection_reason = None
+            q.status = 'pending_review'
+            await db.commit()
+
+        except Exception:
+            # LLM 失败：回退为草稿
+            try:
+                from app.core.database import AsyncSessionLocal
+                async with AsyncSessionLocal() as db2:
+                    q2 = (await db2.execute(
+                        select(Question).where(Question.id == question_id)
+                    )).scalar_one_or_none()
+                    if q2 and q2.status == 'analyzing':
+                        q2.status = 'draft'
+                        q2.analysis_round = max(0, q2.analysis_round - 1)
+                        await db2.commit()
+            except Exception:
+                pass
 
 
 def _write_analysis(db, q: Question, result: dict, round_no: int):

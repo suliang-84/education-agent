@@ -279,7 +279,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { questionApi, knowledgeTreeApi } from '@/api'
 import type { KnowledgeTreeNode } from '@/api/questions'
@@ -402,6 +402,8 @@ async function loadData() {
     questions.value = res.list
     total.value = res.total
     totalPages.value = res.total_pages ?? 1
+    // 有分析中的题目则启动轮询
+    if (res.list.some((q: Question) => q.status === 'analyzing')) startPolling()
   } finally { loading.value = false }
 }
 
@@ -464,7 +466,24 @@ async function handleImport() {
   } finally { importLoading.value = false }
 }
 
+// 轮询：有 analyzing 状态题目时每 5 秒刷新一次
+let pollTimer: ReturnType<typeof setInterval> | null = null
+
+function startPolling() {
+  if (pollTimer) return
+  pollTimer = setInterval(() => {
+    const hasAnalyzing = questions.value.some(q => q.status === 'analyzing')
+    if (hasAnalyzing) { loadData(); loadStats() }
+    else { stopPolling() }
+  }, 5000)
+}
+
+function stopPolling() {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null }
+}
+
 onMounted(() => { loadData(); loadStats(); loadKnowledgeTree() })
+onUnmounted(() => stopPolling())
 </script>
 
 <style lang="scss" scoped>
