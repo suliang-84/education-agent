@@ -515,7 +515,13 @@ onMounted(async () => {
     form.grade_id            = ana?.ai_grade_id    ?? (raw as any).grade_id    ?? null
     form.semester_id         = ana?.ai_semester_id ?? (raw as any).semester_id ?? null
     form.chapter_id          = ana?.ai_chapter_id  ?? (raw as any).chapter_id  ?? null
-    form.chapter_name        = ''
+    // 根据 chapter_id 从知识树反查章节名称
+    if (form.chapter_id) {
+      const chNode = allNodes.value.find(n => n.type === 'chapter' && n.id === form.chapter_id)
+      form.chapter_name = chNode?.name ?? ''
+    } else {
+      form.chapter_name = ''
+    }
     form.knowledge_points    = [...(ana?.ai_knowledge_point_ids ?? (raw as any).knowledge_point_ids ?? [])].map(String)
     form.question_type       = (ana?.ai_question_type ?? (raw as any).question_type ?? 'APPLICATION') as QuestionType
     form.difficulty          = (ana?.ai_difficulty   ?? (raw as any).difficulty   ?? 'basic') as Difficulty
