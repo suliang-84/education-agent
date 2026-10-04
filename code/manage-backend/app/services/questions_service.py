@@ -251,6 +251,8 @@ def _write_analysis(db, q: Question, result: dict, round_no: int):
         ai_transfer_directions=result.get('transfer_directions', []),
         ai_question_type=result.get('question_type'),
         ai_answer=result.get('answer'),
+        # 归属字段：由 _apply_knowledge_ids_from_codes 写入 Question，分析记录暂存文字
+        ai_knowledge_point_ids=result.get('knowledge_points', []),
         analysis_status='completed',
     )
     db.add(analysis)
@@ -363,10 +365,14 @@ async def archive(db: AsyncSession, question_id: int) -> Question:
 # ── 知识体系 code → ID 解析 ───────────────────────────────────
 
 async def _apply_knowledge_ids_from_codes(db: AsyncSession, q: Question, result: dict):
-    """将 AI 返回的科目/年级/学期 code 解析为数据库 ID 并写入题目"""
-    subject_code   = result.get('subject')    # e.g. "MATH"
-    grade_code     = result.get('grade')      # e.g. "G7"
-    semester_code  = result.get('semester')   # e.g. "S1"
+    """将 AI 返回的科目/年级/学期/单元/知识点解析为数据库 ID 并写入题目"""
+    from sqlalchemy import or_
+    subject_code  = result.get('subject')         # e.g. "MATH"
+    grade_code    = result.get('grade')            # e.g. "G7"
+    semester_code = result.get('semester')         # e.g. "S1"
+    chapter_name  = result.get('chapter', '')      # e.g. "第三章：一元一次方程"
+    kp_names      = result.get('knowledge_points', [])  # e.g. ["一元一次方程", "应用题建模"]
+
     if not subject_code:
         return
     sub = (await db.execute(
@@ -375,6 +381,7 @@ async def _apply_knowledge_ids_from_codes(db: AsyncSession, q: Question, result:
     if not sub:
         return
     q.subject_id = sub.id
+
     if not grade_code:
         return
     grade = (await db.execute(
@@ -383,13 +390,46 @@ async def _apply_knowledge_ids_from_codes(db: AsyncSession, q: Question, result:
     if not grade:
         return
     q.grade_id = grade.id
-    if not semester_code:
-        return
-    sem = (await db.execute(
-        select(Semester).where(Semester.code == semester_code, Semester.grade_id == grade.id)
-    )).scalar_one_or_none()
-    if sem:
-        q.semester_id = sem.id
+
+    sem = None
+    if semester_code:
+        sem = (await db.execute(
+            select(Semester).where(Semester.code == semester_code, Semester.grade_id == grade.id)
+        )).scalar_one_or_none()
+        if sem:
+            q.semester_id = sem.id
+
+    # 单元：按名称模糊匹配（去掉章节编号前缀后匹配关键字）
+    if chapter_name and sem:
+        # 提取章名关键词（冒号后的部分，或全名）
+        chapter_key = chapter_name.split('：')[-1].split(':')[-1].strip() if '：' in chapter_name or ':' in chapter_name else chapter_name
+        chapters = (await db.execute(
+            select(Chapter).where(
+                Chapter.semester_id == sem.id,
+                or_(
+                    Chapter.name.ilike(f'%{chapter_key}%'),
+                    Chapter.name.ilike(f'%{chapter_name}%'),
+                )
+            )
+        )).scalars().all()
+        if chapters:
+            q.chapter_id = chapters[0].id
+
+            # 知识点：在匹配到的章节下按名称查找
+            if kp_names:
+                matched_kp_ids = []
+                for kp_name in kp_names:
+                    kp = (await db.execute(
+                        select(KnowledgePoint).where(
+                            KnowledgePoint.chapter_id == chapters[0].id,
+                            KnowledgePoint.name.ilike(f'%{kp_name}%'),
+                        )
+                    )).scalar_one_or_none()
+                    if kp:
+                        matched_kp_ids.append(kp.id)
+                if matched_kp_ids:
+                    q.knowledge_point_ids = matched_kp_ids
+                    flag_modified(q, 'knowledge_point_ids')
 
 
 # ── 软删除 ────────────────────────────────────────────────────

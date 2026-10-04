@@ -41,60 +41,60 @@
         </div>
 
         <!-- 科目树 -->
-        <div v-for="subject in knowledgeTree" :key="subject.name">
+        <div v-for="subject in knowledgeTree" :key="subject.id">
           <!-- 科目 -->
           <div class="tree-node tree-node--l1" :class="{ active: treeFilter.subject === subject.name && !treeFilter.grade }">
             <span class="tree-toggle" @click="subject.open = !subject.open" :title="subject.open ? '折叠' : '展开'">
               {{ subject.open ? '▼' : '▶' }}
             </span>
             <span class="tree-node__label" @click="selectSubject(subject.name)">{{ subject.name }}</span>
-            <span class="tree-node__count">{{ subject.count }}</span>
+            <span class="tree-node__count">{{ subject.published_count }}</span>
           </div>
 
           <!-- 年级 -->
           <template v-if="subject.open">
-            <div v-for="grade in subject.grades" :key="grade.name">
+            <div v-for="grade in subject.children" :key="grade.id">
               <div class="tree-node tree-node--l2" :class="{ active: treeFilter.subject === subject.name && treeFilter.grade === grade.name && !treeFilter.semester }">
                 <span class="tree-toggle" @click="grade.open = !grade.open" :title="grade.open ? '折叠' : '展开'">
                   {{ grade.open ? '▼' : '▶' }}
                 </span>
                 <span class="tree-node__label" @click="selectGrade(subject.name, grade.name)">{{ grade.name }}</span>
-                <span class="tree-node__count">{{ grade.count }}</span>
+                <span class="tree-node__count">{{ grade.published_count }}</span>
               </div>
 
               <!-- 学期 -->
               <template v-if="grade.open">
-                <div v-for="sem in grade.semesters" :key="sem.name">
+                <div v-for="sem in grade.children" :key="sem.id">
                   <div class="tree-node tree-node--l3" :class="{ active: treeFilter.subject === subject.name && treeFilter.grade === grade.name && treeFilter.semester === sem.name && !treeFilter.chapter }">
                     <span class="tree-toggle" @click="sem.open = !sem.open" :title="sem.open ? '折叠' : '展开'">
                       {{ sem.open ? '▼' : '▶' }}
                     </span>
                     <span class="tree-node__label" @click="selectSemester(subject.name, grade.name, sem.name)">{{ sem.name }}</span>
-                    <span class="tree-node__count">{{ sem.count }}</span>
+                    <span class="tree-node__count">{{ sem.published_count }}</span>
                   </div>
 
                   <!-- 单元/章节 -->
                   <template v-if="sem.open">
-                    <div v-for="ch in sem.chapters" :key="ch.name">
+                    <div v-for="ch in sem.children" :key="ch.id">
                       <div class="tree-node tree-node--l4" :class="{ active: treeFilter.chapter === ch.name && !treeFilter.knowledge_point }">
                         <span class="tree-toggle" @click="ch.open = !ch.open" :title="ch.open ? '折叠' : '展开'">
                           {{ ch.open ? '▼' : '▶' }}
                         </span>
                         <span class="tree-node__label" @click="selectChapter(subject.name, grade.name, sem.name, ch.name)">{{ ch.name }}</span>
-                        <span class="tree-node__count">{{ ch.count }}</span>
+                        <span class="tree-node__count">{{ ch.published_count }}</span>
                       </div>
 
                       <!-- 知识点（叶子节点，无展开图标） -->
                       <template v-if="ch.open">
                         <div
-                          v-for="kp in ch.knowledge_points" :key="kp.name"
+                          v-for="kp in ch.children" :key="kp.id"
                           class="tree-node tree-node--l5"
                           :class="{ active: treeFilter.knowledge_point === kp.name }"
                           @click="selectKnowledgePoint(subject.name, grade.name, sem.name, ch.name, kp.name)"
                         >
                           <span class="tree-leaf-dot">●</span>
                           <span class="tree-node__label">{{ kp.name }}</span>
-                          <span class="tree-node__count">{{ kp.count }}</span>
+                          <span class="tree-node__count">{{ kp.published_count }}</span>
                         </div>
                       </template>
                     </div>
