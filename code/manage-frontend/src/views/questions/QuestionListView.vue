@@ -153,9 +153,27 @@
           </span>
         </div>
 
+        <!-- 批量操作栏 -->
+        <div v-if="selected.length > 0" class="batch-bar">
+          <span class="batch-bar__info">已选 <b>{{ selected.length }}</b> 条</span>
+          <el-button size="small" type="primary" :loading="batchAnalyzing" @click="handleBatchAnalyze">
+            批量模型分析
+          </el-button>
+          <el-button size="small" type="danger" :loading="batchDeleting" @click="handleBatchDelete">
+            批量删除
+          </el-button>
+          <el-button size="small" text @click="selected = []">取消选择</el-button>
+        </div>
+
         <!-- 题目列表表格 -->
         <div class="surface" style="overflow:hidden">
-          <el-table :data="questions" v-loading="loading" style="width:100%">
+          <el-table
+            :data="questions"
+            v-loading="loading"
+            style="width:100%"
+            @selection-change="(rows: Question[]) => selected = rows"
+          >
+            <el-table-column type="selection" width="46" />
 
             <el-table-column label="ID" width="90">
               <template #default="{ row }">
@@ -295,6 +313,11 @@ const totalPages = ref(1)
 const PAGE_SIZE = 20
 const showImport = ref(false)
 const batchStems = ref('')
+
+// 批量操作
+const selected = ref<Question[]>([])
+const batchAnalyzing = ref(false)
+const batchDeleting = ref(false)
 
 // 状态统计（来自后端）
 const statusCounts = ref<Record<string, number>>({
@@ -453,6 +476,64 @@ async function handleDelete(row: Question) {
   loadData(); loadStats()
 }
 
+// ── 批量模型分析 ──────────────────────────────────────────────
+async function handleBatchAnalyze() {
+  const targets = selected.value.filter(q => q.status === 'draft')
+  const skipped = selected.value.length - targets.length
+  if (targets.length === 0) {
+    ElMessage.warning('所选题目中无草稿状态题目，无法触发分析')
+    return
+  }
+  const msg = skipped > 0
+    ? `选中 ${selected.value.length} 条，其中 ${targets.length} 条草稿将触发分析，${skipped} 条因状态不符跳过。确认继续？`
+    : `将对 ${targets.length} 条草稿题目串行触发模型分析，确认继续？`
+  await ElMessageBox.confirm(msg, '批量模型分析', { confirmButtonText: '确认分析', cancelButtonText: '取消', type: 'info' })
+  batchAnalyzing.value = true
+  let successCount = 0
+  try {
+    for (const q of targets) {
+      try {
+        await questionApi.analyze(q.id)
+        successCount++
+      } catch { /* 单条失败跳过 */ }
+    }
+    ElMessage.success(`已提交 ${successCount} 条分析任务，请稍后查看结果`)
+    selected.value = []
+    loadData(); loadStats()
+  } finally {
+    batchAnalyzing.value = false
+  }
+}
+
+// ── 批量删除 ──────────────────────────────────────────────────
+async function handleBatchDelete() {
+  const targets = selected.value.filter(q => q.status === 'draft')
+  const skipped = selected.value.length - targets.length
+  if (targets.length === 0) {
+    ElMessage.warning('所选题目中无草稿状态题目，无法删除')
+    return
+  }
+  const msg = skipped > 0
+    ? `选中 ${selected.value.length} 条，其中 ${targets.length} 条草稿将被删除，${skipped} 条因状态不符跳过。此操作不可恢复，确认继续？`
+    : `将删除 ${targets.length} 条草稿题目，此操作不可恢复，确认继续？`
+  await ElMessageBox.confirm(msg, '批量删除', { confirmButtonText: '确认删除', cancelButtonText: '取消', type: 'error' })
+  batchDeleting.value = true
+  let successCount = 0
+  try {
+    for (const q of targets) {
+      try {
+        await questionApi.delete(q.id)
+        successCount++
+      } catch { /* 单条失败跳过 */ }
+    }
+    ElMessage.success(`已删除 ${successCount} 条草稿题目`)
+    selected.value = []
+    loadData(); loadStats()
+  } finally {
+    batchDeleting.value = false
+  }
+}
+
 function handleFileChange() { ElMessage.info('文件已选择') }
 async function handleImport() {
   const stems = batchStems.value.split('\n').map(s => s.trim()).filter(Boolean)
@@ -487,6 +568,24 @@ onUnmounted(() => stopPolling())
 </script>
 
 <style lang="scss" scoped>
+// ── 批量操作栏 ────────────────────────────────────────────────
+.batch-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: var(--indigo-light);
+  border: 1.5px solid var(--indigo-border);
+  border-radius: var(--r-lg);
+  margin-bottom: 10px;
+
+  &__info {
+    font-size: 13px;
+    color: var(--indigo);
+    font-weight: 500;
+    flex-shrink: 0;
+  }
+}
 // ── 主体布局：左树右表 ───────────────────────────────────────
 .main-layout {
   display: flex;
