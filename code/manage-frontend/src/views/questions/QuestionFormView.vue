@@ -2,14 +2,14 @@
   <div class="page-root">
     <div class="page-header">
       <div style="display:flex;align-items:center;gap:12px">
-        <el-button size="small" @click="$router.push('/questions')">
+        <el-button size="small" @click="$router.push('/questions/entry')">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="margin-right:4px">
             <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/>
           </svg>
           返回
         </el-button>
         <div>
-          <h1 class="page-title">录入训练题目</h1>
+          <h1 class="page-title">{{ isEdit ? '编辑题干' : '录入训练题目' }}</h1>
           <p class="page-subtitle">填写题干后，由大模型自动分析知识点、难度、五力权重等全部字段</p>
         </div>
       </div>
@@ -138,15 +138,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, reactive, computed, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import type { FormInstance, FormRules } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import { questionApi } from '@/api'
 
 const router = useRouter()
+const route = useRoute()
 const formRef = ref<FormInstance>()
 const loading = ref(false)
+
+const questionId = computed(() => route.params.id ? Number(route.params.id) : null)
+const isEdit = computed(() => !!questionId.value)
 
 const form = reactive({ stem: '' })
 
@@ -154,18 +158,37 @@ const rules: FormRules = {
   stem: [{ required: true, message: '请输入题干内容', trigger: 'blur' }],
 }
 
+onMounted(async () => {
+  if (!isEdit.value) return
+  loading.value = true
+  try {
+    const data = await questionApi.getOne(questionId.value!)
+    form.stem = data.stem
+  } catch {
+    ElMessage.error('题目信息加载失败')
+  } finally {
+    loading.value = false
+  }
+})
+
 async function handleSave(mode: 'draft' | 'analyze') {
   await formRef.value?.validate()
   loading.value = true
   try {
-    const created = await questionApi.create({ stem: form.stem })
-    if (mode === 'analyze') {
-      await questionApi.analyze(created.question_id)
-      ElMessage.success('题干已保存，大模型分析任务已提交，约 10~30 秒完成')
+    let id: number
+    if (isEdit.value) {
+      await questionApi.update(questionId.value!, { stem: form.stem })
+      id = questionId.value!
+      ElMessage.success(mode === 'analyze' ? '题干已更新，大模型分析任务已提交，约 10~30 秒完成' : '草稿已更新')
     } else {
-      ElMessage.success('草稿已保存')
+      const created = await questionApi.create({ stem: form.stem })
+      id = created.question_id
+      ElMessage.success(mode === 'analyze' ? '题干已保存，大模型分析任务已提交，约 10~30 秒完成' : '草稿已保存')
     }
-    router.push('/questions')
+    if (mode === 'analyze') {
+      await questionApi.analyze(id)
+    }
+    router.push('/questions/entry')
   } finally { loading.value = false }
 }
 </script>

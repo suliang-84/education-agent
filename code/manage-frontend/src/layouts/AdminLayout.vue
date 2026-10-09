@@ -30,22 +30,30 @@
 
         <div class="nav-section">
           <div class="nav-section__label">题库</div>
-          <router-link to="/questions" class="nav-item" :class="{ active: route.path.startsWith('/questions') }">
+          <router-link to="/questions/entry" class="nav-item" :class="{ active: route.name === 'QuestionEntry' || route.name === 'QuestionCreate' || route.name === 'QuestionEdit' }">
+            <span class="nav-item__icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+              </svg>
+            </span>
+            <span class="nav-item__label">训练题录入</span>
+          </router-link>
+          <router-link to="/questions" class="nav-item" :class="{ active: route.name === 'QuestionList' || route.name === 'QuestionReview' }">
             <span class="nav-item__icon">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>
               </svg>
             </span>
-            <span class="nav-item__label">题库管理</span>
+            <span class="nav-item__label">训练题管理</span>
           </router-link>
-          <!-- AI 标注审核已并入题库管理（v1.2.0），此入口已移除 -->
+          <!-- AI 标注审核已并入训练题管理（v1.2.0），此入口已移除 -->
           <router-link to="/cognitive-test" class="nav-item" :class="{ active: route.path === '/cognitive-test' }">
             <span class="nav-item__icon">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z"/>
               </svg>
             </span>
-            <span class="nav-item__label">五力测试题</span>
+            <span class="nav-item__label">测试题管理</span>
           </router-link>
         </div>
 

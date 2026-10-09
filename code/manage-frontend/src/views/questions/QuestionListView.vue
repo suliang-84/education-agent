@@ -4,17 +4,8 @@
     <!-- ── 页头 ── -->
     <div class="page-header">
       <div>
-        <h1 class="page-title">题库管理</h1>
-        <p class="page-subtitle">录入题干后由大模型自动分析，审核后发布至训练池</p>
-      </div>
-      <div style="display:flex;gap:10px">
-        <el-button @click="showImport = true">批量导入</el-button>
-        <button class="btn-pink" @click="$router.push('/questions/create')">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:5px">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
-          </svg>
-          录入题干
-        </button>
+        <h1 class="page-title">训练题管理</h1>
+        <p class="page-subtitle">管理已发布至训练池的题目，可停用或查看题目详情</p>
       </div>
     </div>
 
@@ -113,20 +104,21 @@
         <div class="stat-pills">
           <span
             class="stat-pill"
-            :class="{ 'stat-pill--active': filters.status === '' }"
-            @click="selectStatus('')"
+            :class="{ 'stat-pill--active': filters.status === 'published' }"
+            @click="selectStatus('published')"
           >
-            全部 <span class="stat-pill__count num">{{ totalCount }}</span>
+            <span class="stat-pill__dot status-dot--published" />
+            已发布
+            <span class="stat-pill__count num">{{ statusCounts.published }}</span>
           </span>
           <span
-            v-for="(label, key) in QuestionStatusLabels" :key="key"
             class="stat-pill"
-            :class="{ 'stat-pill--active': filters.status === key }"
-            @click="selectStatus(key as QuestionStatus)"
+            :class="{ 'stat-pill--active': filters.status === 'archived' }"
+            @click="selectStatus('archived')"
           >
-            <span class="stat-pill__dot" :class="`status-dot--${key}`" />
-            {{ label }}
-            <span class="stat-pill__count num">{{ statusCounts[key as QuestionStatus] }}</span>
+            <span class="stat-pill__dot status-dot--archived" />
+            已停用
+            <span class="stat-pill__count num">{{ statusCounts.archived }}</span>
           </span>
         </div>
 
@@ -153,28 +145,13 @@
           </span>
         </div>
 
-        <!-- 批量操作栏 -->
-        <div v-if="selected.length > 0" class="batch-bar">
-          <span class="batch-bar__info">已选 <b>{{ selected.length }}</b> 条</span>
-          <el-button size="small" type="primary" :loading="batchAnalyzing" @click="handleBatchAnalyze">
-            批量模型分析
-          </el-button>
-          <el-button size="small" type="danger" :loading="batchDeleting" @click="handleBatchDelete">
-            批量删除
-          </el-button>
-          <el-button size="small" text @click="selected = []">取消选择</el-button>
-        </div>
-
         <!-- 题目列表表格 -->
         <div class="surface" style="overflow:hidden">
           <el-table
             :data="questions"
             v-loading="loading"
             style="width:100%"
-            @selection-change="(rows: Question[]) => selected = rows"
           >
-            <el-table-column type="selection" width="46" />
-
             <el-table-column label="ID" width="90">
               <template #default="{ row }">
                 <span class="id-chip">#{{ row.id }}</span>
@@ -190,11 +167,7 @@
                   <div class="stem-meta">
                     <span class="status-badge" :class="`status-badge--${row.status}`">
                       <span class="status-badge__dot" />
-                      {{ QuestionStatusLabels[row.status as QuestionStatus] }}
-                      <span v-if="row.status === 'pending_review' && row.analysis_round > 1" class="round-tag">第{{ row.analysis_round }}次</span>
-                    </span>
-                    <span v-if="row.status === 'analyzing'" class="analyzing-tip">
-                      <span class="analyzing-spinner" />约 10~30 秒
+                      {{ row.status === 'archived' ? '已停用' : QuestionStatusLabels[row.status as QuestionStatus] }}
                     </span>
                     <span v-if="row.embedding_status === 'completed'" class="embed-badge embed--ok">向量化 ✓</span>
                     <span v-if="row.embedding_status === 'failed'" class="embed-badge embed--fail">向量化 ✗</span>
@@ -210,7 +183,7 @@
                   {{ subjectName(row.subject_id) }} · {{ gradeName(row.grade_id) }}<br>
                   <span style="color:var(--text-3);font-size:11.5px">{{ semesterName(row.semester_id) }}</span>
                 </span>
-                <span v-else style="font-size:12px;color:var(--text-3)">待分析</span>
+                <span v-else style="font-size:12px;color:var(--text-3)">—</span>
               </template>
             </el-table-column>
 
@@ -236,23 +209,19 @@
               </template>
             </el-table-column>
 
-            <!-- 操作 -->
-            <el-table-column label="操作" width="175" fixed="right">
+            <!-- 创建时间 -->
+            <el-table-column label="创建时间" width="140">
               <template #default="{ row }">
-                <template v-if="row.status === 'draft'">
-                  <el-button text size="small" style="color:var(--indigo)" @click="$router.push(`/questions/${row.id}/edit`)">编辑</el-button>
-                  <el-button text size="small" style="color:var(--green)" @click="handleAnalyze(row)">模型分析</el-button>
-                  <el-button text size="small" style="color:var(--red)" @click="handleDelete(row)">删除</el-button>
-                </template>
-                <template v-else-if="row.status === 'analyzing'">
-                  <span style="font-size:12px;color:var(--text-3)">分析中…</span>
-                </template>
-                <template v-else-if="row.status === 'pending_review'">
-                  <el-button text size="small" style="color:var(--indigo);font-weight:600" @click="$router.push(`/questions/${row.id}/review`)">审核结果</el-button>
-                </template>
-                <template v-else-if="row.status === 'published'">
+                <span style="font-size:12px;color:var(--text-3)">{{ formatDate(row.created_at) }}</span>
+              </template>
+            </el-table-column>
+
+            <!-- 操作 -->
+            <el-table-column label="操作" width="130" fixed="right">
+              <template #default="{ row }">
+                <template v-if="row.status === 'published'">
                   <el-button text size="small" style="color:var(--text-2)" @click="$router.push(`/questions/${row.id}/review`)">查看</el-button>
-                  <el-button text size="small" style="color:var(--amber)" @click="handleArchive(row)">下架</el-button>
+                  <el-button text size="small" style="color:var(--amber)" @click="handleArchive(row)">停用</el-button>
                 </template>
                 <template v-else>
                   <el-button text size="small" style="color:var(--text-3)" @click="$router.push(`/questions/${row.id}/review`)">查看</el-button>
@@ -274,30 +243,11 @@
       </div>
     </div>
 
-    <!-- ── 批量导入弹窗 ── -->
-    <el-dialog v-model="showImport" title="批量导入题干" width="560px">
-      <div class="import-hint">
-        <p>每行一道题目的题干文本，导入后系统将<strong>自动触发大模型逐条分析</strong>，无需手动操作。</p>
-        <p style="margin-top:8px">或上传 <code class="inline-code">.txt</code> / <code class="inline-code">.json</code> 格式文件（JSON 格式每条仅需包含 <code class="inline-code">stem</code> 字段）。</p>
-      </div>
-      <el-input v-model="batchStems" type="textarea" :rows="8" placeholder="每行粘贴一道题干..." style="margin-top:16px" />
-      <el-upload drag accept=".txt,.json" :auto-upload="false" :on-change="handleFileChange" style="margin-top:12px">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--indigo)" stroke-width="1.5" style="margin-bottom:6px">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
-        </svg>
-        <div style="font-size:13.5px;color:var(--text-2)">拖拽文件至此处，或<em style="color:var(--indigo)">点击上传</em></div>
-      </el-upload>
-      <template #footer>
-        <el-button @click="showImport = false">取消</el-button>
-        <el-button type="primary" :loading="importLoading" @click="handleImport">开始导入并分析</el-button>
-      </template>
-    </el-dialog>
-
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { questionApi, knowledgeTreeApi } from '@/api'
 import type { KnowledgeTreeNode } from '@/api/questions'
@@ -305,28 +255,19 @@ import type { Question, QuestionStatus, Difficulty, FivePower } from '@/types'
 import { QuestionStatusLabels, DifficultyLabels, FivePowerLabels } from '@/types'
 
 const loading = ref(false)
-const importLoading = ref(false)
 const questions = ref<Question[]>([])
 const total = ref(0)
 const page = ref(1)
 const totalPages = ref(1)
 const PAGE_SIZE = 20
-const showImport = ref(false)
-const batchStems = ref('')
-
-// 批量操作
-const selected = ref<Question[]>([])
-const batchAnalyzing = ref(false)
-const batchDeleting = ref(false)
 
 // 状态统计（来自后端）
 const statusCounts = ref<Record<string, number>>({
   draft: 0, analyzing: 0, pending_review: 0, published: 0, archived: 0,
 })
-const totalCount = computed(() => total.value)
 
 const filters = reactive<{ status: QuestionStatus | ''; difficulty: Difficulty | ''; keyword: string }>({
-  status: '', difficulty: '', keyword: '',
+  status: 'published', difficulty: '', keyword: '',
 })
 
 // ── 左树筛选状态 ─────────────────────────────────────────────
@@ -355,7 +296,7 @@ async function loadKnowledgeTree() {
 
 const allCount = computed(() => total.value)
 
-// ── 知识体系 ID → 名称映射（按类型分开，避免同 ID 不同层级冲突）──
+// ── 知识体系 ID → 名称映射 ────────────────────────────────────
 const nodeNameByTypeId = computed<Record<string, string>>(() => {
   const map: Record<string, string> = {}
   function walk(nodes: KnowledgeTreeNode[]) {
@@ -407,11 +348,19 @@ function topPower(weights: Record<string, number>): string {
   return Object.entries(weights).sort((a, b) => b[1] - a[1])[0]?.[0] || 'CONSTRUCT'
 }
 
+// ── 日期格式化 ───────────────────────────────────────────────
+function formatDate(dt: string) {
+  if (!dt) return '—'
+  const d = new Date(dt)
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
+}
+
 // ── 数据加载 ─────────────────────────────────────────────────
 async function loadData() {
   loading.value = true
   try {
-    const params: Record<string, unknown> = { page: page.value, limit: PAGE_SIZE }
+    const params: Record<string, unknown> = { page: page.value, limit: PAGE_SIZE, order_by: 'created_at_desc' }
     if (filters.status)             params.status     = filters.status
     if (filters.difficulty)         params.difficulty  = filters.difficulty
     if (filters.keyword)            params.keyword     = filters.keyword
@@ -425,167 +374,39 @@ async function loadData() {
     questions.value = res.list
     total.value = res.total
     totalPages.value = res.total_pages ?? 1
-    // 有分析中的题目则启动轮询
-    if (res.list.some((q: Question) => q.status === 'analyzing')) startPolling()
   } finally { loading.value = false }
 }
 
-// 加载状态统计（来自后端独立接口）
 async function loadStats() {
   try {
     const res = await questionApi.getStats()
     Object.assign(statusCounts.value, res)
-    total.value = res.total
   } catch { /* ignore */ }
 }
 
-function selectStatus(s: QuestionStatus | '') {
+function selectStatus(s: QuestionStatus) {
   filters.status = s; page.value = 1; loadData()
 }
 
 function handleSearch() { page.value = 1; loadData() }
 function resetFilters() {
-  Object.assign(filters, { status: '', difficulty: '', keyword: '' })
+  Object.assign(filters, { status: 'published', difficulty: '', keyword: '' })
   page.value = 1; loadData()
 }
 function prevPage() { if (page.value > 1) { page.value--; loadData() } }
 function nextPage() { if (page.value < totalPages.value) { page.value++; loadData() } }
 
-async function handleAnalyze(row: Question) {
-  await ElMessageBox.confirm(
-    `确认对题目 #${row.id} 触发大模型分析？分析约需 10~30 秒，完成后状态变为「待审核」。`,
-    '触发模型分析',
-    { confirmButtonText: '确认分析', cancelButtonText: '取消', type: 'info' }
-  )
-  await questionApi.analyze(row.id)
-  ElMessage.success('分析任务已提交，请稍后刷新查看结果')
-  loadData(); loadStats()
-}
-
 async function handleArchive(row: Question) {
-  await ElMessageBox.confirm(`确认下架题目 #${row.id}？下架后不再参与训练推荐。`, '确认下架', { type: 'warning' })
+  await ElMessageBox.confirm(`确认停用题目 #${row.id}？停用后不再参与训练推荐。`, '确认停用', { type: 'warning' })
   await questionApi.archive(row.id)
-  ElMessage.success('题目已下架')
+  ElMessage.success('题目已停用')
   loadData(); loadStats()
-}
-
-async function handleDelete(row: Question) {
-  await ElMessageBox.confirm(`确认删除草稿 #${row.id}？此操作不可恢复。`, '确认删除', { type: 'error' })
-  await questionApi.delete(row.id)
-  ElMessage.success('草稿已删除')
-  loadData(); loadStats()
-}
-
-// ── 批量模型分析 ──────────────────────────────────────────────
-async function handleBatchAnalyze() {
-  const targets = selected.value.filter(q => q.status === 'draft')
-  const skipped = selected.value.length - targets.length
-  if (targets.length === 0) {
-    ElMessage.warning('所选题目中无草稿状态题目，无法触发分析')
-    return
-  }
-  const msg = skipped > 0
-    ? `选中 ${selected.value.length} 条，其中 ${targets.length} 条草稿将触发分析，${skipped} 条因状态不符跳过。确认继续？`
-    : `将对 ${targets.length} 条草稿题目串行触发模型分析，确认继续？`
-  await ElMessageBox.confirm(msg, '批量模型分析', { confirmButtonText: '确认分析', cancelButtonText: '取消', type: 'info' })
-  batchAnalyzing.value = true
-  let successCount = 0
-  try {
-    for (const q of targets) {
-      try {
-        await questionApi.analyze(q.id)
-        successCount++
-      } catch { /* 单条失败跳过 */ }
-    }
-    ElMessage.success(`已提交 ${successCount} 条分析任务，请稍后查看结果`)
-    selected.value = []
-    loadData(); loadStats()
-  } finally {
-    batchAnalyzing.value = false
-  }
-}
-
-// ── 批量删除 ──────────────────────────────────────────────────
-async function handleBatchDelete() {
-  const targets = selected.value.filter(q => q.status === 'draft')
-  const skipped = selected.value.length - targets.length
-  if (targets.length === 0) {
-    ElMessage.warning('所选题目中无草稿状态题目，无法删除')
-    return
-  }
-  const msg = skipped > 0
-    ? `选中 ${selected.value.length} 条，其中 ${targets.length} 条草稿将被删除，${skipped} 条因状态不符跳过。此操作不可恢复，确认继续？`
-    : `将删除 ${targets.length} 条草稿题目，此操作不可恢复，确认继续？`
-  await ElMessageBox.confirm(msg, '批量删除', { confirmButtonText: '确认删除', cancelButtonText: '取消', type: 'error' })
-  batchDeleting.value = true
-  let successCount = 0
-  try {
-    for (const q of targets) {
-      try {
-        await questionApi.delete(q.id)
-        successCount++
-      } catch { /* 单条失败跳过 */ }
-    }
-    ElMessage.success(`已删除 ${successCount} 条草稿题目`)
-    selected.value = []
-    loadData(); loadStats()
-  } finally {
-    batchDeleting.value = false
-  }
-}
-
-function handleFileChange() { ElMessage.info('文件已选择') }
-async function handleImport() {
-  const stems = batchStems.value.split('\n').map(s => s.trim()).filter(Boolean)
-  if (stems.length === 0) { ElMessage.warning('请粘贴题干内容或上传文件'); return }
-  importLoading.value = true
-  try {
-    await questionApi.batchImport(stems)
-    ElMessage.success(`已导入 ${stems.length} 条题干，大模型分析任务已提交`)
-    showImport.value = false; batchStems.value = ''
-    loadData(); loadStats()
-  } finally { importLoading.value = false }
-}
-
-// 轮询：有 analyzing 状态题目时每 5 秒刷新一次
-let pollTimer: ReturnType<typeof setInterval> | null = null
-
-function startPolling() {
-  if (pollTimer) return
-  pollTimer = setInterval(() => {
-    const hasAnalyzing = questions.value.some(q => q.status === 'analyzing')
-    if (hasAnalyzing) { loadData(); loadStats() }
-    else { stopPolling() }
-  }, 5000)
-}
-
-function stopPolling() {
-  if (pollTimer) { clearInterval(pollTimer); pollTimer = null }
 }
 
 onMounted(() => { loadData(); loadStats(); loadKnowledgeTree() })
-onUnmounted(() => stopPolling())
 </script>
 
 <style lang="scss" scoped>
-// ── 批量操作栏 ────────────────────────────────────────────────
-.batch-bar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 14px;
-  background: var(--indigo-light);
-  border: 1.5px solid var(--indigo-border);
-  border-radius: var(--r-lg);
-  margin-bottom: 10px;
-
-  &__info {
-    font-size: 13px;
-    color: var(--indigo);
-    font-weight: 500;
-    flex-shrink: 0;
-  }
-}
 // ── 主体布局：左树右表 ───────────────────────────────────────
 .main-layout {
   display: flex;
@@ -622,7 +443,7 @@ onUnmounted(() => stopPolling())
   padding: 5px 14px;
   font-size: 13px;
   color: var(--text-2);
-  cursor: default;          // 容器不设 pointer，由子元素控制
+  cursor: default;
   border-radius: 0;
   transition: background 0.12s, color 0.12s;
   white-space: nowrap;
@@ -748,11 +569,8 @@ onUnmounted(() => stopPolling())
 }
 
 .status-dot {
-  &--draft          { background: var(--amber); }
-  &--analyzing      { background: var(--indigo); }
-  &--pending_review { background: var(--purple); }
-  &--published      { background: var(--green); }
-  &--archived       { background: var(--text-3); }
+  &--published { background: var(--green); }
+  &--archived  { background: var(--text-3); }
 }
 
 .tree-breadcrumb {
@@ -784,38 +602,9 @@ onUnmounted(() => stopPolling())
 
   &__dot { width: 6px; height: 6px; border-radius: 50%; }
 
-  &--draft          { background: var(--amber-dim);   color: var(--amber);  border-color: var(--amber-border);  .status-badge__dot { background: var(--amber); } }
-  &--analyzing      { background: var(--indigo-light); color: var(--indigo); border-color: var(--indigo-border); .status-badge__dot { background: var(--indigo); } }
-  &--pending_review { background: var(--purple-dim);  color: var(--purple); border-color: var(--purple-border); .status-badge__dot { background: var(--purple); } }
-  &--published      { background: var(--green-dim);   color: var(--green);  border-color: var(--green-border);  .status-badge__dot { background: var(--green); } }
-  &--archived       { background: var(--bg-muted);    color: var(--text-3); border-color: var(--border-hover);  .status-badge__dot { background: var(--text-3); } }
+  &--published { background: var(--green-dim);  color: var(--green);  border-color: var(--green-border);  .status-badge__dot { background: var(--green); } }
+  &--archived  { background: var(--bg-muted);   color: var(--text-3); border-color: var(--border-hover);  .status-badge__dot { background: var(--text-3); } }
 }
-
-.round-tag {
-  font-size: 10px;
-  padding: 0 5px;
-  border-radius: 4px;
-  background: rgba(124, 58, 237, 0.15);
-}
-
-.analyzing-tip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 12px;
-  color: var(--text-3);
-}
-
-.analyzing-spinner {
-  width: 10px;
-  height: 10px;
-  border: 1.5px solid var(--border-hover);
-  border-top-color: var(--indigo);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin { to { transform: rotate(360deg); } }
 
 .diff-badge {
   font-size: 11.5px;
@@ -838,25 +627,5 @@ onUnmounted(() => stopPolling())
 
   &.embed--ok   { background: var(--green-dim); color: var(--green); border-color: var(--green-border); }
   &.embed--fail { background: var(--red-dim);   color: var(--red);   border-color: var(--red-border); }
-}
-
-.import-hint {
-  font-size: 13.5px;
-  color: var(--text-2);
-  line-height: 1.7;
-  background: var(--indigo-light);
-  border-radius: var(--r-lg);
-  padding: 12px 16px;
-
-  strong { color: var(--indigo); font-weight: 600; }
-}
-
-.inline-code {
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  background: var(--bg-muted);
-  padding: 1px 5px;
-  border-radius: 4px;
-  color: var(--indigo);
 }
 </style>

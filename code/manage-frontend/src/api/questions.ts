@@ -51,6 +51,8 @@ export interface QuestionListParams {
   status?: 'draft' | 'analyzing' | 'pending_review' | 'published' | 'archived'
   difficulty?: 'basic' | 'advanced' | 'challenge'
   keyword?: string
+  // 排序
+  order_by?: string
   // 页码分页
   page?: number
   limit?: number
@@ -110,6 +112,13 @@ export const questionApi = {
    */
   create: (data: { stem: string; image_url?: string | null }) =>
     request.post<unknown, { question_id: number; status: string }>('/questions', data),
+
+  /**
+   * 编辑草稿题干（仅 draft 状态允许）
+   * PATCH /api/v1/admin/questions/{question_id}
+   */
+  update: (questionId: number, data: { stem: string; image_url?: string | null }) =>
+    request.patch<unknown, { question_id: number; status: string }>(`/questions/${questionId}`, data),
 
   /**
    * 触发大模型分析（draft → analyzing）

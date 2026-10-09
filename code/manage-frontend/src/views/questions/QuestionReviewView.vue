@@ -78,40 +78,39 @@
             </el-col>
             <el-col :span="5">
               <el-form-item label="学期">
-                <el-select v-model="form.semester_id" :disabled="!isEditable" style="width:100%">
+                <el-select v-model="form.semester_id" :disabled="!isEditable" style="width:100%" @change="onSemesterChange">
                   <el-option v-for="s in semesterOptions" :key="s.id" :label="s.name" :value="s.id" />
                 </el-select>
               </el-form-item>
             </el-col>
             <el-col :span="9">
-              <el-form-item label="单元">
-                <el-input v-model="form.chapter_name" :disabled="!isEditable" placeholder="如：第三章 方程与方程组" />
+              <el-form-item label="章节">
+                <el-select
+                  v-model="form.chapter_id"
+                  :disabled="!isEditable || chapterOptions.length === 0"
+                  style="width:100%"
+                  clearable
+                  :placeholder="chapterOptions.length === 0 ? '请先选择学期' : '请选择章节'"
+                  @change="onChapterChange"
+                >
+                  <el-option v-for="c in chapterOptions" :key="c.id" :label="c.name" :value="c.id" />
+                </el-select>
               </el-form-item>
             </el-col>
           </el-row>
 
           <el-form-item label="知识点">
-            <div class="tag-area">
-              <el-tag
-                v-for="(kp, i) in form.knowledge_points" :key="i"
-                closable
-                :disable-transitions="false"
-                @close="removeKnowledgePoint(i)"
-                style="margin-right:6px;margin-bottom:4px"
-              >{{ kp }}</el-tag>
-              <template v-if="isEditable">
-                <el-input
-                  v-if="kpInputVisible"
-                  ref="kpInputRef"
-                  v-model="kpInput"
-                  size="small"
-                  style="width:140px"
-                  @keyup.enter="addKnowledgePoint"
-                  @blur="addKnowledgePoint"
-                />
-                <el-button v-else size="small" @click="showKpInput">+ 添加知识点</el-button>
-              </template>
-            </div>
+            <el-select
+              v-model="form.knowledge_point_ids"
+              multiple
+              collapse-tags
+              collapse-tags-tooltip
+              :disabled="!isEditable || knowledgePointOptions.length === 0"
+              :placeholder="knowledgePointOptions.length === 0 ? '请先选择章节' : '请选择知识点（可多选）'"
+              style="width:100%"
+            >
+              <el-option v-for="kp in knowledgePointOptions" :key="kp.id" :label="kp.name" :value="kp.id" />
+            </el-select>
           </el-form-item>
 
           <!-- ── 题目属性 ── -->
@@ -387,12 +386,40 @@ const semesterOptions = computed(() => {
   return (grade?.children ?? []).map(n => ({ id: n.id, name: n.name }))
 })
 
+const chapterOptions = computed(() => {
+  if (!form.semester_id) return []
+  const sub = rawTree.value.find(n => n.id === form.subject_id)
+  const grade = (sub?.children ?? []).find(n => n.id === form.grade_id)
+  const sem = (grade?.children ?? []).find(n => n.id === form.semester_id)
+  return (sem?.children ?? []).map(n => ({ id: n.id, name: n.name }))
+})
+
+const knowledgePointOptions = computed(() => {
+  if (!form.chapter_id) return []
+  const sub = rawTree.value.find(n => n.id === form.subject_id)
+  const grade = (sub?.children ?? []).find(n => n.id === form.grade_id)
+  const sem = (grade?.children ?? []).find(n => n.id === form.semester_id)
+  const ch = (sem?.children ?? []).find(n => n.id === form.chapter_id)
+  return (ch?.children ?? []).map(n => ({ id: n.id, name: n.name }))
+})
+
 function onSubjectChange() {
   form.grade_id = null
   form.semester_id = null
+  form.chapter_id = null
+  form.knowledge_point_ids = []
 }
 function onGradeChange() {
   form.semester_id = null
+  form.chapter_id = null
+  form.knowledge_point_ids = []
+}
+function onSemesterChange() {
+  form.chapter_id = null
+  form.knowledge_point_ids = []
+}
+function onChapterChange() {
+  form.knowledge_point_ids = []
 }
 
 // ── 页面标题 / 可编辑状态 ─────────────────────────────────────
@@ -423,8 +450,7 @@ const form = reactive({
   grade_id:             null as number | null,
   semester_id:          null as number | null,
   chapter_id:           null as number | null,
-  chapter_name:         '' as string,
-  knowledge_points:     [] as string[],
+  knowledge_point_ids:  [] as number[],
   question_type:        'APPLICATION' as QuestionType,
   difficulty:           'basic' as Difficulty,
   answer_single:        'A' as string,
@@ -474,16 +500,6 @@ function serializeAnswer() {
   return undefined
 }
 
-// 知识点 tag 输入
-const kpInputVisible = ref(false)
-const kpInput = ref('')
-const kpInputRef = ref<HTMLInputElement>()
-function showKpInput() { kpInputVisible.value = true; nextTick(() => kpInputRef.value?.focus()) }
-function addKnowledgePoint() {
-  if (kpInput.value.trim()) form.knowledge_points.push(kpInput.value.trim())
-  kpInputVisible.value = false; kpInput.value = ''
-}
-function removeKnowledgePoint(i: number) { form.knowledge_points.splice(i, 1) }
 
 // 迁移方向 tag 输入
 const mdInputVisible = ref(false)
@@ -511,18 +527,12 @@ onMounted(async () => {
     const ana = (raw as any).latest_analysis
 
     // 优先使用 latest_analysis 的 ai_* 字段，回退到题目已确认字段
-    form.subject_id          = ana?.ai_subject_id  ?? (raw as any).subject_id  ?? null
-    form.grade_id            = ana?.ai_grade_id    ?? (raw as any).grade_id    ?? null
-    form.semester_id         = ana?.ai_semester_id ?? (raw as any).semester_id ?? null
-    form.chapter_id          = ana?.ai_chapter_id  ?? (raw as any).chapter_id  ?? null
-    // 根据 chapter_id 从知识树反查章节名称
-    if (form.chapter_id) {
-      const chNode = allNodes.value.find(n => n.type === 'chapter' && n.id === form.chapter_id)
-      form.chapter_name = chNode?.name ?? ''
-    } else {
-      form.chapter_name = ''
-    }
-    form.knowledge_points    = [...(ana?.ai_knowledge_point_ids ?? (raw as any).knowledge_point_ids ?? [])].map(String)
+    // 注意：接口返回的是嵌套对象（ai_subject.id），而非平铺 ID 字段
+    form.subject_id          = ana?.ai_subject?.id  ?? (raw as any).subject_id  ?? null
+    form.grade_id            = ana?.ai_grade?.id    ?? (raw as any).grade_id    ?? null
+    form.semester_id         = ana?.ai_semester?.id ?? (raw as any).semester_id ?? null
+    form.chapter_id          = ana?.ai_chapter?.id  ?? (raw as any).chapter_id  ?? null
+    form.knowledge_point_ids = [...(ana?.ai_knowledge_point_ids ?? (raw as any).knowledge_point_ids ?? [])].map(Number).filter(Boolean)
     form.question_type       = (ana?.ai_question_type ?? (raw as any).question_type ?? 'APPLICATION') as QuestionType
     form.difficulty          = (ana?.ai_difficulty   ?? (raw as any).difficulty   ?? 'basic') as Difficulty
     form.solution            = ana?.ai_solution      ?? (raw as any).solution      ?? ''
@@ -577,7 +587,7 @@ async function handlePublish() {
       grade_id:            form.grade_id!,
       semester_id:         form.semester_id!,
       chapter_id:          form.chapter_id ?? undefined as any,
-      knowledge_point_ids: [],
+      knowledge_point_ids: [...form.knowledge_point_ids],
       question_type:       form.question_type,
       answer:              serializeAnswer() as any,
       difficulty:          form.difficulty,

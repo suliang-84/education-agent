@@ -46,10 +46,16 @@ const router = createRouter({
           meta: { title: '错题集分析' },
         },
         {
+          path: 'questions/entry',
+          name: 'QuestionEntry',
+          component: () => import('@/views/questions/QuestionEntryView.vue'),
+          meta: { title: '训练题录入' },
+        },
+        {
           path: 'questions',
           name: 'QuestionList',
           component: () => import('@/views/questions/QuestionListView.vue'),
-          meta: { title: '题库管理' },
+          meta: { title: '训练题管理' },
         },
         {
           path: 'questions/create',
@@ -73,7 +79,7 @@ const router = createRouter({
           path: 'cognitive-test',
           name: 'CognitiveTest',
           component: () => import('@/views/cognitive-test/CognitiveTestView.vue'),
-          meta: { title: '五力测试题维护' },
+          meta: { title: '测试题管理' },
         },
         {
           path: 'cognitive-test/create',

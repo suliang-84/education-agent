@@ -4,7 +4,7 @@
     <!-- ── 页头 ── -->
     <div class="page-header">
       <div>
-        <h1 class="page-title">五力测试题库管理</h1>
+        <h1 class="page-title">测试题管理</h1>
         <p class="page-subtitle">管理用于生成学生五力认知画像的测试题目</p>
       </div>
       <el-button type="primary" @click="router.push('/cognitive-test/create')">
