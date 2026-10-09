@@ -103,7 +103,7 @@
           </el-table-column>
 
           <!-- 操作 -->
-          <el-table-column label="操作" width="175" fixed="right">
+          <el-table-column label="操作" width="210" fixed="right">
             <template #default="{ row }">
               <template v-if="row.status === 'draft'">
                 <el-button text size="small" style="color:var(--indigo)" @click="$router.push(`/questions/${row.id}/edit`)">编辑</el-button>
@@ -114,10 +114,8 @@
                 <span style="font-size:12px;color:var(--text-3)">分析中…</span>
               </template>
               <template v-else-if="row.status === 'pending_review'">
-                <el-button text size="small" style="color:var(--indigo);font-weight:600" @click="$router.push(`/questions/${row.id}/review`)">审核结果</el-button>
-              </template>
-              <template v-else>
-                <el-button text size="small" style="color:var(--text-3)" @click="$router.push(`/questions/${row.id}/review`)">查看</el-button>
+                <el-button text size="small" style="color:var(--indigo)" @click="$router.push(`/questions/${row.id}/review`)">审核结果</el-button>
+                <el-button text size="small" style="color:var(--green);font-weight:600" :loading="publishingId === row.id" @click="handlePublish(row)">发布</el-button>
               </template>
             </template>
           </el-table-column>
@@ -178,6 +176,7 @@ const batchStems = ref('')
 const selected = ref<Question[]>([])
 const batchAnalyzing = ref(false)
 const batchDeleting = ref(false)
+const publishingId = ref<number | null>(null)
 
 const filters = reactive<{ difficulty: Difficulty | ''; keyword: string }>({
   difficulty: '', keyword: '',
@@ -200,7 +199,8 @@ async function loadData() {
     if (filters.keyword)    params.keyword    = filters.keyword
 
     const res = await questionApi.getList(params)
-    questions.value = res.list
+    // 录入列表只展示未发布的三个状态，已发布/已停用题目归属训练题管理
+    questions.value = res.list.filter((q: Question) => ['draft', 'analyzing', 'pending_review'].includes(q.status))
     total.value = res.total
     totalPages.value = res.total_pages ?? 1
     if (res.list.some((q: Question) => q.status === 'analyzing')) startPolling()
@@ -225,6 +225,42 @@ async function handleAnalyze(row: Question) {
   await questionApi.analyze(row.id)
   ElMessage.success('分析任务已提交，请稍后刷新查看结果')
   loadData()
+}
+
+async function handlePublish(row: Question) {
+  await ElMessageBox.confirm(
+    `确认发布题目 #${row.id}？将直接使用大模型分析结果发布，发布后题目将参与训练推荐。`,
+    '确认发布',
+    { confirmButtonText: '确认发布', cancelButtonText: '取消', type: 'info' }
+  )
+  publishingId.value = row.id
+  try {
+    const detail = await questionApi.getOne(row.id)
+    const ana = (detail as any).latest_analysis
+    if (!ana?.ai_subject?.id) {
+      ElMessage.warning('分析数据不完整，请进入「审核结果」页面手动补充后再发布')
+      return
+    }
+    await questionApi.publish(row.id, {
+      subject_id:          ana.ai_subject.id,
+      grade_id:            ana.ai_grade.id,
+      semester_id:         ana.ai_semester?.id,
+      chapter_id:          ana.ai_chapter?.id,
+      knowledge_point_ids: (ana.ai_knowledge_point_ids ?? []).map(Number),
+      difficulty:          ana.ai_difficulty ?? 'basic',
+      solution:            ana.ai_solution ?? '',
+      common_error:        ana.ai_common_error,
+      power_solutions:     ana.ai_power_solutions,
+      five_power_weights:  ana.ai_five_power_weights ?? { INSIGHT: 2, CONSTRUCT: 5, DEDUCE: 2, ADAPT: 1, MIGRATE: 0 },
+      transfer_directions: ana.ai_transfer_directions ?? [],
+      question_type:       ana.ai_question_type,
+      answer:              ana.ai_answer,
+    })
+    ElMessage.success('题目已发布，可在「训练题管理」中查看')
+    loadData()
+  } finally {
+    publishingId.value = null
+  }
 }
 
 async function handleDelete(row: Question) {

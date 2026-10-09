@@ -24,7 +24,7 @@
         <!-- 全部节点 -->
         <div
           class="tree-node tree-node--all"
-          :class="{ active: !treeFilter.subject }"
+          :class="{ active: !treeFilter.subject_id }"
           @click="clearTreeFilter"
         >
           全部题目
@@ -34,44 +34,44 @@
         <!-- 科目树 -->
         <div v-for="subject in knowledgeTree" :key="subject.id">
           <!-- 科目 -->
-          <div class="tree-node tree-node--l1" :class="{ active: treeFilter.subject === subject.name && !treeFilter.grade }">
+          <div class="tree-node tree-node--l1" :class="{ active: treeFilter.subject_id === subject.id && !treeFilter.grade_id }">
             <span class="tree-toggle" @click="subject.open = !subject.open" :title="subject.open ? '折叠' : '展开'">
               {{ subject.open ? '▼' : '▶' }}
             </span>
-            <span class="tree-node__label" @click="selectSubject(subject.name)">{{ subject.name }}</span>
+            <span class="tree-node__label" @click="selectSubject(subject)">{{ subject.name }}</span>
             <span class="tree-node__count">{{ subject.published_count }}</span>
           </div>
 
           <!-- 年级 -->
           <template v-if="subject.open">
             <div v-for="grade in subject.children" :key="grade.id">
-              <div class="tree-node tree-node--l2" :class="{ active: treeFilter.subject === subject.name && treeFilter.grade === grade.name && !treeFilter.semester }">
+              <div class="tree-node tree-node--l2" :class="{ active: treeFilter.grade_id === grade.id && !treeFilter.semester_id }">
                 <span class="tree-toggle" @click="grade.open = !grade.open" :title="grade.open ? '折叠' : '展开'">
                   {{ grade.open ? '▼' : '▶' }}
                 </span>
-                <span class="tree-node__label" @click="selectGrade(subject.name, grade.name)">{{ grade.name }}</span>
+                <span class="tree-node__label" @click="selectGrade(subject, grade)">{{ grade.name }}</span>
                 <span class="tree-node__count">{{ grade.published_count }}</span>
               </div>
 
               <!-- 学期 -->
               <template v-if="grade.open">
                 <div v-for="sem in grade.children" :key="sem.id">
-                  <div class="tree-node tree-node--l3" :class="{ active: treeFilter.subject === subject.name && treeFilter.grade === grade.name && treeFilter.semester === sem.name && !treeFilter.chapter }">
+                  <div class="tree-node tree-node--l3" :class="{ active: treeFilter.semester_id === sem.id && !treeFilter.chapter_id }">
                     <span class="tree-toggle" @click="sem.open = !sem.open" :title="sem.open ? '折叠' : '展开'">
                       {{ sem.open ? '▼' : '▶' }}
                     </span>
-                    <span class="tree-node__label" @click="selectSemester(subject.name, grade.name, sem.name)">{{ sem.name }}</span>
+                    <span class="tree-node__label" @click="selectSemester(subject, grade, sem)">{{ sem.name }}</span>
                     <span class="tree-node__count">{{ sem.published_count }}</span>
                   </div>
 
                   <!-- 单元/章节 -->
                   <template v-if="sem.open">
                     <div v-for="ch in sem.children" :key="ch.id">
-                      <div class="tree-node tree-node--l4" :class="{ active: treeFilter.chapter === ch.name && !treeFilter.knowledge_point }">
+                      <div class="tree-node tree-node--l4" :class="{ active: treeFilter.chapter_id === ch.id && !treeFilter.knowledge_point_id }">
                         <span class="tree-toggle" @click="ch.open = !ch.open" :title="ch.open ? '折叠' : '展开'">
                           {{ ch.open ? '▼' : '▶' }}
                         </span>
-                        <span class="tree-node__label" @click="selectChapter(subject.name, grade.name, sem.name, ch.name)">{{ ch.name }}</span>
+                        <span class="tree-node__label" @click="selectChapter(subject, grade, sem, ch)">{{ ch.name }}</span>
                         <span class="tree-node__count">{{ ch.published_count }}</span>
                       </div>
 
@@ -80,8 +80,8 @@
                         <div
                           v-for="kp in ch.children" :key="kp.id"
                           class="tree-node tree-node--l5"
-                          :class="{ active: treeFilter.knowledge_point === kp.name }"
-                          @click="selectKnowledgePoint(subject.name, grade.name, sem.name, ch.name, kp.name)"
+                          :class="{ active: treeFilter.knowledge_point_id === kp.id }"
+                          @click="selectKnowledgePoint(subject, grade, sem, ch, kp)"
                         >
                           <span class="tree-leaf-dot">●</span>
                           <span class="tree-node__label">{{ kp.name }}</span>
@@ -100,28 +100,6 @@
       <!-- ── 右侧：筛选 + 表格 ── -->
       <div class="table-panel">
 
-        <!-- 状态统计胶囊 -->
-        <div class="stat-pills">
-          <span
-            class="stat-pill"
-            :class="{ 'stat-pill--active': filters.status === 'published' }"
-            @click="selectStatus('published')"
-          >
-            <span class="stat-pill__dot status-dot--published" />
-            已发布
-            <span class="stat-pill__count num">{{ statusCounts.published }}</span>
-          </span>
-          <span
-            class="stat-pill"
-            :class="{ 'stat-pill--active': filters.status === 'archived' }"
-            @click="selectStatus('archived')"
-          >
-            <span class="stat-pill__dot status-dot--archived" />
-            已停用
-            <span class="stat-pill__count num">{{ statusCounts.archived }}</span>
-          </span>
-        </div>
-
         <!-- 筛选栏 -->
         <div class="filter-bar" style="margin-bottom:0;border-radius:0;background:transparent;box-shadow:none;padding:10px 0">
           <el-select v-model="filters.difficulty" placeholder="难度" clearable style="width:100px">
@@ -136,7 +114,7 @@
           </el-input>
           <el-button type="primary" @click="handleSearch">查询</el-button>
           <el-button @click="resetFilters">重置</el-button>
-          <span v-if="treeFilter.subject" class="tree-breadcrumb">
+          <span v-if="treeFilter.subject_id" class="tree-breadcrumb">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 00-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0z"/>
             </svg>
@@ -165,9 +143,9 @@
                     {{ row.stem.substring(0, 60) }}{{ row.stem.length > 60 ? '…' : '' }}
                   </div>
                   <div class="stem-meta">
-                    <span class="status-badge" :class="`status-badge--${row.status}`">
-                      <span class="status-badge__dot" />
-                      {{ row.status === 'archived' ? '已停用' : QuestionStatusLabels[row.status as QuestionStatus] }}
+                    <span class="active-badge" :class="row.is_active !== false ? 'active-badge--on' : 'active-badge--off'">
+                      <span class="active-badge__dot" />
+                      {{ row.is_active !== false ? '已启用' : '已停用' }}
                     </span>
                     <span v-if="row.embedding_status === 'completed'" class="embed-badge embed--ok">向量化 ✓</span>
                     <span v-if="row.embedding_status === 'failed'" class="embed-badge embed--fail">向量化 ✗</span>
@@ -217,15 +195,19 @@
             </el-table-column>
 
             <!-- 操作 -->
-            <el-table-column label="操作" width="130" fixed="right">
+            <el-table-column label="操作" width="150" fixed="right">
               <template #default="{ row }">
-                <template v-if="row.status === 'published'">
-                  <el-button text size="small" style="color:var(--text-2)" @click="$router.push(`/questions/${row.id}/review`)">查看</el-button>
-                  <el-button text size="small" style="color:var(--amber)" @click="handleArchive(row)">停用</el-button>
-                </template>
-                <template v-else>
-                  <el-button text size="small" style="color:var(--text-3)" @click="$router.push(`/questions/${row.id}/review`)">查看</el-button>
-                </template>
+                <el-button text size="small" style="color:var(--text-2)" @click="$router.push(`/questions/${row.id}/review`)">查看</el-button>
+                <el-button
+                  v-if="row.is_active !== false"
+                  text size="small" style="color:var(--amber)"
+                  @click="handleDeactivate(row)"
+                >停用</el-button>
+                <el-button
+                  v-else
+                  text size="small" style="color:var(--green)"
+                  @click="handleActivate(row)"
+                >启用</el-button>
               </template>
             </el-table-column>
 
@@ -251,8 +233,8 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { questionApi, knowledgeTreeApi } from '@/api'
 import type { KnowledgeTreeNode } from '@/api/questions'
-import type { Question, QuestionStatus, Difficulty, FivePower } from '@/types'
-import { QuestionStatusLabels, DifficultyLabels, FivePowerLabels } from '@/types'
+import type { Question, Difficulty, FivePower } from '@/types'
+import { DifficultyLabels, FivePowerLabels } from '@/types'
 
 const loading = ref(false)
 const questions = ref<Question[]>([])
@@ -261,27 +243,26 @@ const page = ref(1)
 const totalPages = ref(1)
 const PAGE_SIZE = 20
 
-// 状态统计（来自后端）
-const statusCounts = ref<Record<string, number>>({
-  draft: 0, analyzing: 0, pending_review: 0, published: 0, archived: 0,
+const filters = reactive<{ difficulty: Difficulty | ''; keyword: string }>({
+  difficulty: '', keyword: '',
 })
 
-const filters = reactive<{ status: QuestionStatus | ''; difficulty: Difficulty | ''; keyword: string }>({
-  status: 'published', difficulty: '', keyword: '',
-})
-
-// ── 左树筛选状态 ─────────────────────────────────────────────
+// ── 左树筛选状态（存 ID）────────────────────────────────────
 const treeFilter = reactive({
-  subject: '',
-  grade: '',
-  semester: '',
-  chapter: '',
-  knowledge_point: '',
+  subject_id:         null as number | null,
+  grade_id:           null as number | null,
+  semester_id:        null as number | null,
+  chapter_id:         null as number | null,
+  knowledge_point_id: null as number | null,
+})
+
+// 面包屑展示用名称（与 treeFilter 同步更新）
+const treeFilterNames = reactive({
+  subject: '', grade: '', semester: '', chapter: '', knowledge_point: '',
 })
 
 const treeBreadcrumb = computed(() => {
-  const parts = [treeFilter.subject, treeFilter.grade, treeFilter.semester, treeFilter.chapter, treeFilter.knowledge_point].filter(Boolean)
-  return parts.join(' › ')
+  return [treeFilterNames.subject, treeFilterNames.grade, treeFilterNames.semester, treeFilterNames.chapter, treeFilterNames.knowledge_point].filter(Boolean).join(' › ')
 })
 
 // ── 左树数据（来自后端知识体系树接口）── ─────────────────────
@@ -312,34 +293,40 @@ function subjectName(id: number | null | undefined) { return id ? (nodeNameByTyp
 function gradeName(id: number | null | undefined)   { return id ? (nodeNameByTypeId.value[`grade_${id}`]   ?? '') : '' }
 function semesterName(id: number | null | undefined){ return id ? (nodeNameByTypeId.value[`semester_${id}`]?? '') : '' }
 
-// ── 树选择操作 ───────────────────────────────────────────────
+// ── 树选择操作（传 node 对象，记录 id 和 name）───────────────
 function clearTreeFilter() {
-  Object.assign(treeFilter, { subject: '', grade: '', semester: '', chapter: '', knowledge_point: '' })
+  Object.assign(treeFilter, { subject_id: null, grade_id: null, semester_id: null, chapter_id: null, knowledge_point_id: null })
+  Object.assign(treeFilterNames, { subject: '', grade: '', semester: '', chapter: '', knowledge_point: '' })
   page.value = 1; loadData()
 }
 
-function selectSubject(s: string) {
-  Object.assign(treeFilter, { subject: s, grade: '', semester: '', chapter: '', knowledge_point: '' })
+function selectSubject(node: KnowledgeTreeNode) {
+  Object.assign(treeFilter, { subject_id: node.id, grade_id: null, semester_id: null, chapter_id: null, knowledge_point_id: null })
+  Object.assign(treeFilterNames, { subject: node.name, grade: '', semester: '', chapter: '', knowledge_point: '' })
   page.value = 1; loadData()
 }
 
-function selectGrade(s: string, g: string) {
-  Object.assign(treeFilter, { subject: s, grade: g, semester: '', chapter: '', knowledge_point: '' })
+function selectGrade(subject: KnowledgeTreeNode, node: KnowledgeTreeNode) {
+  Object.assign(treeFilter, { subject_id: subject.id, grade_id: node.id, semester_id: null, chapter_id: null, knowledge_point_id: null })
+  Object.assign(treeFilterNames, { subject: subject.name, grade: node.name, semester: '', chapter: '', knowledge_point: '' })
   page.value = 1; loadData()
 }
 
-function selectSemester(s: string, g: string, sem: string) {
-  Object.assign(treeFilter, { subject: s, grade: g, semester: sem, chapter: '', knowledge_point: '' })
+function selectSemester(subject: KnowledgeTreeNode, grade: KnowledgeTreeNode, node: KnowledgeTreeNode) {
+  Object.assign(treeFilter, { subject_id: subject.id, grade_id: grade.id, semester_id: node.id, chapter_id: null, knowledge_point_id: null })
+  Object.assign(treeFilterNames, { subject: subject.name, grade: grade.name, semester: node.name, chapter: '', knowledge_point: '' })
   page.value = 1; loadData()
 }
 
-function selectChapter(s: string, g: string, sem: string, ch: string) {
-  Object.assign(treeFilter, { subject: s, grade: g, semester: sem, chapter: ch, knowledge_point: '' })
+function selectChapter(subject: KnowledgeTreeNode, grade: KnowledgeTreeNode, sem: KnowledgeTreeNode, node: KnowledgeTreeNode) {
+  Object.assign(treeFilter, { subject_id: subject.id, grade_id: grade.id, semester_id: sem.id, chapter_id: node.id, knowledge_point_id: null })
+  Object.assign(treeFilterNames, { subject: subject.name, grade: grade.name, semester: sem.name, chapter: node.name, knowledge_point: '' })
   page.value = 1; loadData()
 }
 
-function selectKnowledgePoint(s: string, g: string, sem: string, ch: string, kp: string) {
-  Object.assign(treeFilter, { subject: s, grade: g, semester: sem, chapter: ch, knowledge_point: kp })
+function selectKnowledgePoint(subject: KnowledgeTreeNode, grade: KnowledgeTreeNode, sem: KnowledgeTreeNode, ch: KnowledgeTreeNode, node: KnowledgeTreeNode) {
+  Object.assign(treeFilter, { subject_id: subject.id, grade_id: grade.id, semester_id: sem.id, chapter_id: ch.id, knowledge_point_id: node.id })
+  Object.assign(treeFilterNames, { subject: subject.name, grade: grade.name, semester: sem.name, chapter: ch.name, knowledge_point: node.name })
   page.value = 1; loadData()
 }
 
@@ -360,15 +347,19 @@ function formatDate(dt: string) {
 async function loadData() {
   loading.value = true
   try {
-    const params: Record<string, unknown> = { page: page.value, limit: PAGE_SIZE, order_by: 'created_at_desc' }
-    if (filters.status)             params.status     = filters.status
-    if (filters.difficulty)         params.difficulty  = filters.difficulty
-    if (filters.keyword)            params.keyword     = filters.keyword
-    if (treeFilter.subject)         params.subject     = treeFilter.subject
-    if (treeFilter.grade)           params.grade       = treeFilter.grade
-    if (treeFilter.semester)        params.semester    = treeFilter.semester
-    if (treeFilter.chapter)         params.chapter     = treeFilter.chapter
-    if (treeFilter.knowledge_point) params.knowledge_point = treeFilter.knowledge_point
+    const params: Record<string, unknown> = {
+      page: page.value,
+      limit: PAGE_SIZE,
+      order_by: 'created_at_desc',
+      status: 'published',  // 管理页固定只取已发布题目，由后端过滤保证总数准确
+    }
+    if (filters.difficulty)            params.difficulty          = filters.difficulty
+    if (filters.keyword)               params.keyword             = filters.keyword
+    if (treeFilter.subject_id)         params.subject_id          = treeFilter.subject_id
+    if (treeFilter.grade_id)           params.grade_id            = treeFilter.grade_id
+    if (treeFilter.semester_id)        params.semester_id         = treeFilter.semester_id
+    if (treeFilter.chapter_id)         params.chapter_id          = treeFilter.chapter_id
+    if (treeFilter.knowledge_point_id) params.knowledge_point_id  = treeFilter.knowledge_point_id
 
     const res = await questionApi.getList(params)
     questions.value = res.list
@@ -377,33 +368,39 @@ async function loadData() {
   } finally { loading.value = false }
 }
 
-async function loadStats() {
-  try {
-    const res = await questionApi.getStats()
-    Object.assign(statusCounts.value, res)
-  } catch { /* ignore */ }
-}
-
-function selectStatus(s: QuestionStatus) {
-  filters.status = s; page.value = 1; loadData()
-}
-
 function handleSearch() { page.value = 1; loadData() }
 function resetFilters() {
-  Object.assign(filters, { status: 'published', difficulty: '', keyword: '' })
+  Object.assign(filters, { difficulty: '', keyword: '' })
   page.value = 1; loadData()
 }
 function prevPage() { if (page.value > 1) { page.value--; loadData() } }
 function nextPage() { if (page.value < totalPages.value) { page.value++; loadData() } }
 
-async function handleArchive(row: Question) {
-  await ElMessageBox.confirm(`确认停用题目 #${row.id}？停用后不再参与训练推荐。`, '确认停用', { type: 'warning' })
-  await questionApi.archive(row.id)
-  ElMessage.success('题目已停用')
-  loadData(); loadStats()
+async function handleDeactivate(row: Question) {
+  if (row.is_active === false) return
+  await ElMessageBox.confirm(
+    `确认停用题目 #${row.id}？\n\n停用后该题目将从小程序端学生练习题中移除，学生无法再抽取到该题目，直到重新启用为止。题目发布状态不受影响。`,
+    '确认停用',
+    { confirmButtonText: '确认停用', cancelButtonText: '取消', type: 'warning' }
+  )
+  await questionApi.deactivate(row.id)
+  ElMessage.success('题目已停用，将不再出现在学生练习题中')
+  loadData()
 }
 
-onMounted(() => { loadData(); loadStats(); loadKnowledgeTree() })
+async function handleActivate(row: Question) {
+  if (row.is_active !== false) return
+  await ElMessageBox.confirm(
+    `确认启用题目 #${row.id}？\n\n启用后该题目将重新加入小程序端学生练习题，学生可被抽取到该题目进行练习。`,
+    '确认启用',
+    { confirmButtonText: '确认启用', cancelButtonText: '取消', type: 'info' }
+  )
+  await questionApi.activate(row.id)
+  ElMessage.success('题目已启用，将重新出现在学生练习题中')
+  loadData()
+}
+
+onMounted(() => { loadData(); loadKnowledgeTree() })
 </script>
 
 <style lang="scss" scoped>
@@ -604,6 +601,23 @@ onMounted(() => { loadData(); loadStats(); loadKnowledgeTree() })
 
   &--published { background: var(--green-dim);  color: var(--green);  border-color: var(--green-border);  .status-badge__dot { background: var(--green); } }
   &--archived  { background: var(--bg-muted);   color: var(--text-3); border-color: var(--border-hover);  .status-badge__dot { background: var(--text-3); } }
+}
+
+// ── 启用状态徽标 ─────────────────────────────────────────────
+.active-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+  border: 1.5px solid;
+
+  &__dot { width: 6px; height: 6px; border-radius: 50%; }
+
+  &--on  { background: var(--green-dim);  color: var(--green);  border-color: var(--green-border);  .active-badge__dot { background: var(--green); } }
+  &--off { background: var(--amber-dim);  color: var(--amber);  border-color: var(--amber-border);  .active-badge__dot { background: var(--amber); } }
 }
 
 .diff-badge {

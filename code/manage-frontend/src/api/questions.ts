@@ -19,6 +19,7 @@ export interface KnowledgeTreeNode {
   id: number
   name: string
   code?: string
+  /** 已发布题目数量（含已启用和已停用，不含草稿/分析中/待审核） */
   published_count: number
   children?: KnowledgeTreeNode[]
 }
@@ -156,14 +157,26 @@ export const questionApi = {
     ),
 
   /**
-   * 下架题目（published → archived）
-   * PATCH /api/v1/admin/questions/{question_id}/status
+   * 停用题目：将已发布题目的 is_active 设为 false，从小程序端练习题中移除
+   * 题目 status 仍保持 published，仅启用状态变更
+   * PATCH /api/v1/admin/questions/{question_id}/active
    * 接口文档：§9.1.7
    */
-  archive: (questionId: number) =>
-    request.patch<unknown, { question_id: number; status: string }>(
-      `/questions/${questionId}/status`,
-      { status: 'archived' }
+  deactivate: (questionId: number) =>
+    request.patch<unknown, { question_id: number; is_active: boolean }>(
+      `/questions/${questionId}/active`,
+      { is_active: false }
+    ),
+
+  /**
+   * 启用题目：将已发布题目的 is_active 设为 true，重新加入小程序端练习题
+   * PATCH /api/v1/admin/questions/{question_id}/active
+   * 接口文档：§9.1.8
+   */
+  activate: (questionId: number) =>
+    request.patch<unknown, { question_id: number; is_active: boolean }>(
+      `/questions/${questionId}/active`,
+      { is_active: true }
     ),
 
   /**

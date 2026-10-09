@@ -4,7 +4,7 @@
     <!-- ── 页头 ── -->
     <div class="page-header">
       <div style="display:flex;align-items:center;gap:12px">
-        <el-button size="small" @click="$router.push('/questions')">
+        <el-button size="small" @click="$router.push('/questions/entry')">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="margin-right:4px">
             <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/>
           </svg>
@@ -394,13 +394,20 @@ const chapterOptions = computed(() => {
   return (sem?.children ?? []).map(n => ({ id: n.id, name: n.name }))
 })
 
+// AI 分析返回的知识点列表（含 id+name），用于树查找失败时兜底
+const aiKnowledgePoints = ref<{ id: number; name: string }[]>([])
+
 const knowledgePointOptions = computed(() => {
-  if (!form.chapter_id) return []
-  const sub = rawTree.value.find(n => n.id === form.subject_id)
-  const grade = (sub?.children ?? []).find(n => n.id === form.grade_id)
-  const sem = (grade?.children ?? []).find(n => n.id === form.semester_id)
-  const ch = (sem?.children ?? []).find(n => n.id === form.chapter_id)
-  return (ch?.children ?? []).map(n => ({ id: n.id, name: n.name }))
+  if (form.chapter_id) {
+    const sub = rawTree.value.find(n => n.id === form.subject_id)
+    const grade = (sub?.children ?? []).find(n => n.id === form.grade_id)
+    const sem = (grade?.children ?? []).find(n => n.id === form.semester_id)
+    const ch = (sem?.children ?? []).find(n => n.id === form.chapter_id)
+    const treeKPs = (ch?.children ?? []).map(n => ({ id: n.id, name: n.name }))
+    if (treeKPs.length > 0) return treeKPs
+  }
+  // 兜底：树中无对应章节（该章节已发布题数为0，未含在树内），使用 AI 返回的知识点列表
+  return aiKnowledgePoints.value
 })
 
 function onSubjectChange() {
@@ -533,6 +540,7 @@ onMounted(async () => {
     form.semester_id         = ana?.ai_semester?.id ?? (raw as any).semester_id ?? null
     form.chapter_id          = ana?.ai_chapter?.id  ?? (raw as any).chapter_id  ?? null
     form.knowledge_point_ids = [...(ana?.ai_knowledge_point_ids ?? (raw as any).knowledge_point_ids ?? [])].map(Number).filter(Boolean)
+    aiKnowledgePoints.value  = (ana?.ai_knowledge_points ?? []).map((kp: any) => ({ id: Number(kp.id), name: kp.name }))
     form.question_type       = (ana?.ai_question_type ?? (raw as any).question_type ?? 'APPLICATION') as QuestionType
     form.difficulty          = (ana?.ai_difficulty   ?? (raw as any).difficulty   ?? 'basic') as Difficulty
     form.solution            = ana?.ai_solution      ?? (raw as any).solution      ?? ''
@@ -598,7 +606,7 @@ async function handlePublish() {
       transfer_directions: [...form.migration_directions],
     })
     ElMessage.success('题目已发布')
-    router.push('/questions')
+    router.push('/questions/entry')
   } finally { saving.value = false }
 }
 
@@ -615,7 +623,7 @@ async function handleReject() {
     await questionApi.reject(Number(route.params.id), { rejection_reason: rejectReason.value })
     rejectDialogVisible.value = false
     ElMessage.success('驳回成功，题目已回到草稿状态，请返回列表手动触发重新分析')
-    router.push('/questions')
+    router.push('/questions/entry')
   } finally { saving.value = false }
 }
 </script>
