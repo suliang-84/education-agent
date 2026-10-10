@@ -347,11 +347,12 @@ function formatDate(dt: string) {
 async function loadData() {
   loading.value = true
   try {
+    // 管理页只展示已发布题目，is_active 独立控制启用/停用，不影响 status
     const params: Record<string, unknown> = {
       page: page.value,
       limit: PAGE_SIZE,
       order_by: 'created_at_desc',
-      status: 'published',  // 管理页固定只取已发布题目，由后端过滤保证总数准确
+      status: 'published',
     }
     if (filters.difficulty)            params.difficulty          = filters.difficulty
     if (filters.keyword)               params.keyword             = filters.keyword
@@ -379,24 +380,24 @@ function nextPage() { if (page.value < totalPages.value) { page.value++; loadDat
 async function handleDeactivate(row: Question) {
   if (row.is_active === false) return
   await ElMessageBox.confirm(
-    `确认停用题目 #${row.id}？\n\n停用后该题目将从小程序端学生练习题中移除，学生无法再抽取到该题目，直到重新启用为止。题目发布状态不受影响。`,
+    `确认停用题目 #${row.id}？\n\n停用后该题目将从小程序端练习抽题中移除，学生无法被抽取到该题目，直到重新启用为止。题目发布状态不受影响。`,
     '确认停用',
     { confirmButtonText: '确认停用', cancelButtonText: '取消', type: 'warning' }
   )
   await questionApi.deactivate(row.id)
-  ElMessage.success('题目已停用，将不再出现在学生练习题中')
+  ElMessage.success('题目已停用，将不再参与学生练习抽题')
   loadData()
 }
 
 async function handleActivate(row: Question) {
   if (row.is_active !== false) return
   await ElMessageBox.confirm(
-    `确认启用题目 #${row.id}？\n\n启用后该题目将重新加入小程序端学生练习题，学生可被抽取到该题目进行练习。`,
+    `确认启用题目 #${row.id}？\n\n启用后该题目将重新加入小程序端练习抽题，学生可被抽取到该题目进行练习。`,
     '确认启用',
     { confirmButtonText: '确认启用', cancelButtonText: '取消', type: 'info' }
   )
   await questionApi.activate(row.id)
-  ElMessage.success('题目已启用，将重新出现在学生练习题中')
+  ElMessage.success('题目已启用，将重新参与学生练习抽题')
   loadData()
 }
 

@@ -8,7 +8,7 @@ from app.models.question import Question
 from app.core.response import ok_response
 from app.dependencies import get_current_admin, get_db
 from app.models.admin import AdminUser
-from app.schemas.questions import QuestionCreateReq, PublishPayload, RejectReq
+from app.schemas.questions import QuestionCreateReq, PublishPayload, RejectReq, SetActiveReq
 from app.services import audit_service, questions_service
 
 router = APIRouter()
@@ -167,6 +167,22 @@ async def archive_question(
     return ok_response({"question_id": qid, "status": qstatus}, "题目已下架")
 
 
+@router.patch("/questions/{question_id}/active", summary="切换题目启用状态（停用/启用）")
+async def set_question_active(
+    question_id: int,
+    body: SetActiveReq,
+    db: AsyncSession = Depends(get_db),
+    current_admin: AdminUser = Depends(get_current_admin),
+):
+    q = await questions_service.set_active(db, question_id, body.is_active)
+    action = "ACTIVATE_QUESTION" if body.is_active else "DEACTIVATE_QUESTION"
+    await audit_service.log(db, current_admin.id, action,
+                            target_type="questions", target_id=str(q.id))
+    await db.commit()
+    msg = "题目已启用" if body.is_active else "题目已停用"
+    return ok_response({"question_id": q.id, "is_active": q.is_active}, msg)
+
+
 @router.delete("/questions/{question_id}", summary="软删除草稿题目")
 async def delete_question(
     question_id: int,
@@ -202,6 +218,7 @@ def _question_to_dict(q) -> dict:
         "primary_power": q.primary_power,
         "transfer_direction": q.transfer_direction,
         "status": q.status,
+        "is_active": q.is_active,
         "analysis_round": q.analysis_round,
         "embedding_status": q.embedding_status,
         "created_by": q.created_by,

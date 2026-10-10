@@ -88,8 +88,8 @@ export interface Question {
   five_power_thoughts?: FivePowerThoughts // 五力训练思路（各维度文字描述）
   migration_directions?: string[]         // 迁移方向
   embedding_status: 'pending' | 'completed' | 'failed'
-  /** 启用状态：独立于发布状态，控制小程序端是否可抽取该题。已发布题目默认为 true */
-  is_active: boolean
+  /** 启用状态（后端 is_active 字段落地前，由 status 派生：published=已启用，archived=已停用） */
+  is_active?: boolean
   created_at: string
   updated_at: string
 }

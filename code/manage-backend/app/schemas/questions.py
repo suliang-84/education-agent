@@ -12,6 +12,10 @@ class RejectReq(BaseModel):
     rejection_reason: str = Field(..., min_length=1, max_length=500)
 
 
+class SetActiveReq(BaseModel):
+    is_active: bool
+
+
 class PublishPayload(BaseModel):
     subject_id: int
     grade_id: int

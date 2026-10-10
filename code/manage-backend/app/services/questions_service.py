@@ -362,6 +362,20 @@ async def archive(db: AsyncSession, question_id: int) -> Question:
     return q
 
 
+async def set_active(db: AsyncSession, question_id: int, is_active: bool) -> Question:
+    """切换题目启用状态（停用/启用），仅作用于已发布题目，不影响 status 字段"""
+    q = (await db.execute(
+        select(Question).where(Question.id == question_id, Question.deleted_at.is_(None))
+    )).scalar_one_or_none()
+    if not q:
+        raise AppException('题目不存在', 404)
+    if q.status != 'published':
+        raise AppException('仅已发布题目可切换启用状态', 400)
+    q.is_active = is_active
+    await db.flush()
+    return q
+
+
 # ── 知识体系 code → ID 解析 ───────────────────────────────────
 
 async def _apply_knowledge_ids_from_codes(

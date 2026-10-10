@@ -157,8 +157,8 @@ export const questionApi = {
     ),
 
   /**
-   * 停用题目：将已发布题目的 is_active 设为 false，从小程序端练习题中移除
-   * 题目 status 仍保持 published，仅启用状态变更
+   * 停用题目：is_active → false，题目从小程序端练习抽题中移除
+   * 题目 status 保持 published 不变，仅更新启用状态字段
    * PATCH /api/v1/admin/questions/{question_id}/active
    * 接口文档：§9.1.7
    */
@@ -169,7 +169,8 @@ export const questionApi = {
     ),
 
   /**
-   * 启用题目：将已发布题目的 is_active 设为 true，重新加入小程序端练习题
+   * 启用题目：is_active → true，题目重新加入小程序端练习抽题
+   * 题目 status 保持 published 不变，仅更新启用状态字段
    * PATCH /api/v1/admin/questions/{question_id}/active
    * 接口文档：§9.1.8
    */

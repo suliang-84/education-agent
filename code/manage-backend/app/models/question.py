@@ -28,6 +28,8 @@ class Question(Base, TimestampMixin):
     primary_power: Mapped[str | None] = mapped_column(String(20), nullable=True)
     transfer_direction: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True,
+                                            comment="启用状态：True=参与小程序端练习抽题，False=停用，与发布状态独立")
     analysis_round: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
     rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     embedding_status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
