@@ -1,6 +1,6 @@
 <template>
   <div class="page-root">
-    <div class="surface" style="overflow:hidden">
+    <div class="surface surface--table">
       <div class="inner-toolbar">
         <div style="flex:1" />
         <el-button v-if="isSuperAdmin" type="primary" @click="openCreate">

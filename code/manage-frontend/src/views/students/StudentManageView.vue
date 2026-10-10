@@ -1,6 +1,6 @@
 <template>
   <div class="page-root">
-    <div class="surface" style="overflow:hidden">
+    <div class="surface surface--table">
       <div class="inner-toolbar">
         <el-input v-model="filters.keyword" placeholder="昵称 / 手机号" clearable @keyup.enter="search">
           <template #prefix>

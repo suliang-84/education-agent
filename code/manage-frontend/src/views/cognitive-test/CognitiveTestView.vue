@@ -27,7 +27,7 @@
     </div>
 
     <!-- ── 筛选栏 ── -->
-    <div class="surface" style="padding:0;overflow:hidden" v-loading="loading">
+    <div class="surface cognitive-surface" style="padding:0;overflow:hidden" v-loading="loading">
       <div class="tab-filter-bar">
         <el-select v-model="filterStatus" placeholder="全部状态" clearable size="small" style="width:120px">
           <el-option label="草稿" value="draft" />
@@ -339,6 +339,32 @@ async function doDelete() {
 </script>
 
 <style lang="scss" scoped>
+// ── 主卡片：flex column，table body 内部滚动 ─────────────────
+.cognitive-surface {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+
+  // el-table 撑满剩余高度
+  :deep(.el-table) {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+  :deep(.el-table__inner-wrapper) {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+  :deep(.el-table__header-wrapper) { flex-shrink: 0; }
+  :deep(.el-table__body-wrapper) {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+  }
+}
+
 // ── 测试状态看板 ─────────────────────────────────────────────
 .status-board {
   display: flex;

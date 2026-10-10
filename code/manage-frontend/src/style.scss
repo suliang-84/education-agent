@@ -883,18 +883,57 @@ body {
 // ── 页面布局 Helper ──────────────────────────────────────────
 
 .page-root {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 16px;
   max-width: 1440px;
-  // 不设 height/min-height，由 content-area 的 overflow-y 控制滚动
+  overflow-y: auto;        // 兜底：表单类页面在此滚动
+  overflow-x: hidden;
 }
 
-// 表格卡片内滚动：表格超出时在 surface 内部出现横向滚动条，不撑开外层
-.surface {
-  .el-table {
-    // el-table 自身宽度自适应，不限高度——行数据通过分页控制
-    // 若有固定列，需要容器 overflow:hidden 已在 surface 上配置
+// ── 表格铺满卡片并内部滚动 ───────────────────────────────────
+// 用法：在含 el-table 的 surface div 加上 surface--table class
+// 结构：.surface--table > [el-table, .paginator]
+// 效果：表格占满剩余高度，paginator 固定在底部，body 超出时滚动
+
+.surface--table {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+
+  // el-table 撑满剩余空间
+  > .el-table {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  // el-table 内部：header 固定，body 滚动
+  .el-table__inner-wrapper {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+
+  .el-table__header-wrapper {
+    flex-shrink: 0;
+  }
+
+  .el-table__body-wrapper {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  // paginator 固定在底部
+  > .paginator {
+    flex-shrink: 0;
+    border-top: 1px solid var(--border);
+    padding-top: 10px;
   }
 }
 
@@ -1049,7 +1088,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 2px 2px;
+  padding: 10px 16px;
   color: $text-3;
   font-size: 12.5px;
 }

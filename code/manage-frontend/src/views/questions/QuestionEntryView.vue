@@ -41,7 +41,7 @@
       </div>
 
       <!-- 题目列表表格 -->
-      <div class="surface" style="overflow:hidden">
+      <div class="surface surface--table">
         <el-table
           :data="questions"
           v-loading="loading"
@@ -364,6 +364,8 @@ onUnmounted(() => stopPolling())
 
 // ── 表格区 ───────────────────────────────────────────────────
 .table-panel {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 12px;

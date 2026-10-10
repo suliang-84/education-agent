@@ -430,13 +430,14 @@ async function handleCommand(cmd: string) {
   overflow: hidden;
 }
 
-// Content area — 固定高度滚动容器，内容超出时出现滚动条
+// Content area — flex 容器，内部页面自行决定是否滚动
 .content-area {
   flex: 1;
-  min-height: 0;          // flex 子元素必须设置，否则无法收缩
-  overflow-y: auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;        // 不在此处滚动，由内部决定
   padding: 15px;
-  padding-bottom: 15px;   // 明确底部边距
   background: var(--bg-page);
 }
 </style>

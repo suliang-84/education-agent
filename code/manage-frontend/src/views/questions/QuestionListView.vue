@@ -116,7 +116,7 @@
         </div>
 
         <!-- 题目列表表格 -->
-        <div class="surface" style="overflow:hidden">
+        <div class="surface surface--table">
           <el-table
             :data="questions"
             v-loading="loading"
@@ -399,9 +399,11 @@ onMounted(() => { loadData(); loadKnowledgeTree() })
 <style lang="scss" scoped>
 // ── 主体布局：左树右表 ───────────────────────────────────────
 .main-layout {
+  flex: 1;
+  min-height: 0;
   display: flex;
   gap: 16px;
-  align-items: flex-start;
+  align-items: stretch;   // 左树与右表等高
 }
 
 // ── 左树面板 ─────────────────────────────────────────────────
@@ -409,7 +411,8 @@ onMounted(() => { loadData(); loadKnowledgeTree() })
   width: 220px;
   flex-shrink: 0;
   padding: 12px 0;
-  overflow: hidden;
+  overflow-y: auto;    // 树节点过多时内部滚动
+  overflow-x: hidden;
 
   &__title {
     display: flex;
@@ -514,6 +517,7 @@ onMounted(() => { loadData(); loadKnowledgeTree() })
 .table-panel {
   flex: 1;
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 12px;
