@@ -107,9 +107,21 @@ const router = createRouter({
         },
         {
           path: 'students',
-          name: 'StudentList',
-          component: () => import('@/views/students/StudentListView.vue'),
+          name: 'StudentManage',
+          component: () => import('@/views/students/StudentManageView.vue'),
           meta: { title: '学生管理' },
+        },
+        {
+          path: 'parents',
+          name: 'ParentManage',
+          component: () => import('@/views/students/ParentManageView.vue'),
+          meta: { title: '家长管理' },
+        },
+        {
+          path: 'admin-users',
+          name: 'AdminManage',
+          component: () => import('@/views/students/AdminManageView.vue'),
+          meta: { title: '管理员管理' },
         },
         {
           path: 'students/:id',
