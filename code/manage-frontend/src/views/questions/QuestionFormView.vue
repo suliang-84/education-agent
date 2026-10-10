@@ -1,27 +1,20 @@
 <template>
   <div class="page-root">
-    <div class="page-header">
-      <div style="display:flex;align-items:center;gap:12px">
-        <el-button size="small" @click="$router.push('/questions/entry')">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="margin-right:4px">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/>
-          </svg>
-          返回
-        </el-button>
-        <div>
-          <h1 class="page-title">{{ isEdit ? '编辑题干' : '录入训练题目' }}</h1>
-          <p class="page-subtitle">填写题干后，由大模型自动分析知识点、难度、五力权重等全部字段</p>
-        </div>
-      </div>
-      <div style="display:flex;gap:10px">
-        <el-button @click="handleSave('draft')" :loading="loading">保存草稿</el-button>
-        <button class="btn-pink" type="button" @click="handleSave('analyze')" :disabled="loading">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:5px">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/>
-          </svg>
-          保存并立即分析
-        </button>
-      </div>
+    <div class="form-topbar">
+      <el-button size="small" @click="$router.push('/questions/entry')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="margin-right:4px">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/>
+        </svg>
+        返回
+      </el-button>
+      <div style="flex:1" />
+      <el-button @click="handleSave('draft')" :loading="loading">保存草稿</el-button>
+      <button class="btn-pink" type="button" @click="handleSave('analyze')" :disabled="loading">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/>
+        </svg>
+        保存并立即分析
+      </button>
     </div>
 
     <!-- 流程说明横幅 -->
@@ -194,6 +187,14 @@ async function handleSave(mode: 'draft' | 'analyze') {
 </script>
 
 <style lang="scss" scoped>
+// ── 顶部操作栏（返回+操作按钮同行）────────────────────────────
+.form-topbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
 // ── 流程说明横幅 ─────────────────────────────────────────────
 .flow-banner {
   display: flex;

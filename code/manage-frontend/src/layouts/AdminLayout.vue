@@ -423,17 +423,20 @@ async function handleCommand(cmd: string) {
 // ── Main ────────────────────────────────────────────────────
 .main-wrap {
   flex: 1;
+  min-height: 0;   // 允许 flex 子元素在垂直方向收缩
+  min-width: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  min-width: 0;
 }
 
-// Content area
+// Content area — 固定高度滚动容器，内容超出时出现滚动条
 .content-area {
   flex: 1;
+  min-height: 0;          // flex 子元素必须设置，否则无法收缩
   overflow-y: auto;
-  padding: 26px 28px;
+  padding: 15px;
+  padding-bottom: 15px;   // 明确底部边距
   background: var(--bg-page);
 }
 </style>

@@ -1,12 +1,5 @@
 <template>
   <div class="page-root">
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">家长管理</h1>
-        <p class="page-subtitle">查看家长账号及其绑定学生关系</p>
-      </div>
-    </div>
-
     <div class="surface" style="overflow:hidden">
       <div class="inner-toolbar">
         <el-input v-model="keyword" placeholder="搜索家长昵称 / 手机号" clearable @keyup.enter="search">

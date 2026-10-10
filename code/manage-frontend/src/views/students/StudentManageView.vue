@@ -1,12 +1,5 @@
 <template>
   <div class="page-root">
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">学生管理</h1>
-        <p class="page-subtitle">查看学生信息、五力画像及绑定家长</p>
-      </div>
-    </div>
-
     <div class="surface" style="overflow:hidden">
       <div class="inner-toolbar">
         <el-input v-model="filters.keyword" placeholder="昵称 / 手机号" clearable @keyup.enter="search">

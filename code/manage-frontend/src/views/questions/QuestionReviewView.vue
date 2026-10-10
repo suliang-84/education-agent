@@ -1,35 +1,28 @@
 <template>
   <div class="page-root" v-loading="loading">
 
-    <!-- ── 页头 ── -->
-    <div class="page-header">
-      <div style="display:flex;align-items:center;gap:12px">
-        <el-button size="small" @click="$router.push('/questions/entry')">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="margin-right:4px">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/>
-          </svg>
-          返回列表
-        </el-button>
-        <div>
-          <h1 class="page-title">{{ pageTitle }}</h1>
-          <p class="page-subtitle">
-            <span class="id-chip">#{{ question?.id }}</span>
-            <span v-if="question?.analysis_round" style="margin-left:8px;font-size:13px;color:var(--text-3)">
-              第 {{ question.analysis_round }} 次分析结果
-            </span>
-          </p>
-        </div>
-      </div>
-      <!-- 操作按钮：仅待审核状态可发布/驳回 -->
-      <div v-if="question?.status === 'pending_review'" style="display:flex;gap:10px">
+    <!-- ── 顶部操作栏 ── -->
+    <div class="review-topbar">
+      <el-button size="small" @click="$router.push('/questions/entry')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="margin-right:4px">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/>
+        </svg>
+        返回列表
+      </el-button>
+      <span v-if="question" class="id-chip">#{{ question.id }}</span>
+      <span v-if="question?.analysis_round" style="font-size:13px;color:var(--text-3)">
+        第 {{ question.analysis_round }} 次分析结果
+      </span>
+      <div style="flex:1" />
+      <template v-if="question?.status === 'pending_review'">
         <el-button @click="openReject" :loading="saving">驳回</el-button>
         <button class="btn-pink" type="button" @click="handlePublish" :disabled="saving">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:5px">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>
           发布上线
         </button>
-      </div>
+      </template>
     </div>
 
     <div v-if="question">
@@ -629,6 +622,14 @@ async function handleReject() {
 </script>
 
 <style lang="scss" scoped>
+.review-topbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
 .section-block {
   padding: 22px 24px;
   margin-bottom: 16px;

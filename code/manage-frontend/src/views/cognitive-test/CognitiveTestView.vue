@@ -1,19 +1,6 @@
 <template>
   <div class="page-root">
 
-    <!-- ── 页头 ── -->
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">测试题管理</h1>
-        <p class="page-subtitle">管理用于生成学生五力认知画像的测试题目</p>
-      </div>
-      <el-button type="primary" @click="router.push('/cognitive-test/create')">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:5px">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
-        </svg>
-        新增题目
-      </el-button>
-    </div>
 
     <!-- ── 测试状态看板 ── -->
     <div class="status-board" :class="publishedCount >= 10 ? 'status-board--ok' : 'status-board--warn'">
@@ -42,21 +29,26 @@
     <!-- ── 筛选栏 ── -->
     <div class="surface" style="padding:0;overflow:hidden" v-loading="loading">
       <div class="tab-filter-bar">
-        <div class="filter-group">
-          <el-select v-model="filterStatus" placeholder="全部状态" clearable size="small" style="width:120px">
-            <el-option label="草稿" value="draft" />
-            <el-option label="已发布" value="published" />
-            <el-option label="已下架" value="archived" />
-          </el-select>
-          <el-input v-model="searchText" placeholder="搜索题干..." clearable size="small" style="width:220px">
-            <template #prefix>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/>
-              </svg>
-            </template>
-          </el-input>
-        </div>
-        <span style="font-size:13px;color:var(--text-3)">共 {{ filteredQuestions.length }} 道</span>
+        <el-select v-model="filterStatus" placeholder="全部状态" clearable size="small" style="width:120px">
+          <el-option label="草稿" value="draft" />
+          <el-option label="已发布" value="published" />
+          <el-option label="已下架" value="archived" />
+        </el-select>
+        <el-input v-model="searchText" placeholder="搜索题干..." clearable size="small" style="flex:1;min-width:130px;max-width:260px">
+          <template #prefix>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/>
+            </svg>
+          </template>
+        </el-input>
+        <span style="font-size:13px;color:var(--text-3);flex-shrink:0">共 {{ filteredQuestions.length }} 道</span>
+        <div style="flex:1" />
+        <el-button type="primary" @click="router.push('/cognitive-test/create')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+          </svg>
+          新增题目
+        </el-button>
       </div>
 
       <!-- ── 列表表格 ── -->

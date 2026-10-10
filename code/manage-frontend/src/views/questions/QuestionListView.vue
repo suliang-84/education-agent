@@ -1,14 +1,6 @@
 <template>
   <div class="page-root">
 
-    <!-- ── 页头 ── -->
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">训练题管理</h1>
-        <p class="page-subtitle">管理已发布至训练池的题目，可停用或查看题目详情</p>
-      </div>
-    </div>
-
     <!-- ── 主体：左树右表 ── -->
     <div class="main-layout">
 

@@ -1,27 +1,10 @@
 <template>
   <div class="page-root">
 
-    <!-- ── 页头 ── -->
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">训练题录入</h1>
-        <p class="page-subtitle">录入题干后由大模型自动分析，审核后发布至训练池</p>
-      </div>
-      <div style="display:flex;gap:10px">
-        <el-button @click="showImport = true">批量导入</el-button>
-        <button class="btn-pink" @click="$router.push('/questions/create')">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:5px">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
-          </svg>
-          录入题干
-        </button>
-      </div>
-    </div>
-
     <!-- ── 表格区 ── -->
     <div class="table-panel">
 
-      <!-- 筛选栏 -->
+      <!-- 筛选栏（操作按钮与筛选同级） -->
       <div class="inner-toolbar">
         <el-select v-model="filters.difficulty" placeholder="难度" clearable style="width:90px">
           <el-option v-for="(label, key) in DifficultyLabels" :key="key" :label="label" :value="key" />
@@ -35,6 +18,14 @@
         </el-input>
         <el-button type="primary" @click="handleSearch">查询</el-button>
         <el-button @click="resetFilters">重置</el-button>
+        <div style="flex:1" />
+        <el-button @click="showImport = true">批量导入</el-button>
+        <button class="btn-pink" @click="$router.push('/questions/create')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+          </svg>
+          录入题干
+        </button>
       </div>
 
       <!-- 批量操作栏 -->
