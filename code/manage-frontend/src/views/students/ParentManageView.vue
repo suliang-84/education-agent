@@ -8,8 +8,8 @@
     </div>
 
     <div class="surface" style="overflow:hidden">
-      <div class="toolbar">
-        <el-input v-model="keyword" placeholder="搜索家长昵称 / 手机号" clearable style="width:220px" @keyup.enter="search">
+      <div class="inner-toolbar">
+        <el-input v-model="keyword" placeholder="搜索家长昵称 / 手机号" clearable @keyup.enter="search">
           <template #prefix>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/>
@@ -168,11 +168,6 @@ onMounted(loadData)
 </script>
 
 <style lang="scss" scoped>
-.toolbar {
-  display: flex; align-items: center; gap: 8px;
-  padding: 14px 16px; border-bottom: 1px solid var(--border); flex-wrap: wrap;
-}
-
 .user-avatar {
   width: 32px; height: 32px; border-radius: 9px;
   font-size: 13px; font-weight: 700;

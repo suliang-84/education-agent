@@ -263,6 +263,32 @@ isHovering ? 'transition: transform 0.12s cubic-bezier(0.16,1,0.3,1)'
 
 ---
 
+### 2026-10-10 · 全局 UI 规范修复（间距/按钮对齐/输入框自适应）
+
+**来源：** 用户反馈「间距大且不统一、按钮文本不对齐、输入框大小不统一、无自适应」
+
+**核心决策：**
+
+1. **`.btn-pink` 高度对齐**：从 `padding: 10px 28px; font-size: 14px`（实际高≈41px）改为 `height: 32px; padding: 0 20px; font-size: 13.5px`，与 `el-button` default 高度对齐，消除旁排错位
+2. **新增 `.inner-toolbar` 全局类**：专用于 `.surface` 卡片内部的筛选工具栏，带 `border-bottom: 1px solid $border`，不带独立阴影/圆角。内部 `.el-input` 自动 `flex: 1 1 auto; min-width: 130px; max-width: 260px`，实现自适应宽度
+3. **`.filter-bar` 响应式输入**：同步为 `.filter-bar` 内的 `.el-input` 添加 `flex: 1 1 auto` 和 min/max-width 约束
+4. **`el-button` 强制 inline-flex**：添加 `display: inline-flex !important; align-items: center !important` 消除文字垂直不居中
+5. **废弃各页面本地 `.toolbar` 类**：统一改用全局 `.inner-toolbar`，消除 padding/border 的页面级差异
+
+**影响范围：**
+- `src/style.scss`：`.btn-pink`、`.filter-bar`、新增 `.inner-toolbar`、`.el-button`
+- `src/views/questions/QuestionEntryView.vue`：filter-bar → inner-toolbar，移除输入框硬编码宽度
+- `src/views/questions/QuestionListView.vue`：同上
+- `src/views/students/StudentManageView.vue`：`.toolbar` → `.inner-toolbar`，移除输入框硬编码宽度
+- `src/views/students/ParentManageView.vue`：同上
+
+**设计原则（新增）：**
+- 凡在 `.surface` 卡片内部的筛选行，一律用 `.inner-toolbar`，不得覆盖 `.filter-bar` 样式
+- 输入框禁止 `style="width:Xpx"` 硬编码，应依赖 `.inner-toolbar` / `.filter-bar` 的 flex 布局自适应
+- `el-button` 与 `.btn-pink` 同排时，`.btn-pink` 高度必须与 `el-button` 一致（当前均为 32px）
+
+---
+
 ### 2026-09-05 · 初始规范建立
 
 **来源：** 参考 `/iamge/UI风格参考图1.webp` + `/iamge/UI风格参考图2.webp` 分析

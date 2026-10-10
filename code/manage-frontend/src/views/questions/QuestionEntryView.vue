@@ -22,11 +22,11 @@
     <div class="table-panel">
 
       <!-- 筛选栏 -->
-      <div class="filter-bar" style="margin-bottom:0;border-radius:0;background:transparent;box-shadow:none;padding:10px 0">
-        <el-select v-model="filters.difficulty" placeholder="难度" clearable style="width:100px">
+      <div class="inner-toolbar">
+        <el-select v-model="filters.difficulty" placeholder="难度" clearable style="width:90px">
           <el-option v-for="(label, key) in DifficultyLabels" :key="key" :label="label" :value="key" />
         </el-select>
-        <el-input v-model="filters.keyword" placeholder="搜索题干..." clearable style="width:200px" @keyup.enter="handleSearch">
+        <el-input v-model="filters.keyword" placeholder="搜索题干..." clearable @keyup.enter="handleSearch">
           <template #prefix>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/>

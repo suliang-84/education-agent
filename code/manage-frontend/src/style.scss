@@ -277,12 +277,16 @@ body {
 
 // Button
 .el-button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   font-family: $font-sans;
   font-size: 13.5px;
   font-weight: 500;
   border-radius: $r-lg;
   transition: all $t-fast $ease-out;
   border: 1.5px solid;
+  white-space: nowrap;
 
   &:active { transform: scale(0.97); }
 
@@ -664,13 +668,17 @@ body {
   color: #fff;
   border: none;
   border-radius: $r-pill;
-  padding: 10px 28px;
-  font-size: 14px;
+  // 与 el-button default (36px) 对齐，避免旁排时高度错位
+  height: 32px;
+  padding: 0 20px;
+  font-size: 13.5px;
   font-weight: 600;
   font-family: $font-sans;
   cursor: pointer;
   box-shadow: $shadow-pink;
   transition: all $t-fast $ease-out;
+  white-space: nowrap;
+  flex-shrink: 0;
 
   &:hover {
     background: $pink-hover;
@@ -699,7 +707,7 @@ body {
 .page-title    { font-size: 20px; font-weight: 700; color: $text-1; letter-spacing: -0.025em; }
 .page-subtitle { font-size: 13px; color: $text-3; margin-top: 3px; }
 
-// ── Filter Bar ───────────────────────────────────────────────
+// ── Filter Bar（独立卡片筛选栏）──────────────────────────────
 
 .filter-bar {
   display: flex;
@@ -710,6 +718,26 @@ body {
   background: $bg-surface;
   border-radius: $r-xl;
   box-shadow: $shadow-sm;
+
+  .el-input  { flex: 1 1 auto; min-width: 130px; max-width: 260px; }
+  .el-select { min-width: 90px; flex-shrink: 0; }
+  .el-button { flex-shrink: 0; }
+}
+
+// ── Inner Toolbar（surface 卡片内部的工具栏）────────────────
+// 用于表格页卡片顶部的筛选行，不带独立阴影，底部有分割线
+
+.inner-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 14px 18px;
+  border-bottom: 1px solid $border;
+
+  .el-input  { flex: 1 1 auto; min-width: 130px; max-width: 260px; }
+  .el-select { min-width: 90px; flex-shrink: 0; }
+  .el-button { flex-shrink: 0; }
 }
 
 // ── Stat Card ────────────────────────────────────────────────
