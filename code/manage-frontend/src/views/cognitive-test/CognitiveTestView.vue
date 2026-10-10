@@ -137,7 +137,7 @@
         </el-table-column>
 
         <!-- 操作 -->
-        <el-table-column label="操作" width="160" align="center">
+        <el-table-column label="操作" width="160" align="center" fixed="right">
           <template #default="{ row }">
             <div style="display:flex;align-items:center;justify-content:center;gap:4px">
               <!-- 草稿 -->

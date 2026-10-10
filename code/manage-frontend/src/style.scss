@@ -372,9 +372,18 @@ $t-slow:   350ms;
       height: 40px;
     }
     td.el-table__cell {
-      border-bottom: none;                          // 深色下同样无行分割线
+      border-bottom: none;
       color: #F9FAFB;
-      height: 54px;
+      height: 36px;
+      padding: 0 12px;
+
+      > .cell {
+        height: 100%;
+        display: flex;
+        align-items: center;
+        padding: 0;
+        overflow: hidden;
+      }
     }
     .el-table__body tr + tr td {
       border-top: 1px solid rgba(255,255,255,0.04); // 深色下极淡白线
@@ -533,11 +542,21 @@ body {
   td.el-table__cell {
     border-bottom: none;
     color: $text-1;
-    font-size: 13.5px;
+    font-size: 13px;
     height: 36px;
+    padding: 0 12px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+
+    // 单元格内容垂直居中，不用 line-height（line-height 会与 inline-flex badge 冲突）
+    > .cell {
+      height: 100%;
+      display: flex;
+      align-items: center;
+      padding: 0;
+      overflow: hidden;
+    }
   }
 
   // 行与行之间用极淡的线区隔（比无线更易区分，视觉上几乎不可见）
@@ -976,9 +995,6 @@ body {
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
-  padding: 14px 18px;
-  border-bottom: 1px solid $border;
-
   .el-input  { flex: 1 1 auto; min-width: 130px; max-width: 260px; }
   .el-select { min-width: 90px; flex-shrink: 0; }
   .el-button { flex-shrink: 0; }

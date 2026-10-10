@@ -59,7 +59,7 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="操作" width="120" align="center">
+        <el-table-column label="操作" width="120" align="center" fixed="right">
           <template #default="{ row }">
             <el-button text size="small" style="color:var(--red)" @click="openUnbind(row)">解绑学生</el-button>
           </template>

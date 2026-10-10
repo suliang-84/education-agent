@@ -52,7 +52,7 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="操作" width="200" align="center">
+        <el-table-column label="操作" width="200" align="center" fixed="right">
           <template #default="{ row }">
             <el-button v-if="row.is_active === 1" text size="small" style="color:var(--amber)" @click="toggleAdmin(row, 0)">停用</el-button>
             <el-button v-if="row.is_active === 0" text size="small" style="color:var(--green)" @click="toggleAdmin(row, 1)">启用</el-button>

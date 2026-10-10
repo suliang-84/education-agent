@@ -59,7 +59,9 @@
 
           <el-table-column label="题干" min-width="300">
             <template #default="{ row }">
-              <span class="stem-text">{{ row.stem }}</span>
+              <el-tooltip :content="row.stem" placement="top-start" :show-after="300" effect="light">
+                <span class="stem-text">{{ row.stem }}</span>
+              </el-tooltip>
             </template>
           </el-table-column>
 
@@ -70,9 +72,7 @@
                 <span class="status-badge__dot" />
                 {{ QuestionStatusLabels[row.status as QuestionStatus] }}
                 <span v-if="row.status === 'pending_review' && row.analysis_round > 1" class="round-tag">第{{ row.analysis_round }}次</span>
-              </span>
-              <span v-if="row.status === 'analyzing'" class="analyzing-tip" style="display:block;margin-top:2px">
-                <span class="analyzing-spinner" />约10~30秒
+                <span v-if="row.status === 'analyzing'" class="analyzing-spinner" style="margin-left:2px" />
               </span>
             </template>
           </el-table-column>

@@ -124,7 +124,7 @@
             </template>
           </el-table-column>
 
-          <el-table-column label="操作" width="200" align="center">
+          <el-table-column label="操作" width="200" align="center" fixed="right">
             <template #default="{ row }">
               <el-button text size="small" style="color:var(--indigo)" @click="$router.push(`/students/${row.id}`)">画像</el-button>
               <el-button text size="small" style="color:var(--purple)" @click="$router.push(`/students/${row.id}/ai-prompt`)">摘要</el-button>
@@ -205,7 +205,7 @@
             </template>
           </el-table-column>
 
-          <el-table-column label="操作" width="120" align="center">
+          <el-table-column label="操作" width="120" align="center" fixed="right">
             <template #default="{ row }">
               <el-button text size="small" style="color:var(--red)" @click="confirmUnbindParent(row)">
                 解绑学生
@@ -265,7 +265,7 @@
             </template>
           </el-table-column>
 
-          <el-table-column label="操作" width="200" align="center">
+          <el-table-column label="操作" width="200" align="center" fixed="right">
             <template #default="{ row }">
               <el-button
                 v-if="row.is_active === 1"

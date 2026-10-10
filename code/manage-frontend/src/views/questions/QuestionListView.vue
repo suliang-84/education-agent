@@ -130,7 +130,9 @@
 
             <el-table-column label="题干" min-width="300">
               <template #default="{ row }">
-                <span class="stem-text">{{ row.stem }}</span>
+                <el-tooltip :content="row.stem" placement="top-start" :show-after="300" effect="light">
+                  <span class="stem-text">{{ row.stem }}</span>
+                </el-tooltip>
               </template>
             </el-table-column>
 
