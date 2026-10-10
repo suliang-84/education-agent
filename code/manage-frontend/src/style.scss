@@ -125,7 +125,8 @@ $t-slow:   350ms;
 
 // ── :root CSS 自定义属性（运行时，供 Element Plus 等消费）────
 
-:root {
+:root,
+[data-theme="light"] {
   // 背景
   --bg-page:    #{$bg-page};
   --bg-surface: #{$bg-surface};
@@ -230,6 +231,177 @@ $t-slow:   350ms;
   --el-box-shadow:            #{$shadow-md};
   --el-box-shadow-light:      #{$shadow-sm};
   --el-overlay-color:         rgba(30,41,59,0.4);
+}
+
+// ── 深色主题令牌覆盖 ────────────────────────────────────────
+// 所有组件通过 var(--xxx) 引用，切换 data-theme 即自动生效
+
+[data-theme="dark"] {
+  // 背景层次（近黑 → 深灰，靠色差区分层级，无需阴影）
+  --bg-page:    #111111;
+  --bg-surface: #1A1A1A;
+  --bg-muted:   #222222;
+
+  // 品牌色（深色下激活色改为紫色）
+  --indigo:        #7C3AED;
+  --indigo-hover:  #6D28D9;
+  --indigo-light:  rgba(124, 58, 237, 0.15);
+  --indigo-border: rgba(124, 58, 237, 0.30);
+  --indigo-dim:    rgba(124, 58, 237, 0.10);
+
+  // CTA 改为亮黄绿
+  --pink:          #BEF264;
+  --pink-hover:    #A3E635;
+  --pink-shadow:   rgba(190, 242, 100, 0.30);
+  --pink-light:    rgba(190, 242, 100, 0.12);
+
+  // 语义色（深色背景需更亮）
+  --green:        #4ADE80;
+  --green-dim:    rgba(74, 222, 128, 0.12);
+  --green-border: rgba(74, 222, 128, 0.25);
+  --amber:        #FCD34D;
+  --amber-dim:    rgba(252, 211, 77, 0.12);
+  --amber-border: rgba(252, 211, 77, 0.25);
+  --red:          #F97316;
+  --red-dim:      rgba(249, 115, 22, 0.12);
+  --red-border:   rgba(249, 115, 22, 0.25);
+  --purple:       #A78BFA;
+  --purple-dim:   rgba(167, 139, 250, 0.12);
+  --purple-border:rgba(167, 139, 250, 0.25);
+  --teal:         #2DD4BF;
+  --teal-dim:     rgba(45, 212, 191, 0.12);
+  --teal-border:  rgba(45, 212, 191, 0.25);
+
+  // 五力颜色（深色版）
+  --power-insight:   #2DD4BF;
+  --power-construct: #F87171;
+  --power-deduce:    #818CF8;
+  --power-adapt:     #FCD34D;
+  --power-migrate:   #A78BFA;
+
+  // 文字（白→灰 层次）
+  --text-1:        #F9FAFB;
+  --text-2:        #9CA3AF;
+  --text-3:        #4B5563;
+  --text-disabled: #374151;
+
+  // 边框（极淡白）
+  --border:        rgba(255, 255, 255, 0.06);
+  --border-hover:  rgba(255, 255, 255, 0.10);
+  --border-strong: rgba(255, 255, 255, 0.16);
+
+  // 阴影（深色主题主要靠色差，阴影退场）
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.5);
+  --shadow-pink: 0 4px 14px rgba(190, 242, 100, 0.25);
+
+  // Element Plus 深色覆盖
+  --el-color-primary:         #7C3AED;
+  --el-color-primary-light-3: rgba(124, 58, 237, 0.28);
+  --el-color-primary-light-5: rgba(124, 58, 237, 0.18);
+  --el-color-primary-light-7: rgba(124, 58, 237, 0.10);
+  --el-color-primary-light-8: rgba(124, 58, 237, 0.07);
+  --el-color-primary-light-9: rgba(124, 58, 237, 0.04);
+  --el-color-primary-dark-2:  #6D28D9;
+  --el-border-color:          rgba(255, 255, 255, 0.10);
+  --el-border-color-light:    rgba(255, 255, 255, 0.06);
+  --el-border-color-lighter:  rgba(255, 255, 255, 0.04);
+  --el-fill-color:            #222222;
+  --el-fill-color-light:      #1E1E1E;
+  --el-bg-color:              #1A1A1A;
+  --el-bg-color-page:         #111111;
+  --el-bg-color-overlay:      #242424;
+  --el-text-color-primary:    #F9FAFB;
+  --el-text-color-regular:    #9CA3AF;
+  --el-text-color-secondary:  #4B5563;
+  --el-text-color-placeholder:#4B5563;
+  --el-box-shadow:            0 4px 16px rgba(0,0,0,0.4);
+  --el-box-shadow-light:      0 1px 3px rgba(0,0,0,0.3);
+  --el-overlay-color:         rgba(0, 0, 0, 0.7);
+}
+
+// 深色主题下 .btn-pink 文字改为深色（亮黄绿背景上）
+[data-theme="dark"] .btn-pink {
+  color: #0D0D0D;
+  &:hover { color: #0D0D0D; }
+}
+
+// 深色主题下 el-button--primary 使用紫色
+[data-theme="dark"] .el-button--primary {
+  background: var(--indigo);
+  border-color: var(--indigo);
+  &:hover {
+    background: var(--indigo-hover);
+    border-color: var(--indigo-hover);
+  }
+}
+
+// 深色主题下输入框、下拉框适配
+[data-theme="dark"] {
+  .el-input__wrapper {
+    background: #222222 !important;
+    box-shadow: 0 0 0 1.5px rgba(255,255,255,0.08) !important;
+    &:hover  { box-shadow: 0 0 0 1.5px rgba(255,255,255,0.14) !important; }
+    &.is-focus { box-shadow: 0 0 0 2px #7C3AED, 0 0 0 4px rgba(124,58,237,0.15) !important; }
+  }
+  .el-input__inner { color: #F9FAFB !important; }
+
+  .el-textarea__inner {
+    background: #222222 !important;
+    color: #F9FAFB !important;
+    box-shadow: 0 0 0 1.5px rgba(255,255,255,0.08) !important;
+    &:focus { box-shadow: 0 0 0 2px #7C3AED, 0 0 0 4px rgba(124,58,237,0.15) !important; }
+  }
+
+  .el-select-dropdown {
+    background: #242424 !important;
+    &__item {
+      color: #9CA3AF;
+      &.is-selected, &.selected { color: #A78BFA; background: rgba(124,58,237,0.12); }
+      &:hover { background: #2A2A2A; color: #F9FAFB; }
+    }
+  }
+
+  .el-table {
+    background: transparent;
+    th.el-table__cell { background: #1E1E1E; color: #4B5563; border-bottom-color: rgba(255,255,255,0.06); }
+    td.el-table__cell { border-bottom-color: rgba(255,255,255,0.04); color: #F9FAFB; }
+    .el-table__row:hover > td { background: rgba(255,255,255,0.04) !important; }
+    .el-table__body-wrapper { background: transparent; }
+  }
+
+  .el-dialog {
+    background: #242424;
+    &__header { border-bottom-color: rgba(255,255,255,0.08); }
+    &__footer { border-top-color: rgba(255,255,255,0.08); }
+    &__title { color: #F9FAFB; }
+  }
+
+  .el-dropdown-menu {
+    background: #242424;
+    &__item { color: #9CA3AF; &:hover { background: rgba(124,58,237,0.12); color: #A78BFA; } }
+  }
+
+  .el-message-box {
+    background: #242424;
+    border: 1px solid rgba(255,255,255,0.08);
+    &__title { color: #F9FAFB; }
+  }
+
+  .el-radio-button__inner {
+    background: #222222;
+    border-color: rgba(255,255,255,0.10);
+    color: #9CA3AF;
+  }
+
+  .el-tag {
+    &--success { background: rgba(74,222,128,0.12);  color: #4ADE80;  border-color: rgba(74,222,128,0.25); }
+    &--warning { background: rgba(252,211,77,0.12);  color: #FCD34D;  border-color: rgba(252,211,77,0.25); }
+    &--danger  { background: rgba(249,115,22,0.12);  color: #F97316;  border-color: rgba(249,115,22,0.25); }
+    &--info    { background: rgba(255,255,255,0.06); color: #9CA3AF;  border-color: rgba(255,255,255,0.10); }
+    &--primary { background: rgba(124,58,237,0.12);  color: #A78BFA;  border-color: rgba(124,58,237,0.25); }
+  }
 }
 
 // ── Base Reset ───────────────────────────────────────────────

@@ -75,12 +75,24 @@
         </div>
       </nav>
 
-      <!-- Collapse button -->
-      <button class="collapse-btn" @click="isCollapsed = !isCollapsed">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-          <path stroke-linecap="round" stroke-linejoin="round" :d="isCollapsed ? 'M13 5l7 7-7 7' : 'M11 5l-7 7 7 7'"/>
-        </svg>
-      </button>
+      <!-- Bottom controls: theme toggle + collapse -->
+      <div class="sidebar-controls">
+        <button class="theme-btn" @click="toggleTheme" :title="isDark ? '切换浅色模式' : '切换深色模式'">
+          <!-- 月亮（当前浅色，点击切深色） -->
+          <svg v-if="!isDark" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z"/>
+          </svg>
+          <!-- 太阳（当前深色，点击切浅色） -->
+          <svg v-else width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z"/>
+          </svg>
+        </button>
+        <button class="collapse-btn" @click="isCollapsed = !isCollapsed">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path stroke-linecap="round" stroke-linejoin="round" :d="isCollapsed ? 'M13 5l7 7-7 7' : 'M11 5l-7 7 7 7'"/>
+          </svg>
+        </button>
+      </div>
 
       <!-- User info -->
       <div class="sidebar-user">
@@ -116,7 +128,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { authApi } from '@/api'
@@ -126,6 +138,25 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const isCollapsed = ref(false)
+
+// ── 主题切换 ─────────────────────────────────────────────────
+const isDark = ref(false)
+
+function applyTheme(dark: boolean) {
+  document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light')
+  isDark.value = dark
+}
+
+function toggleTheme() {
+  const next = !isDark.value
+  applyTheme(next)
+  localStorage.setItem('mesh-theme', next ? 'dark' : 'light')
+}
+
+onMounted(() => {
+  const saved = localStorage.getItem('mesh-theme')
+  applyTheme(saved === 'dark')
+})
 
 const userInitial = computed(() => authStore.user?.username?.[0]?.toUpperCase() || 'A')
 
@@ -150,10 +181,12 @@ async function handleCommand(cmd: string) {
 
   // Collapsed state — controls nested element visibility
   &.collapsed {
-    .sidebar          { width: var(--sidebar-w-collapsed); }
+    .sidebar            { width: var(--sidebar-w-collapsed); }
     .sidebar-logo__name { opacity: 0; pointer-events: none; }
     .nav-section__label { opacity: 0; }
     .nav-item__label    { opacity: 0; pointer-events: none; }
+    // 折叠时 theme-btn 依然完整显示（只有图标，本就无文字）
+    .sidebar-controls   { padding: 6px 8px; gap: 2px; }
   }
 }
 
@@ -286,9 +319,18 @@ async function handleCommand(cmd: string) {
   font-family: var(--font-mono);
 }
 
-// Collapse button
+// Sidebar bottom controls（主题切换 + 折叠）
+.sidebar-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  flex-shrink: 0;
+}
+
+.theme-btn,
 .collapse-btn {
-  margin: 8px 10px;
+  flex: 1;
   padding: 8px;
   background: var(--bg-muted);
   border: none;
@@ -299,7 +341,6 @@ async function handleCommand(cmd: string) {
   align-items: center;
   justify-content: center;
   transition: all var(--t-fast);
-  flex-shrink: 0;
 
   &:hover {
     background: var(--indigo-light);
