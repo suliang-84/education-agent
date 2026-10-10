@@ -531,10 +531,13 @@ body {
   }
 
   td.el-table__cell {
-    border-bottom: none;              // 行间无分割线，保持干净
+    border-bottom: none;
     color: $text-1;
     font-size: 13.5px;
-    height: 54px;                     // 固定行高，与设计图1一致
+    height: 36px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   // 行与行之间用极淡的线区隔（比无线更易区分，视觉上几乎不可见）
@@ -901,6 +904,7 @@ body {
 .surface--table {
   flex: 1;
   min-height: 0;
+  border-radius: 0 !important;  // 表格卡片去圆角
   display: flex;
   flex-direction: column;
   overflow: hidden;

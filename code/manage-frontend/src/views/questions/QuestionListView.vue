@@ -130,28 +130,15 @@
 
             <el-table-column label="题干" min-width="300">
               <template #default="{ row }">
-                <div class="stem-cell">
-                  <div class="stem-text">
-                    {{ row.stem.substring(0, 60) }}{{ row.stem.length > 60 ? '…' : '' }}
-                  </div>
-                  <div class="stem-meta">
-                    <span class="active-badge" :class="row.is_active !== false ? 'active-badge--on' : 'active-badge--off'">
-                      <span class="active-badge__dot" />
-                      {{ row.is_active !== false ? '已启用' : '已停用' }}
-                    </span>
-                    <span v-if="row.embedding_status === 'completed'" class="embed-badge embed--ok">向量化 ✓</span>
-                    <span v-if="row.embedding_status === 'failed'" class="embed-badge embed--fail">向量化 ✗</span>
-                  </div>
-                </div>
+                <span class="stem-text">{{ row.stem }}</span>
               </template>
             </el-table-column>
 
             <!-- 归属：五级体系（科目·年级·学期） -->
-            <el-table-column label="归属" width="150">
+            <el-table-column label="归属" width="180">
               <template #default="{ row }">
-                <span v-if="row.subject_id" style="font-size:12.5px;color:var(--text-2);line-height:1.6">
-                  {{ subjectName(row.subject_id) }} · {{ gradeName(row.grade_id) }}<br>
-                  <span style="color:var(--text-3);font-size:11.5px">{{ semesterName(row.semester_id) }}</span>
+                <span v-if="row.subject_id" style="font-size:12.5px;color:var(--text-2)">
+                  {{ subjectName(row.subject_id) }} · {{ gradeName(row.grade_id) }} · {{ semesterName(row.semester_id) }}
                 </span>
                 <span v-else style="font-size:12px;color:var(--text-3)">—</span>
               </template>
@@ -580,8 +567,12 @@ onMounted(() => { loadData(); loadKnowledgeTree() })
 }
 
 // ── 题干列 ───────────────────────────────────────────────────
-.stem-cell { display: flex; flex-direction: column; gap: 6px; padding: 3px 0; }
-.stem-text { font-size: 13.5px; color: var(--text-1); line-height: 1.55; }
+.stem-cell { display: flex; align-items: center; gap: 8px; }
+.stem-text {
+  font-size: 13.5px; color: var(--text-1);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  flex: 1; min-width: 0;
+}
 .stem-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 
 .status-badge {

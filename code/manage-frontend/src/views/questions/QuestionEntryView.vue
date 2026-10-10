@@ -50,29 +50,30 @@
         >
           <el-table-column type="selection" width="46" />
 
-          <el-table-column label="ID" width="90">
-            <template #default="{ row }">
-              <span class="id-chip">#{{ row.id }}</span>
+          <!-- 序号 -->
+          <el-table-column label="序号" width="60" align="center">
+            <template #default="{ $index }">
+              <span class="num" style="color:var(--text-3);font-size:12px">{{ (page - 1) * PAGE_SIZE + $index + 1 }}</span>
             </template>
           </el-table-column>
 
           <el-table-column label="题干" min-width="300">
             <template #default="{ row }">
-              <div class="stem-cell">
-                <div class="stem-text">
-                  {{ row.stem.substring(0, 60) }}{{ row.stem.length > 60 ? '…' : '' }}
-                </div>
-                <div class="stem-meta">
-                  <span class="status-badge" :class="`status-badge--${row.status}`">
-                    <span class="status-badge__dot" />
-                    {{ QuestionStatusLabels[row.status as QuestionStatus] }}
-                    <span v-if="row.status === 'pending_review' && row.analysis_round > 1" class="round-tag">第{{ row.analysis_round }}次</span>
-                  </span>
-                  <span v-if="row.status === 'analyzing'" class="analyzing-tip">
-                    <span class="analyzing-spinner" />约 10~30 秒
-                  </span>
-                </div>
-              </div>
+              <span class="stem-text">{{ row.stem }}</span>
+            </template>
+          </el-table-column>
+
+          <!-- 状态 -->
+          <el-table-column label="状态" width="110">
+            <template #default="{ row }">
+              <span class="status-badge" :class="`status-badge--${row.status}`">
+                <span class="status-badge__dot" />
+                {{ QuestionStatusLabels[row.status as QuestionStatus] }}
+                <span v-if="row.status === 'pending_review' && row.analysis_round > 1" class="round-tag">第{{ row.analysis_round }}次</span>
+              </span>
+              <span v-if="row.status === 'analyzing'" class="analyzing-tip" style="display:block;margin-top:2px">
+                <span class="analyzing-spinner" />约10~30秒
+              </span>
             </template>
           </el-table-column>
 
@@ -419,8 +420,12 @@ onUnmounted(() => stopPolling())
 }
 
 // ── 题干列 ───────────────────────────────────────────────────
-.stem-cell { display: flex; flex-direction: column; gap: 6px; padding: 3px 0; }
-.stem-text { font-size: 13.5px; color: var(--text-1); line-height: 1.55; }
+.stem-cell { display: flex; align-items: center; gap: 8px; }
+.stem-text {
+  font-size: 13.5px; color: var(--text-1);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  flex: 1; min-width: 0;
+}
 .stem-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 
 .status-badge {
