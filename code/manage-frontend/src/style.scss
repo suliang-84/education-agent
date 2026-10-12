@@ -9,16 +9,16 @@
 // ── SCSS 变量（编译期，用于生成 CSS 自定义属性）─────────────
 
 // 背景
-$bg-page:    #E8ECF8;
+$bg-page:    #f2f3f7;
 $bg-surface: #FFFFFF;
 $bg-muted:   #F0F2FA;
 
 // 品牌色
-$indigo:        #4F46E5;
-$indigo-hover:  #4338CA;
-$indigo-light:  #EEF2FF;
-$indigo-border: rgba(79, 70, 229, 0.20);
-$indigo-dim:    rgba(79, 70, 229, 0.08);
+$indigo:        #608df8;
+$indigo-hover:  #4a77f0;
+$indigo-light:  #eef3ff;
+$indigo-border: rgba(96, 141, 248, 0.25);
+$indigo-dim:    rgba(96, 141, 248, 0.10);
 
 $pink:        #F43F7E;
 $pink-hover:  #E11D63;
@@ -54,7 +54,7 @@ $power-adapt:     $amber;
 $power-migrate:   $purple;
 
 // 文字
-$text-1: #1E293B;
+$text-1: #000011;
 $text-2: #64748B;
 $text-3: #94A3B8;
 $text-disabled: #CBD5E1;
@@ -118,9 +118,9 @@ $t-slow:   350ms;
   transition-timing-function: $ease-out;
 }
 
-// 输入框焦点环
+// 输入框焦点环（不加粗，保持 1.5px，仅换色）
 @mixin focus-ring($color: $indigo) {
-  box-shadow: 0 0 0 2px $color, 0 0 0 4px rgba(79,70,229,0.10) !important;
+  box-shadow: 0 0 0 1.5px $color !important;
 }
 
 // ── :root CSS 自定义属性（运行时，供 Element Plus 等消费）────
@@ -231,6 +231,12 @@ $t-slow:   350ms;
   --el-box-shadow:            #{$shadow-md};
   --el-box-shadow-light:      #{$shadow-sm};
   --el-overlay-color:         rgba(30,41,59,0.4);
+  --el-border-radius-base:    4px;
+  --el-border-radius-small:   4px;
+  // 统一表单组件高度为 30px
+  --el-component-size:        30px;
+  --el-component-size-large:  30px;
+  --el-component-size-small:  30px;
 }
 
 // ── 深色主题令牌覆盖 ────────────────────────────────────────
@@ -339,11 +345,12 @@ $t-slow:   350ms;
 
 // 深色主题下输入框、下拉框适配
 [data-theme="dark"] {
-  .el-input__wrapper {
+  .el-input__wrapper,
+  .el-select .el-input__wrapper {
     background: #222222 !important;
     box-shadow: 0 0 0 1.5px rgba(255,255,255,0.08) !important;
     &:hover  { box-shadow: 0 0 0 1.5px rgba(255,255,255,0.14) !important; }
-    &.is-focus { box-shadow: 0 0 0 2px #7C3AED, 0 0 0 4px rgba(124,58,237,0.15) !important; }
+    &.is-focus { box-shadow: 0 0 0 1.5px #7C3AED !important; }
   }
   .el-input__inner { color: #F9FAFB !important; }
 
@@ -366,17 +373,20 @@ $t-slow:   350ms;
   .el-table {
     background: transparent;
     th.el-table__cell {
-      background: transparent;                      // 深色下同样透明
-      color: #4B5563;
-      border-bottom-color: rgba(255,255,255,0.06);
-      height: 40px;
+      background: rgba(255,255,255,0.04);           // 深色下极浅背景区分表头
+      color: #9CA3AF;
+      font-weight: 600;
+      font-size: 12px;
+      border-bottom: 2px solid rgba(255,255,255,0.08);
+      height: 38px;
+      padding: 0 12px;
+      > .cell { padding: 0; color: #9CA3AF; font-weight: 600; }
     }
     td.el-table__cell {
-      border-bottom: none;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
       color: #F9FAFB;
       height: 36px;
       padding: 0 12px;
-
       > .cell {
         height: 100%;
         display: flex;
@@ -385,10 +395,17 @@ $t-slow:   350ms;
         overflow: hidden;
       }
     }
-    .el-table__body tr + tr td {
-      border-top: 1px solid rgba(255,255,255,0.04); // 深色下极淡白线
-    }
     .el-table__row:hover > td { background: rgba(255,255,255,0.04) !important; }
+
+    .el-table__row td.is-right-sticky,
+    .el-table__row td.is-left-sticky { background: #1A1A1A; }
+
+    .el-table__row:hover td.is-right-sticky,
+    .el-table__row:hover td.is-left-sticky { background: rgba(255,255,255,0.04) !important; }
+
+    th.is-right-sticky,
+    th.is-left-sticky { background: rgba(255,255,255,0.04) !important; }
+
     .el-table__body-wrapper { background: transparent; }
   }
 
@@ -474,9 +491,11 @@ body {
   align-items: center !important;
   justify-content: center !important;
   font-family: $font-sans;
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 500;
-  border-radius: $r-lg;
+  height: 30px !important;
+  padding: 0 12px !important;
+  border-radius: $r-xs;
   transition: all $t-fast $ease-out;
   border: 1.5px solid;
   white-space: nowrap;
@@ -520,28 +539,41 @@ body {
   }
 }
 
-// Table — 对齐设计图1风格
-// 核心特征：列头透明背景 + 首字母大写（非全大写）+ 无行分割线 + 固定行高
+// Table — 对齐参考图风格
+// 核心：白色卡片 + 深灰表头文字 + 表头底线 + 每行底部细线 + 淡蓝悬停
 .el-table {
-  font-size: 13.5px;
+  font-size: 13px;
   background: transparent;
+  color: $text-1;
 
-  .el-table__inner-wrapper { border-radius: 0; }
-
-  th.el-table__cell {
-    background: transparent;         // 列头无背景色，继承白色卡片
-    color: $text-3;
-    font-weight: 500;                 // 降低字重，不抢眼
-    font-size: 12px;
-    text-transform: none;             // 不强制大写，保持原始首字母大写
-    letter-spacing: normal;           // 无字间距
-    border-bottom: 1px solid $border; // 列头底部保留一条细线
-    height: 40px;
+  .el-table__inner-wrapper {
+    border-radius: 0;
+    border: 1px solid rgba(96, 141, 248, 0.15); // 外边框
   }
 
+  // ── 表头 ──
+  th.el-table__cell {
+    background: #f0f3fd;
+    color: #4b4b60;
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: none;
+    letter-spacing: 0.02em;
+    border-bottom: 2px solid rgba(96, 141, 248, 0.15);
+    height: 38px;
+    padding: 0 12px;
+
+    > .cell {
+      padding: 0;
+      font-weight: 600;
+      color: #4b4b60;
+    }
+  }
+
+  // ── 数据行 ──
   td.el-table__cell {
-    border-bottom: none;
-    color: $text-1;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05); // 每行底部细线，参考图可见
+    color: #111827;
     font-size: 13px;
     height: 36px;
     padding: 0 12px;
@@ -549,7 +581,6 @@ body {
     overflow: hidden;
     text-overflow: ellipsis;
 
-    // 单元格内容垂直居中，不用 line-height（line-height 会与 inline-flex badge 冲突）
     > .cell {
       height: 100%;
       display: flex;
@@ -559,26 +590,54 @@ body {
     }
   }
 
-  // 行与行之间用极淡的线区隔（比无线更易区分，视觉上几乎不可见）
-  .el-table__body tr + tr td {
-    border-top: 1px solid rgba(0, 0, 0, 0.04);
+  .el-table__row:hover > td {
+    background: #F5F7FF !important;
   }
 
-  .el-table__row:hover > td { background: #F5F5F5 !important; } // 暖灰悬停，去掉蓝调
-  .el-table__body-wrapper   { background: transparent; }
+  // fixed 列需要实色背景，否则 sticky 定位时透明导致内容穿透
+  td.el-table__cell.is-right-sticky,
+  td.el-table__cell.is-left-sticky,
+  th.el-table__cell.is-right-sticky,
+  th.el-table__cell.is-left-sticky {
+    background: inherit;
+  }
+
+  // 普通行 fixed 列背景与正常列一致
+  .el-table__row td.is-right-sticky,
+  .el-table__row td.is-left-sticky {
+    background: #ffffff;
+  }
+
+  // 悬停时 fixed 列同步变色
+  .el-table__row:hover td.is-right-sticky,
+  .el-table__row:hover td.is-left-sticky {
+    background: #F5F7FF !important;
+  }
+
+  // 表头 fixed 列背景与表头一致
+  th.is-right-sticky,
+  th.is-left-sticky {
+    background: #f0f3fd !important;
+  }
+
+  .el-table__body-wrapper { background: transparent; }
 
   &--striped .el-table__body tr.el-table__row--striped td {
-    background: transparent; // 关闭斑马纹，保持统一白底
+    background: transparent;
   }
 }
 
 // Input
 .el-input {
+  height: 30px !important;
+
   &__wrapper {
     background: $bg-surface !important;
     box-shadow: 0 0 0 1.5px $border !important;
-    border-radius: $r-md !important;
+    border-radius: $r-xs !important;
     transition: box-shadow $t-fast !important;
+    padding: 0 10px !important;
+    height: 30px !important;
 
     &:hover { box-shadow: 0 0 0 1.5px $border-hover !important; }
 
@@ -587,8 +646,10 @@ body {
 
   &__inner {
     font-family: $font-sans;
-    font-size: 13.5px;
+    font-size: 13px;
     color: $text-1;
+    height: 28px !important;
+    line-height: 28px !important;
 
     &::placeholder { color: $text-3; }
   }
@@ -600,24 +661,37 @@ body {
   font-size: 13.5px !important;
   background: $bg-surface !important;
   color: $text-1 !important;
-  border-radius: $r-md !important;
+  border-radius: $r-xs !important;
   box-shadow: 0 0 0 1.5px $border !important;
 
   &:focus { @include focus-ring; }
+}
+
+// Select（触发器高度 + 边框与 el-input 完全对齐）
+.el-select .el-input__wrapper {
+  height: 30px !important;
+  box-shadow: 0 0 0 1.5px $border !important;
+
+  &:hover   { box-shadow: 0 0 0 1.5px $border-hover !important; }
+  &.is-focus { @include focus-ring; }
 }
 
 // Select dropdown
 .el-select-dropdown {
   background: $bg-surface !important;
   border: none !important;
-  border-radius: $r-lg !important;
+  border-radius: $r-xs !important;
   box-shadow: $shadow-md !important;
   overflow: hidden;
 
   &__item {
-    font-size: 13.5px;
+    font-size: 13px;
     color: $text-2;
-    padding: 9px 14px;
+    height: 30px !important;
+    line-height: 30px !important;
+    padding: 0 14px !important;
+    display: flex !important;
+    align-items: center !important;
 
     &.is-selected,
     &.selected {
@@ -820,7 +894,7 @@ body {
 }
 
 // Input number
-.el-input-number .el-input__wrapper { border-radius: $r-md !important; }
+.el-input-number .el-input__wrapper { border-radius: $r-xs !important; }
 
 // ── 工具类 ───────────────────────────────────────────────────
 
@@ -881,10 +955,9 @@ body {
   background: $pink;
   color: #fff;
   border: none;
-  border-radius: $r-pill;
-  // 与 el-button default (36px) 对齐，避免旁排时高度错位
-  height: 32px;
-  padding: 0 20px;
+  border-radius: $r-xs;
+  height: 30px;
+  padding: 0 16px;
   font-size: 13.5px;
   font-weight: 600;
   font-family: $font-sans;
@@ -982,8 +1055,8 @@ body {
   border-radius: $r-xl;
   box-shadow: $shadow-sm;
 
-  .el-input  { flex: 1 1 auto; min-width: 130px; max-width: 260px; }
-  .el-select { min-width: 90px; flex-shrink: 0; }
+  .el-input  { width: 200px !important; flex: none; }
+  .el-select { width: 120px !important; flex: none; }
   .el-button { flex-shrink: 0; }
 }
 
@@ -995,8 +1068,8 @@ body {
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
-  .el-input  { flex: 1 1 auto; min-width: 130px; max-width: 260px; }
-  .el-select { min-width: 90px; flex-shrink: 0; }
+  .el-input  { width: 200px !important; flex: none; }
+  .el-select { width: 120px !important; flex: none; }
   .el-button { flex-shrink: 0; }
 }
 

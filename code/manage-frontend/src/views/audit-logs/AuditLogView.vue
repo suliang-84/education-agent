@@ -8,8 +8,8 @@
     </div>
 
     <div class="filter-bar">
-      <el-input v-model="filters.admin_username" placeholder="管理员账号" clearable style="width:150px" @keyup.enter="handleSearch" />
-      <el-select v-model="filters.action_type" placeholder="操作类型" clearable style="width:180px">
+      <el-input v-model="filters.admin_username" placeholder="管理员账号" clearable style="width:150px" />
+      <el-select v-model="filters.action_type" placeholder="操作类型" clearable style="width:180px" @change="handleSearch">
         <el-option v-for="t in actionTypes" :key="t.value" :label="t.label" :value="t.value" />
       </el-select>
       <el-date-picker
@@ -17,11 +17,8 @@
         range-separator="–" start-placeholder="开始日期" end-placeholder="结束日期"
         format="YYYY-MM-DD" value-format="YYYY-MM-DD"
         style="width:240px"
+        @change="handleSearch"
       />
-      <div style="margin-left:auto;display:flex;gap:8px">
-        <el-button type="primary" @click="handleSearch">查询</el-button>
-        <el-button @click="resetFilters">重置</el-button>
-      </div>
     </div>
 
     <div class="surface" style="overflow:hidden">
@@ -113,7 +110,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { auditLogApi } from '@/api'
 import type { AuditLog } from '@/types'
 import { formatDate } from '@/utils/format'
@@ -160,8 +157,15 @@ async function loadData() {
 }
 
 function handleSearch() { cursor.value = 0; loadData() }
-function resetFilters() { Object.assign(filters, { admin_username: '', action_type: '', date_range: [] }); cursor.value = 0; loadData() }
 function prevPage() { cursor.value = Math.max(0, cursor.value - 20); loadData() }
+
+// 防抖搜索（输入框专用）
+let _searchTimer: ReturnType<typeof setTimeout> | null = null
+function debouncedSearch() {
+  if (_searchTimer) clearTimeout(_searchTimer)
+  _searchTimer = setTimeout(handleSearch, 1000)
+}
+watch(() => filters.admin_username, debouncedSearch)
 function nextPage() { cursor.value += 20; loadData() }
 
 onMounted(loadData)

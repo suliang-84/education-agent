@@ -19,12 +19,11 @@
 
     <!-- 筛选栏 -->
     <div class="filter-bar">
-      <el-select v-model="selectedSubject" placeholder="学科" style="width:120px">
+      <el-select v-model="selectedSubject" placeholder="学科" style="width:120px" @change="loadStats">
         <el-option label="数学" value="数学" />
         <el-option label="物理" value="物理" />
         <el-option label="化学" value="化学" />
       </el-select>
-      <el-button type="primary" @click="loadStats" :loading="loading">查询</el-button>
       <div style="margin-left:auto">
         <el-button size="small">导出 CSV</el-button>
       </div>

@@ -2,15 +2,13 @@
   <div class="page-root">
     <div class="surface surface--table">
       <div class="inner-toolbar">
-        <el-input v-model="keyword" placeholder="搜索家长昵称 / 手机号" clearable @keyup.enter="search">
+        <el-input v-model="keyword" placeholder="搜索家长昵称 / 手机号" clearable>
           <template #prefix>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/>
             </svg>
           </template>
         </el-input>
-        <el-button type="primary" @click="search">查询</el-button>
-        <el-button @click="keyword = ''; search()">重置</el-button>
       </div>
 
       <el-table :data="parents" v-loading="loading" style="width:100%">
@@ -103,7 +101,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { parentApi } from '@/api'
 import type { Parent } from '@/types'
@@ -124,6 +122,14 @@ async function loadData() {
 }
 
 function search() { loadData() }
+
+// 防抖搜索（输入框专用）
+let _searchTimer: ReturnType<typeof setTimeout> | null = null
+function debouncedSearch() {
+  if (_searchTimer) clearTimeout(_searchTimer)
+  _searchTimer = setTimeout(search, 1000)
+}
+watch(keyword, debouncedSearch)
 
 function bindMethodLabel(m: string) {
   return { INVITE_CODE: '学生邀请', PARENT_SELF: '家长主动', ADMIN: '管理员绑定' }[m] ?? m

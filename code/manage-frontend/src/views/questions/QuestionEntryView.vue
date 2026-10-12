@@ -6,18 +6,16 @@
 
       <!-- 筛选栏（操作按钮与筛选同级） -->
       <div class="inner-toolbar">
-        <el-select v-model="filters.difficulty" placeholder="难度" clearable style="width:90px">
+        <el-select v-model="filters.difficulty" placeholder="难度" clearable style="width:90px" @change="handleSearch">
           <el-option v-for="(label, key) in DifficultyLabels" :key="key" :label="label" :value="key" />
         </el-select>
-        <el-input v-model="filters.keyword" placeholder="搜索题干..." clearable @keyup.enter="handleSearch">
+        <el-input v-model="filters.keyword" placeholder="搜索题干..." clearable>
           <template #prefix>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/>
             </svg>
           </template>
         </el-input>
-        <el-button type="primary" @click="handleSearch">查询</el-button>
-        <el-button @click="resetFilters">重置</el-button>
         <div style="flex:1" />
         <el-button @click="showImport = true">批量导入</el-button>
         <button class="btn-pink" @click="$router.push('/questions/create')">
@@ -148,7 +146,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { questionApi } from '@/api'
 import type { Question, QuestionStatus, Difficulty } from '@/types'
@@ -201,11 +199,15 @@ async function loadData() {
 
 
 function handleSearch() { page.value = 1; loadData() }
-function resetFilters() {
-  Object.assign(filters, { difficulty: '', keyword: '' })
-  page.value = 1; loadData()
-}
 function prevPage() { if (page.value > 1) { page.value--; loadData() } }
+
+// 防抖搜索（输入框专用）
+let _searchTimer: ReturnType<typeof setTimeout> | null = null
+function debouncedSearch() {
+  if (_searchTimer) clearTimeout(_searchTimer)
+  _searchTimer = setTimeout(handleSearch, 1000)
+}
+watch(() => filters.keyword, debouncedSearch)
 function nextPage() { if (page.value < totalPages.value) { page.value++; loadData() } }
 
 async function handleAnalyze(row: Question) {

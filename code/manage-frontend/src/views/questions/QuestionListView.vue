@@ -94,18 +94,16 @@
 
         <!-- 筛选栏 -->
         <div class="inner-toolbar">
-          <el-select v-model="filters.difficulty" placeholder="难度" clearable style="width:90px">
+          <el-select v-model="filters.difficulty" placeholder="难度" clearable style="width:90px" @change="handleSearch">
             <el-option v-for="(label, key) in DifficultyLabels" :key="key" :label="label" :value="key" />
           </el-select>
-          <el-input v-model="filters.keyword" placeholder="搜索题干..." clearable @keyup.enter="handleSearch">
+          <el-input v-model="filters.keyword" placeholder="搜索题干..." clearable>
             <template #prefix>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/>
               </svg>
             </template>
           </el-input>
-          <el-button type="primary" @click="handleSearch">查询</el-button>
-          <el-button @click="resetFilters">重置</el-button>
           <span v-if="treeFilter.subject_id" class="tree-breadcrumb">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 00-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0z"/>
@@ -210,7 +208,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { questionApi, knowledgeTreeApi } from '@/api'
 import type { KnowledgeTreeNode } from '@/api/questions'
@@ -351,11 +349,15 @@ async function loadData() {
 }
 
 function handleSearch() { page.value = 1; loadData() }
-function resetFilters() {
-  Object.assign(filters, { difficulty: '', keyword: '' })
-  page.value = 1; loadData()
-}
 function prevPage() { if (page.value > 1) { page.value--; loadData() } }
+
+// 防抖搜索（输入框专用）
+let _searchTimer: ReturnType<typeof setTimeout> | null = null
+function debouncedSearch() {
+  if (_searchTimer) clearTimeout(_searchTimer)
+  _searchTimer = setTimeout(handleSearch, 1000)
+}
+watch(() => filters.keyword, debouncedSearch)
 function nextPage() { if (page.value < totalPages.value) { page.value++; loadData() } }
 
 async function handleDeactivate(row: Question) {

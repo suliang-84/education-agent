@@ -42,22 +42,20 @@
       <!-- ════ Tab 1：学生管理 ════ -->
       <div v-show="activeTab === 'students'">
         <div class="tab-toolbar">
-          <el-input v-model="sFilters.keyword" placeholder="昵称 / 手机号" clearable style="width:180px" @keyup.enter="searchStudents">
+          <el-input v-model="sFilters.keyword" placeholder="昵称 / 手机号" clearable style="width:180px">
             <template #prefix>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/>
               </svg>
             </template>
           </el-input>
-          <el-select v-model="sFilters.grade" placeholder="年级" clearable style="width:100px">
+          <el-select v-model="sFilters.grade" placeholder="年级" clearable style="width:100px" @change="searchStudents">
             <el-option v-for="g in grades" :key="g" :label="g" :value="g" />
           </el-select>
-          <el-select v-model="sFilters.has_profile" placeholder="五力画像" clearable style="width:120px">
+          <el-select v-model="sFilters.has_profile" placeholder="五力画像" clearable style="width:120px" @change="searchStudents">
             <el-option label="有画像" value="true" />
             <el-option label="未测试" value="false" />
           </el-select>
-          <el-button type="primary" @click="searchStudents">查询</el-button>
-          <el-button @click="resetStudentFilters">重置</el-button>
         </div>
 
         <el-table :data="students" v-loading="sLoading" style="width:100%">
@@ -147,15 +145,13 @@
       <!-- ════ Tab 2：家长管理 ════ -->
       <div v-show="activeTab === 'parents'">
         <div class="tab-toolbar">
-          <el-input v-model="pKeyword" placeholder="搜索家长昵称 / 手机号" clearable style="width:220px" @keyup.enter="searchParents">
+          <el-input v-model="pKeyword" placeholder="搜索家长昵称 / 手机号" clearable style="width:220px">
             <template #prefix>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/>
               </svg>
             </template>
           </el-input>
-          <el-button type="primary" @click="searchParents">查询</el-button>
-          <el-button @click="pKeyword = ''; searchParents()">重置</el-button>
         </div>
 
         <el-table :data="parents" v-loading="pLoading" style="width:100%">
@@ -420,8 +416,15 @@ async function loadStudents() {
 }
 
 function searchStudents() { sPage.value = 1; loadStudents() }
-function resetStudentFilters() { Object.assign(sFilters, { grade: '', has_profile: '', keyword: '' }); sPage.value = 1; loadStudents() }
 function sPrevPage() { if (sPage.value > 1) { sPage.value--; loadStudents() } }
+
+// 防抖搜索 - 学生关键词输入框
+let _sSearchTimer: ReturnType<typeof setTimeout> | null = null
+function debouncedSearchStudents() {
+  if (_sSearchTimer) clearTimeout(_sSearchTimer)
+  _sSearchTimer = setTimeout(searchStudents, 1000)
+}
+watch(() => sFilters.keyword, debouncedSearchStudents)
 function sNextPage() { if (sPage.value < sTotalPages.value) { sPage.value++; loadStudents() } }
 
 // ═══════════════════════════════════════════════════════════════
@@ -443,6 +446,14 @@ async function loadParents() {
 }
 
 function searchParents() { loadParents() }
+
+// 防抖搜索 - 家长关键词输入框
+let _pSearchTimer: ReturnType<typeof setTimeout> | null = null
+function debouncedSearchParents() {
+  if (_pSearchTimer) clearTimeout(_pSearchTimer)
+  _pSearchTimer = setTimeout(searchParents, 1000)
+}
+watch(pKeyword, debouncedSearchParents)
 
 // ── 解绑家长（解绑其全部学生）
 const unbindParentDialogVisible = ref(false)
