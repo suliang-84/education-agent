@@ -237,6 +237,7 @@ $t-slow:   350ms;
   --el-component-size:        30px;
   --el-component-size-large:  30px;
   --el-component-size-small:  30px;
+
 }
 
 // ── 深色主题令牌覆盖 ────────────────────────────────────────
@@ -325,6 +326,7 @@ $t-slow:   350ms;
   --el-box-shadow:            0 4px 16px rgba(0,0,0,0.4);
   --el-box-shadow-light:      0 1px 3px rgba(0,0,0,0.3);
   --el-overlay-color:         rgba(0, 0, 0, 0.7);
+
 }
 
 // 深色主题下 .btn-pink 文字改为深色（亮黄绿背景上）
@@ -371,20 +373,31 @@ $t-slow:   350ms;
   }
 
   .el-table {
+    // 深色模式在 .el-table 内覆盖，与 EP 原始定义同级
+    --el-table-tr-bg-color:        #1A1A1A;
+    --el-table-header-bg-color:    rgba(255,255,255,0.04);
+    --el-table-header-text-color:  #9CA3AF;
+    --el-table-text-color:         #F9FAFB;
+    --el-table-row-hover-bg-color: rgba(255,255,255,0.04);
+    --el-table-border-color:       rgba(255,255,255,0.06);
+    --el-table-border:             1px solid rgba(255,255,255,0.06);
+    --el-table-fixed-left-column:  inset 8px 0 8px -8px rgba(0,0,0,0.3);
+    --el-table-fixed-right-column: inset -8px 0 8px -8px rgba(0,0,0,0.3);
+
     background: transparent;
     th.el-table__cell {
-      background: rgba(255,255,255,0.04);           // 深色下极浅背景区分表头
-      color: #9CA3AF;
+      background: var(--el-table-header-bg-color);
+      color: var(--el-table-header-text-color);
       font-weight: 600;
       font-size: 12px;
       border-bottom: 2px solid rgba(255,255,255,0.08);
       height: 38px;
       padding: 0 12px;
-      > .cell { padding: 0; color: #9CA3AF; font-weight: 600; }
+      > .cell { padding: 0; font-weight: 600; }
     }
     td.el-table__cell {
       border-bottom: 1px solid rgba(255,255,255,0.04);
-      color: #F9FAFB;
+      color: var(--el-table-text-color);
       height: 36px;
       padding: 0 12px;
       > .cell {
@@ -395,17 +408,6 @@ $t-slow:   350ms;
         overflow: hidden;
       }
     }
-    .el-table__row:hover > td { background: rgba(255,255,255,0.04) !important; }
-
-    .el-table__row td.is-right-sticky,
-    .el-table__row td.is-left-sticky { background: #1A1A1A; }
-
-    .el-table__row:hover td.is-right-sticky,
-    .el-table__row:hover td.is-left-sticky { background: rgba(255,255,255,0.04) !important; }
-
-    th.is-right-sticky,
-    th.is-left-sticky { background: rgba(255,255,255,0.04) !important; }
-
     .el-table__body-wrapper { background: transparent; }
   }
 
@@ -540,8 +542,19 @@ body {
 }
 
 // Table — 对齐参考图风格
-// 核心：白色卡片 + 深灰表头文字 + 表头底线 + 每行底部细线 + 淡蓝悬停
+// el-table 内部的变量定义优先级高于 :root，必须在此覆盖
 .el-table {
+  // ── 关键：在 .el-table 作用域内覆盖变量，与 EP 原始定义同级，确保固定列继承正确 ──
+  --el-table-tr-bg-color:        #ffffff;
+  --el-table-header-bg-color:    #f0f3fd;
+  --el-table-header-text-color:  #4b4b60;
+  --el-table-text-color:         #374151;
+  --el-table-row-hover-bg-color: #F5F7FF;
+  --el-table-border-color:       rgba(96, 141, 248, 0.15);
+  --el-table-border:             1px solid rgba(96, 141, 248, 0.15);
+  --el-table-fixed-left-column:  inset 8px 0 8px -8px rgba(96,141,248,0.12);
+  --el-table-fixed-right-column: inset -8px 0 8px -8px rgba(96,141,248,0.12);
+
   font-size: 13px;
   background: transparent;
   color: $text-1;
@@ -551,10 +564,10 @@ body {
     border: 1px solid rgba(96, 141, 248, 0.15); // 外边框
   }
 
-  // ── 表头 ──
+  // ── 表头（读变量，固定列自动 background:inherit 从 tr 获取正确颜色）──
   th.el-table__cell {
-    background: #f0f3fd;
-    color: #4b4b60;
+    background: var(--el-table-header-bg-color);
+    color: var(--el-table-header-text-color);
     font-weight: 600;
     font-size: 12px;
     text-transform: none;
@@ -563,17 +576,13 @@ body {
     height: 38px;
     padding: 0 12px;
 
-    > .cell {
-      padding: 0;
-      font-weight: 600;
-      color: #4b4b60;
-    }
+    > .cell { padding: 0; font-weight: 600; }
   }
 
-  // ── 数据行 ──
+  // ── 数据行（读变量，固定列 background:inherit 从 tr 获取正确颜色）──
   td.el-table__cell {
-    border-bottom: 1px solid rgba(0, 0, 0, 0.05); // 每行底部细线，参考图可见
-    color: #111827;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    color: var(--el-table-text-color);
     font-size: 13px;
     height: 36px;
     padding: 0 12px;
@@ -590,37 +599,16 @@ body {
     }
   }
 
-  .el-table__row:hover > td {
-    background: #F5F7FF !important;
-  }
-
-  // fixed 列需要实色背景，否则 sticky 定位时透明导致内容穿透
-  td.el-table__cell.is-right-sticky,
-  td.el-table__cell.is-left-sticky,
-  th.el-table__cell.is-right-sticky,
-  th.el-table__cell.is-left-sticky {
-    background: inherit;
-  }
-
-  // 普通行 fixed 列背景与正常列一致
-  .el-table__row td.is-right-sticky,
-  .el-table__row td.is-left-sticky {
-    background: #ffffff;
-  }
-
-  // 悬停时 fixed 列同步变色
-  .el-table__row:hover td.is-right-sticky,
-  .el-table__row:hover td.is-left-sticky {
-    background: #F5F7FF !important;
-  }
-
-  // 表头 fixed 列背景与表头一致
-  th.is-right-sticky,
-  th.is-left-sticky {
-    background: #f0f3fd !important;
-  }
-
   .el-table__body-wrapper { background: transparent; }
+
+  // 操作列图标按钮：去除内边距，只保留图标间 10px 间距
+  td.el-table__cell .cell .el-button {
+    padding: 0 !important;
+    min-width: unset !important;
+  }
+  td.el-table__cell .cell .el-button + .el-button {
+    margin-left: 15px;
+  }
 
   &--striped .el-table__body tr.el-table__row--striped td {
     background: transparent;

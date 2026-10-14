@@ -7,6 +7,8 @@ import zhCn from 'element-plus/es/locale/lang/zh-cn'
 import App from './App.vue'
 import router from './router'
 import './style.scss'
+import 'virtual:svg-icons-register'
+import SvgIcon from '@/components/SvgIcon.vue'
 
 const app = createApp(App)
 
@@ -14,6 +16,7 @@ for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
   app.component(key, component)
 }
 
+app.component('SvgIcon', SvgIcon)
 app.use(createPinia())
 app.use(router)
 app.use(ElementPlus, { locale: zhCn })

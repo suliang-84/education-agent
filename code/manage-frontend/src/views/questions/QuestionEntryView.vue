@@ -6,6 +6,9 @@
 
       <!-- 筛选栏（操作按钮与筛选同级） -->
       <div class="inner-toolbar">
+        <el-select v-model="filters.status" placeholder="状态" clearable style="width:100px" @change="handleSearch">
+          <el-option v-for="key in entryStatuses" :key="key" :label="QuestionStatusLabels[key]" :value="key" />
+        </el-select>
         <el-select v-model="filters.difficulty" placeholder="难度" clearable style="width:90px" @change="handleSearch">
           <el-option v-for="(label, key) in DifficultyLabels" :key="key" :label="label" :value="key" />
         </el-select>
@@ -66,11 +69,11 @@
           <!-- 状态 -->
           <el-table-column label="状态" width="110">
             <template #default="{ row }">
-              <span class="status-badge" :class="`status-badge--${row.status}`">
-                <span class="status-badge__dot" />
+              <span class="status-dot-label" :class="`status-dot-label--${row.status}`">
+                <span class="status-dot-label__dot" />
                 {{ QuestionStatusLabels[row.status as QuestionStatus] }}
-                <span v-if="row.status === 'pending_review' && row.analysis_round > 1" class="round-tag">第{{ row.analysis_round }}次</span>
-                <span v-if="row.status === 'analyzing'" class="analyzing-spinner" style="margin-left:2px" />
+                <span v-if="row.status === 'pending_review' && row.analysis_round > 1" class="round-tag" style="margin-left:4px">第{{ row.analysis_round }}次</span>
+                <span v-if="row.status === 'analyzing'" class="analyzing-spinner" style="margin-left:4px" />
               </span>
             </template>
           </el-table-column>
@@ -93,19 +96,29 @@
           </el-table-column>
 
           <!-- 操作 -->
-          <el-table-column label="操作" width="210" fixed="right">
+          <el-table-column label="操作" width="120" fixed="right">
             <template #default="{ row }">
               <template v-if="row.status === 'draft'">
-                <el-button text size="small" style="color:var(--indigo)" @click="$router.push(`/questions/${row.id}/edit`)">编辑</el-button>
-                <el-button text size="small" style="color:var(--green)" @click="handleAnalyze(row)">模型分析</el-button>
-                <el-button text size="small" style="color:var(--red)" @click="handleDelete(row)">删除</el-button>
+                <el-button text size="small" style="color:var(--indigo)" @click="$router.push(`/questions/${row.id}/edit`)">
+                  <SvgIcon name="edit" :size="18" color="var(--indigo)" title="编辑" />
+                </el-button>
+                <el-button text size="small" style="color:#f3a800" @click="handleAnalyze(row)">
+                  <SvgIcon name="analyse" :size="18" color="#f3a800" title="模型分析" />
+                </el-button>
+                <el-button text size="small" style="color:var(--red)" @click="handleDelete(row)">
+                  <SvgIcon name="delete" :size="18" color="var(--red)" title="删除" />
+                </el-button>
               </template>
               <template v-else-if="row.status === 'analyzing'">
                 <span style="font-size:12px;color:var(--text-3)">分析中…</span>
               </template>
               <template v-else-if="row.status === 'pending_review'">
-                <el-button text size="small" style="color:var(--indigo)" @click="$router.push(`/questions/${row.id}/review`)">审核结果</el-button>
-                <el-button text size="small" style="color:var(--green);font-weight:600" :loading="publishingId === row.id" @click="handlePublish(row)">发布</el-button>
+                <el-button text size="small" style="color:var(--indigo)" @click="$router.push(`/questions/${row.id}/review`)">
+                  <SvgIcon name="audit" :size="18" color="var(--indigo)" title="审核结果" />
+                </el-button>
+                <el-button text size="small" style="color:var(--green)" :loading="publishingId === row.id" @click="handlePublish(row)">
+                  <SvgIcon name="deploy" :size="18" color="var(--green)" title="发布" />
+                </el-button>
               </template>
             </template>
           </el-table-column>
@@ -168,8 +181,11 @@ const batchAnalyzing = ref(false)
 const batchDeleting = ref(false)
 const publishingId = ref<number | null>(null)
 
-const filters = reactive<{ difficulty: Difficulty | ''; keyword: string }>({
-  difficulty: '', keyword: '',
+// 录入模块仅展示未发布的三个状态
+const entryStatuses: QuestionStatus[] = ['draft', 'analyzing', 'pending_review']
+
+const filters = reactive<{ status: QuestionStatus | ''; difficulty: Difficulty | ''; keyword: string }>({
+  status: '', difficulty: '', keyword: '',
 })
 
 // ── 日期格式化 ───────────────────────────────────────────────
@@ -185,6 +201,7 @@ async function loadData() {
   loading.value = true
   try {
     const params: Record<string, unknown> = { page: page.value, limit: PAGE_SIZE, order_by: 'created_at_desc' }
+    if (filters.status)     params.status     = filters.status
     if (filters.difficulty) params.difficulty = filters.difficulty
     if (filters.keyword)    params.keyword    = filters.keyword
 
@@ -430,6 +447,28 @@ onUnmounted(() => stopPolling())
 }
 .stem-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 
+// ── 圆点 + 文字状态（参考图样式）────────────────────────────
+.status-dot-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 13.5px;
+  font-weight: 400;
+
+  &__dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  &--draft          { color: #474a55; .status-dot-label__dot { background: #ff9393; } }
+  &--analyzing      { color: #474a55; .status-dot-label__dot { background: #77bf01; } }
+  &--pending_review { color: #474a55; .status-dot-label__dot { background: #5b71cb; } }
+  &--published      { color: #474a55; .status-dot-label__dot { background: #10B981; } }
+  &--archived       { color: #474a55; .status-dot-label__dot { background: #94A3B8; } }
+}
+
 .status-badge {
   display: inline-flex;
   align-items: center;
@@ -476,15 +515,19 @@ onUnmounted(() => stopPolling())
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .diff-badge {
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 500;
-  padding: 3px 10px;
-  border-radius: var(--r-pill);
-  border: 1.5px solid;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 22px;
+  border-radius: 11px;
+  border: none;
 
-  &.diff--basic     { background: var(--teal-dim);  color: var(--teal);  border-color: var(--teal-border); }
-  &.diff--advanced  { background: var(--amber-dim); color: var(--amber); border-color: var(--amber-border); }
-  &.diff--challenge { background: var(--red-dim);   color: var(--red);   border-color: var(--red-border); }
+  &.diff--basic     { background: #E8F5D0; color: #4A7C10; }
+  &.diff--advanced  { background: #FFF0D6; color: #B45309; }
+  &.diff--challenge { background: #FFE0E0; color: #DC2626; }
 }
 
 .import-hint {
