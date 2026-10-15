@@ -356,6 +356,21 @@ $t-slow:   350ms;
     &:hover    { border-color: rgba(255,255,255,0.18) !important; }
     &.is-focus { border-color: #7C3AED !important; box-shadow: none !important; }
   }
+
+  // EP v2 新版 select 根节点
+  .el-select__wrapper {
+    background-color: #222222 !important;
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.10) inset !important;
+    color: #F9FAFB !important;
+
+    &.is-hovering:not(.is-focused) {
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.18) inset !important;
+    }
+    &.is-focused {
+      box-shadow: 0 0 0 1px #7C3AED inset !important;
+    }
+  }
+
   .el-input__inner { color: #F9FAFB !important; }
 
   .el-textarea__inner {
@@ -548,6 +563,10 @@ body {
 // el-table 内部的变量定义优先级高于 :root，必须在此覆盖
 .el-table {
   // ── 关键：在 .el-table 作用域内覆盖变量，与 EP 原始定义同级，确保固定列继承正确 ──
+  // text-1/2/3 在表格内统一指向 table-text-color，保证亮/暗主题下文字颜色一致
+  --text-1: var(--el-table-text-color);
+  --text-2: var(--el-table-text-color);
+  --text-3: var(--el-table-text-color);
   --el-table-tr-bg-color:        #ffffff;
   --el-table-header-bg-color:    #f0f3fd;
   --el-table-header-text-color:  #4b4b60;

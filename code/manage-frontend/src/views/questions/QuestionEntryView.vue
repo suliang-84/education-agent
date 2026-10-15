@@ -92,7 +92,7 @@
           <!-- 创建时间 -->
           <el-table-column label="创建时间" width="140">
             <template #default="{ row }">
-              <span style="font-size:12px;color:var(--text-3)">{{ formatDate(row.created_at) }}</span>
+              <span style="font-size:12px;color:var(--el-table-text-color)">{{ formatDate(row.created_at) }}</span>
             </template>
           </el-table-column>
 
@@ -470,11 +470,11 @@ onUnmounted(() => stopPolling())
     flex-shrink: 0;
   }
 
-  &--draft          { color: #474a55; .status-dot-label__dot { background: #ff9393; } }
-  &--analyzing      { color: #474a55; .status-dot-label__dot { background: #77bf01; } }
-  &--pending_review { color: #474a55; .status-dot-label__dot { background: #5b71cb; } }
-  &--published      { color: #474a55; .status-dot-label__dot { background: #10B981; } }
-  &--archived       { color: #474a55; .status-dot-label__dot { background: #94A3B8; } }
+  &--draft          { color: var(--el-table-text-color); .status-dot-label__dot { background: #ff9393; } }
+  &--analyzing      { color: var(--el-table-text-color); .status-dot-label__dot { background: #77bf01; } }
+  &--pending_review { color: var(--el-table-text-color); .status-dot-label__dot { background: #5b71cb; } }
+  &--published      { color: var(--el-table-text-color); .status-dot-label__dot { background: #10B981; } }
+  &--archived       { color: var(--el-table-text-color); .status-dot-label__dot { background: #94A3B8; } }
 }
 
 .status-badge {

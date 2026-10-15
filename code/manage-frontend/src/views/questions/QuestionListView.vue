@@ -169,7 +169,7 @@
             <!-- 创建时间 -->
             <el-table-column label="创建时间" width="140">
               <template #default="{ row }">
-                <span style="font-size:12px;color:var(--text-3)">{{ formatDate(row.created_at) }}</span>
+                <span style="font-size:12px;color:var(--el-table-text-color)">{{ formatDate(row.created_at) }}</span>
               </template>
             </el-table-column>
 
