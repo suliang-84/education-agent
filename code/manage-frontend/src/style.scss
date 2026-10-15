@@ -639,7 +639,7 @@ $form-height:       30px;
     height: $form-height !important;
     box-sizing: border-box !important;
 
-    &:hover    { border-color: $form-border-hover !important; }
+    &:hover    { border-color: #5e8df9 !important; }
     &.is-focus { border-color: #5e8df9 !important; box-shadow: none !important; }
   }
 
@@ -668,9 +668,24 @@ $form-height:       30px;
   &:focus { border-color: $indigo !important; box-shadow: none !important; }
 }
 
-// Select
+// el-select__wrapper：高度 + 边框（inset box-shadow 模拟边框，不受 overflow:hidden 裁剪）
+.el-select__wrapper {
+  min-height: 30px !important;
+  box-shadow: 0 0 0 1px $form-border inset !important;
+
+  &.is-hovering:not(.is-focused) {
+    box-shadow: 0 0 0 1px #5e8df9 inset !important;
+  }
+
+  &.is-focused {
+    box-shadow: 0 0 0 1px #5e8df9 inset !important;
+  }
+}
+
+// Select — 高度严格 30px（含 1px 上下边框）
 .el-select {
   height: $form-height !important;
+  line-height: $form-height !important;
 
   .el-input {
     height: $form-height !important;
@@ -678,20 +693,29 @@ $form-height:       30px;
 
   .el-input__wrapper {
     height: $form-height !important;
+    min-height: $form-height !important;
+    max-height: $form-height !important;
     box-shadow: none !important;
     border: 1px solid $form-border !important;
     border-radius: $form-radius !important;
     box-sizing: border-box !important;
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
+    padding: 0 10px !important;
 
-    &:hover    { border-color: $form-border-hover !important; }
+    &:hover    { border-color: #5e8df9 !important; }
     &.is-focus { border-color: #5e8df9 !important; box-shadow: none !important; }
   }
 
   .el-input__inner {
     height: #{$form-height - 2px} !important;
     line-height: #{$form-height - 2px} !important;
+    padding: 0 !important;
+  }
+
+  // 清除按钮垂直居中
+  .el-input__suffix {
+    height: $form-height !important;
+    display: flex !important;
+    align-items: center !important;
   }
 }
 
