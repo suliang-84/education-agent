@@ -20,12 +20,12 @@
           <el-option v-for="(label, key) in DifficultyLabels" :key="key" :label="label" :value="key" />
         </el-select>
         <div style="flex:1" />
-        <el-button style="color:#5e8df9;padding:0 8px !important" @click="showImport = true">
-          <SvgIcon name="upload" :size="15" color="#5e8df9" style="margin-right:5px" />
+        <el-button class="btn-import" style="color:#5e8df9;padding:0 8px !important" @click="showImport = true">
+          <SvgIcon name="upload" :size="15" style="margin-right:5px" />
           批量导入
         </el-button>
         <button class="btn-pink" style="padding:0 8px;gap:5px" @click="$router.push('/questions/create')">
-          <SvgIcon name="add" :size="15" color="#fff" />
+          <SvgIcon name="add" :size="15" />
           录入题干
         </button>
       </div>

@@ -244,14 +244,21 @@ $t-slow:   350ms;
 // 所有组件通过 var(--xxx) 引用，切换 data-theme 即自动生效
 
 [data-theme="dark"] {
+  // 深色主题主题色覆盖
+  --indigo:        #bcfd2f;
+  --indigo-hover:  #a8e020;
+  --indigo-light:  rgba(188, 253, 47, 0.12);
+  --indigo-border: rgba(188, 253, 47, 0.30);
+  --indigo-dim:    rgba(188, 253, 47, 0.08);
+
   // 背景层次（近黑 → 深灰，靠色差区分层级，无需阴影）
   --bg-page:    #111111;
   --bg-surface: #1A1A1A;
   --bg-muted:   #222222;
 
   // 品牌色（深色下激活色改为紫色）
-  --indigo:        #7C3AED;
-  --indigo-hover:  #6D28D9;
+  --indigo:        #bcfd2f;
+  --indigo-hover:  #a8e020;
   --indigo-light:  rgba(124, 58, 237, 0.15);
   --indigo-border: rgba(124, 58, 237, 0.30);
   --indigo-dim:    rgba(124, 58, 237, 0.10);
@@ -304,7 +311,7 @@ $t-slow:   350ms;
   --shadow-pink: 0 4px 14px rgba(190, 242, 100, 0.25);
 
   // Element Plus 深色覆盖
-  --el-color-primary:         #7C3AED;
+  --el-color-primary:         #bcfd2f;
   --el-color-primary-light-3: rgba(124, 58, 237, 0.28);
   --el-color-primary-light-5: rgba(124, 58, 237, 0.18);
   --el-color-primary-light-7: rgba(124, 58, 237, 0.10);
@@ -327,6 +334,80 @@ $t-slow:   350ms;
   --el-box-shadow-light:      0 1px 3px rgba(0,0,0,0.3);
   --el-overlay-color:         rgba(0, 0, 0, 0.7);
 
+}
+
+// 深色主题下硬编码 #5e8df9 统一替换为 #bcfd2f
+[data-theme="dark"] {
+  // 按钮边框
+  .el-button {
+    border-color: #bcfd2f !important;
+    &--default { color: #bcfd2f !important; }
+    &--primary { background: #bcfd2f !important; color: #0D0D0D !important; border-color: #bcfd2f !important; }
+  }
+
+  // 表单 hover/focus
+  .el-input__wrapper {
+    &:hover    { border-color: #bcfd2f !important; }
+    &.is-focus { border-color: #bcfd2f !important; }
+  }
+  .el-select__wrapper {
+    &.is-hovering:not(.is-focused) { box-shadow: 0 0 0 1px #bcfd2f inset !important; }
+    &.is-focused                   { box-shadow: 0 0 0 1px #bcfd2f inset !important; }
+  }
+  .el-select .el-input__wrapper {
+    &:hover, &.is-hovering { box-shadow: 0 0 0 1px #bcfd2f inset !important; }
+    &.is-focus             { box-shadow: 0 0 0 1px #bcfd2f inset !important; }
+  }
+
+  // btn-pink 背景
+  .btn-pink {
+    background: #bcfd2f !important;
+    color: #0D0D0D !important;
+    &:hover { background: #a8e020 !important; }
+  }
+
+  // 分页高亮按钮文字 #1e2612，prev/next hover 与 pager li 一致
+  .el-pagination {
+    --el-pagination-hover-color: #bcfd2f;
+
+    // 上一页/下一页 hover 样式
+    .btn-prev, .btn-next {
+      background-color: var(--el-fill-color) !important;
+      &:hover {
+        background: transparent !important;
+        color: #bcfd2f !important;
+      }
+    }
+
+    .el-pager li {
+      &:hover     { background: transparent !important; color: #5e8df9 !important; }
+      &.is-active {
+        background: var(--indigo) !important;
+        color: #1e2612 !important;
+        &:hover { background: var(--indigo) !important; color: #1e2612 !important; }
+      }
+    }
+
+    &.is-background {
+      .btn-prev, .btn-next {
+        background-color: var(--el-fill-color) !important;
+        &:hover { background: transparent !important; color: #5e8df9 !important; }
+      }
+
+      .el-pager li.is-active {
+        background-color: var(--indigo) !important;
+        color: #1e2612 !important;
+        &:hover { background-color: var(--indigo) !important; color: #1e2612 !important; }
+      }
+    }
+  }
+
+  // 批量导入按钮：暗主题背景#222222，文字#bcfd2f
+  .btn-import {
+    background: #222222 !important;
+    color: #bcfd2f !important;
+    border-color: #bcfd2f !important;
+  }
 }
 
 // 深色主题下 .btn-pink 文字改为深色（亮黄绿背景上）
@@ -354,7 +435,13 @@ $t-slow:   350ms;
     border: 1px solid rgba(255,255,255,0.10) !important;
     border-radius: 4px !important;
     &:hover    { border-color: rgba(255,255,255,0.18) !important; }
-    &.is-focus { border-color: #7C3AED !important; box-shadow: none !important; }
+    &.is-focus { border-color: #bcfd2f !important; box-shadow: none !important; }
+  }
+
+  // 表格复选框背景
+  .el-checkbox__inner {
+    background-color: #222222 !important;
+    border-color: rgba(255,255,255,0.20) !important;
   }
 
   // EP v2 新版 select 根节点
@@ -364,10 +451,10 @@ $t-slow:   350ms;
     color: #F9FAFB !important;
 
     &.is-hovering:not(.is-focused) {
-      box-shadow: 0 0 0 1px rgba(255,255,255,0.18) inset !important;
+      box-shadow: 0 0 0 1px #bcfd2f inset !important;
     }
     &.is-focused {
-      box-shadow: 0 0 0 1px #7C3AED inset !important;
+      box-shadow: 0 0 0 1px #bcfd2f inset !important;
     }
   }
 
@@ -377,7 +464,7 @@ $t-slow:   350ms;
     background: #222222 !important;
     color: #F9FAFB !important;
     box-shadow: 0 0 0 1.5px rgba(255,255,255,0.08) !important;
-    &:focus { box-shadow: 0 0 0 2px #7C3AED, 0 0 0 4px rgba(124,58,237,0.15) !important; }
+    &:focus { box-shadow: 0 0 0 2px #bcfd2f !important; }
   }
 
   .el-select-dropdown {
@@ -669,7 +756,7 @@ $form-height:       30px;
     height: #{$form-height - 2px} !important;
     line-height: #{$form-height - 2px} !important;
 
-    &::placeholder { color: $text-3; }
+    &::placeholder { color: var(--el-text-color-placeholder); }
   }
 }
 
@@ -907,7 +994,6 @@ $form-height:       30px;
 // Pagination
 .el-pagination {
   font-size: 13px;
-
   // 统计数字
   .el-pagination__total {
     font-size: 13px;
@@ -930,8 +1016,20 @@ $form-height:       30px;
     color: $text-2;
     border-radius: 2px;
 
-    &:hover        { background: $indigo-light; color: $indigo; }
-    &.is-active    { background: $indigo; color: #fff; border-radius: 2px; }
+    &:hover     { background: $indigo-light; color: $indigo; }
+    &.is-active {
+      background: $indigo !important;
+      color: #fff !important;
+      border-radius: 2px;
+      &:hover { background: $indigo !important; color: #fff !important; }
+    }
+  }
+
+  // is-background 模式下激活按钮覆盖 EP 默认白色文字
+  &.is-background .el-pager li.is-active {
+    background-color: $indigo !important;
+    color: #fff !important;
+    &:hover { background-color: $indigo !important; color: #fff !important; }
   }
 }
 
