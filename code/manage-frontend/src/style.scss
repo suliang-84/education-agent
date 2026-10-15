@@ -668,10 +668,14 @@ $form-height:       30px;
   &:focus { border-color: $indigo !important; box-shadow: none !important; }
 }
 
-// el-select__wrapper：高度 + 边框（inset box-shadow 模拟边框，不受 overflow:hidden 裁剪）
+// Select — EP v2 用 .el-select__wrapper 作根节点（inset box-shadow 模拟边框）
 .el-select__wrapper {
-  min-height: 30px !important;
+  min-height: $form-height !important;
+  border-radius: $form-radius !important;
   box-shadow: 0 0 0 1px $form-border inset !important;
+  padding: 4px 10px !important;
+  box-sizing: border-box !important;
+  font-size: 13px !important;
 
   &.is-hovering:not(.is-focused) {
     box-shadow: 0 0 0 1px #5e8df9 inset !important;
@@ -682,41 +686,17 @@ $form-height:       30px;
   }
 }
 
-// Select — 高度严格 30px（含 1px 上下边框）
-.el-select {
+// EP v1 兼容（旧版 select 走 .el-input__wrapper）
+.el-select .el-input__wrapper {
   height: $form-height !important;
-  line-height: $form-height !important;
+  min-height: $form-height !important;
+  box-shadow: 0 0 0 1px $form-border inset !important;
+  border-radius: $form-radius !important;
+  box-sizing: border-box !important;
+  padding: 0 10px !important;
 
-  .el-input {
-    height: $form-height !important;
-  }
-
-  .el-input__wrapper {
-    height: $form-height !important;
-    min-height: $form-height !important;
-    max-height: $form-height !important;
-    box-shadow: none !important;
-    border: 1px solid $form-border !important;
-    border-radius: $form-radius !important;
-    box-sizing: border-box !important;
-    padding: 0 10px !important;
-
-    &:hover    { border-color: #5e8df9 !important; }
-    &.is-focus { border-color: #5e8df9 !important; box-shadow: none !important; }
-  }
-
-  .el-input__inner {
-    height: #{$form-height - 2px} !important;
-    line-height: #{$form-height - 2px} !important;
-    padding: 0 !important;
-  }
-
-  // 清除按钮垂直居中
-  .el-input__suffix {
-    height: $form-height !important;
-    display: flex !important;
-    align-items: center !important;
-  }
+  &:hover, &.is-hovering { box-shadow: 0 0 0 1px #5e8df9 inset !important; }
+  &.is-focus             { box-shadow: 0 0 0 1px #5e8df9 inset !important; }
 }
 
 // InputNumber
@@ -918,24 +898,11 @@ $form-height:       30px;
   .el-pagination__sizes {
     display: inline-flex;
     align-items: center;
-    height: 28px;
 
-    .el-select {
-      height: 28px !important;
-
-      .el-input { height: 28px !important; }
-
-      .el-input__wrapper {
-        height: 28px !important;
-        box-shadow: none !important;
-        border: none !important;
-        padding: 0 4px !important;
-      }
-
-      .el-input__inner {
-        height: 26px !important;
-        line-height: 26px !important;
-      }
+    .el-select__wrapper {
+      min-height: 24px !important;
+      box-shadow: none !important;
+      padding: 0 8px !important;
     }
   }
 
