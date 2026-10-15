@@ -14,7 +14,7 @@ $bg-surface: #FFFFFF;
 $bg-muted:   #F0F2FA;
 
 // 品牌色
-$indigo:        #608df8;
+$indigo:        #5e8df9;
 $indigo-hover:  #4a77f0;
 $indigo-light:  #eef3ff;
 $indigo-border: rgba(96, 141, 248, 0.25);
@@ -71,7 +71,7 @@ $shadow-lg: 0 12px 40px rgba(79,70,229,0.14), 0 4px 16px rgba(0,0,0,0.07);
 $shadow-pink: 0 4px 14px #{$pink-shadow};
 
 // 圆角
-$r-xs:   4px;
+$r-xs:   6px;
 $r-sm:   8px;
 $r-md:   10px;
 $r-lg:   14px;
@@ -350,9 +350,11 @@ $t-slow:   350ms;
   .el-input__wrapper,
   .el-select .el-input__wrapper {
     background: #222222 !important;
-    box-shadow: 0 0 0 1.5px rgba(255,255,255,0.08) !important;
-    &:hover  { box-shadow: 0 0 0 1.5px rgba(255,255,255,0.14) !important; }
-    &.is-focus { box-shadow: 0 0 0 1.5px #7C3AED !important; }
+    box-shadow: none !important;
+    border: 1px solid rgba(255,255,255,0.10) !important;
+    border-radius: 4px !important;
+    &:hover    { border-color: rgba(255,255,255,0.18) !important; }
+    &.is-focus { border-color: #7C3AED !important; box-shadow: none !important; }
   }
   .el-input__inner { color: #F9FAFB !important; }
 
@@ -457,7 +459,7 @@ $t-slow:   350ms;
 html,
 body {
   font-family: $font-sans;
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.5;
   color: $text-1;
   background: $bg-page;
@@ -494,25 +496,28 @@ body {
   justify-content: center !important;
   font-family: $font-sans;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 400;
   height: 30px !important;
-  padding: 0 12px !important;
+  padding: 0 8px !important;
   border-radius: $r-xs;
   transition: all $t-fast $ease-out;
-  border: 1.5px solid;
+  border: 1px solid #5e8df9;
+  box-shadow: none !important;
+  border-radius: 4px;
   white-space: nowrap;
 
   &:active { transform: scale(0.97); }
 
-  &--default {
+  // 无 type 和 default type 均设置主题色文字
+  &--default,
+  &:not([class*="el-button--"]) {
     background: $bg-surface;
-    border-color: $border-hover;
-    color: $text-2;
+    border-color: #5e8df9;
+    color: #5e8df9;
 
     &:hover {
-      background: $bg-muted;
-      border-color: $border-strong;
-      color: $text-1;
+      background: $indigo-light;
+      color: $indigo;
     }
   }
 
@@ -520,12 +525,10 @@ body {
     background: $indigo;
     border-color: $indigo;
     color: #fff;
-    box-shadow: 0 2px 8px rgba(79,70,229,0.25);
 
     &:hover {
       background: $indigo-hover;
       border-color: $indigo-hover;
-      box-shadow: 0 4px 12px rgba(79,70,229,0.35);
     }
   }
 
@@ -615,29 +618,37 @@ body {
   }
 }
 
+// ── 表单组件统一规范 ─────────────────────────────────────────
+// 基准：高度 30px，边框 1px solid $form-border，圆角 4px
+$form-border:       rgba(220, 224, 234, 1);   // 中性浅灰，与 select 原生边框一致
+$form-border-hover: rgba(180, 190, 210, 1);
+$form-radius:       4px;
+$form-height:       30px;
+
 // Input
 .el-input {
-  height: 30px !important;
+  height: $form-height !important;
 
   &__wrapper {
     background: $bg-surface !important;
-    box-shadow: 0 0 0 1.5px $border !important;
-    border-radius: $r-xs !important;
-    transition: box-shadow $t-fast !important;
+    box-shadow: none !important;
+    border: 1px solid $form-border !important;
+    border-radius: $form-radius !important;
+    transition: border-color $t-fast !important;
     padding: 0 10px !important;
-    height: 30px !important;
+    height: $form-height !important;
+    box-sizing: border-box !important;
 
-    &:hover { box-shadow: 0 0 0 1.5px $border-hover !important; }
-
-    &.is-focus { @include focus-ring; }
+    &:hover    { border-color: $form-border-hover !important; }
+    &.is-focus { border-color: #5e8df9 !important; box-shadow: none !important; }
   }
 
   &__inner {
     font-family: $font-sans;
     font-size: 13px;
     color: $text-1;
-    height: 28px !important;
-    line-height: 28px !important;
+    height: #{$form-height - 2px} !important;
+    line-height: #{$form-height - 2px} !important;
 
     &::placeholder { color: $text-3; }
   }
@@ -646,22 +657,60 @@ body {
 // Textarea
 .el-textarea__inner {
   font-family: $font-sans !important;
-  font-size: 13.5px !important;
+  font-size: 13px !important;
   background: $bg-surface !important;
   color: $text-1 !important;
-  border-radius: $r-xs !important;
-  box-shadow: 0 0 0 1.5px $border !important;
+  border-radius: $form-radius !important;
+  border: 1px solid $form-border !important;
+  box-shadow: none !important;
 
-  &:focus { @include focus-ring; }
+  &:hover { border-color: $form-border-hover !important; }
+  &:focus { border-color: $indigo !important; box-shadow: none !important; }
 }
 
-// Select（触发器高度 + 边框与 el-input 完全对齐）
-.el-select .el-input__wrapper {
-  height: 30px !important;
-  box-shadow: 0 0 0 1.5px $border !important;
+// Select
+.el-select {
+  height: $form-height !important;
 
-  &:hover   { box-shadow: 0 0 0 1.5px $border-hover !important; }
-  &.is-focus { @include focus-ring; }
+  .el-input {
+    height: $form-height !important;
+  }
+
+  .el-input__wrapper {
+    height: $form-height !important;
+    box-shadow: none !important;
+    border: 1px solid $form-border !important;
+    border-radius: $form-radius !important;
+    box-sizing: border-box !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+
+    &:hover    { border-color: $form-border-hover !important; }
+    &.is-focus { border-color: #5e8df9 !important; box-shadow: none !important; }
+  }
+
+  .el-input__inner {
+    height: #{$form-height - 2px} !important;
+    line-height: #{$form-height - 2px} !important;
+  }
+}
+
+// InputNumber
+.el-input-number .el-input__wrapper {
+  border-radius: $form-radius !important;
+}
+
+// DatePicker
+.el-date-editor.el-input__wrapper,
+.el-date-editor .el-input__wrapper {
+  box-shadow: none !important;
+  border: 1px solid $form-border !important;
+  border-radius: $form-radius !important;
+  height: $form-height !important;
+  box-sizing: border-box !important;
+
+  &:hover    { border-color: $form-border-hover !important; }
+  &.is-focus { border-color: $indigo !important; }
 }
 
 // Select dropdown
@@ -836,13 +885,43 @@ body {
 .el-pagination {
   font-size: 13px;
 
+  // 统计数字
+  .el-pagination__total {
+    font-size: 13px;
+  }
+
+  // 每页条数下拉框与左侧方框垂直对齐
+  .el-pagination__sizes {
+    display: inline-flex;
+    align-items: center;
+    height: 28px;
+
+    .el-select {
+      height: 28px !important;
+
+      .el-input { height: 28px !important; }
+
+      .el-input__wrapper {
+        height: 28px !important;
+        box-shadow: none !important;
+        border: none !important;
+        padding: 0 4px !important;
+      }
+
+      .el-input__inner {
+        height: 26px !important;
+        line-height: 26px !important;
+      }
+    }
+  }
+
   .el-pager li {
     background: transparent;
     color: $text-2;
-    border-radius: $r-sm;
+    border-radius: 2px;
 
     &:hover        { background: $indigo-light; color: $indigo; }
-    &.is-active    { background: $indigo; color: #fff; border-radius: $r-sm; }
+    &.is-active    { background: $indigo; color: #fff; border-radius: 2px; }
   }
 }
 
@@ -940,24 +1019,23 @@ body {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  background: $pink;
+  background: #5e8df9;
   color: #fff;
   border: none;
   border-radius: $r-xs;
   height: 30px;
   padding: 0 16px;
-  font-size: 13.5px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 400;
   font-family: $font-sans;
   cursor: pointer;
-  box-shadow: $shadow-pink;
+  box-shadow: none;
   transition: all $t-fast $ease-out;
   white-space: nowrap;
   flex-shrink: 0;
 
   &:hover {
-    background: $pink-hover;
-    box-shadow: 0 6px 20px rgba(244,63,126,0.45);
+    background: #4a77f0;
   }
 
   &:active { transform: scale(0.97); }
@@ -1013,11 +1091,16 @@ body {
     overflow-y: auto;
   }
 
-  // paginator 固定在底部
+  // paginator 固定在底部，宽度与表格一致
   > .paginator {
     flex-shrink: 0;
-    border-top: 1px solid var(--border);
-    padding-top: 10px;
+    padding: 10px 16px;
+    width: 100%;
+    box-sizing: border-box;
+
+    .el-pagination {
+      width: 100%;
+    }
   }
 }
 
@@ -1168,7 +1251,7 @@ body {
 .paginator {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   padding: 10px 16px;
   color: $text-3;
   font-size: 12.5px;

@@ -91,12 +91,17 @@
       </el-table>
 
       <div class="paginator">
-        <span>共 <span class="num" style="color:var(--text-1);font-weight:600">{{ total }}</span> 名学生</span>
-        <div style="display:flex;gap:6px">
-          <el-button size="small" :disabled="page <= 1" @click="prevPage">上一页</el-button>
-          <span style="font-size:13px;color:var(--text-3);padding:0 4px">{{ page }} / {{ totalPages }}</span>
-          <el-button size="small" :disabled="page >= totalPages" @click="nextPage">下一页</el-button>
-        </div>
+        <el-pagination
+          v-model:current-page="page"
+          v-model:page-size="pageSize"
+          :page-sizes="[10, 20, 50, 100, 200]"
+          :total="total"
+          background
+          size="small"
+          layout="total, ->, prev, pager, next, sizes"
+          @current-change="loadData"
+          @size-change="onSizeChange"
+        />
       </div>
     </div>
 
@@ -131,6 +136,7 @@ const loading = ref(false)
 const students = ref<Student[]>([])
 const total = ref(0)
 const totalPages = ref(1)
+const pageSize = ref(50)
 const page = ref(1)
 const grades = ['初一', '初二', '初三', '高一', '高二', '高三']
 const filters = reactive({ grade: '', has_profile: '', keyword: '' })
@@ -138,7 +144,7 @@ const filters = reactive({ grade: '', has_profile: '', keyword: '' })
 async function loadData() {
   loading.value = true
   try {
-    const params: Record<string, unknown> = { page: page.value, limit: 20 }
+    const params: Record<string, unknown> = { page: page.value, limit: pageSize.value }
     if (filters.grade) params.grade = filters.grade
     if (filters.keyword) params.keyword = filters.keyword
     if (filters.has_profile !== '') params.has_profile = filters.has_profile === 'true'
@@ -150,6 +156,7 @@ async function loadData() {
 }
 
 function search() { page.value = 1; loadData() }
+function onSizeChange() { page.value = 1; loadData() }
 function prevPage() { if (page.value > 1) { page.value--; loadData() } }
 
 // 防抖搜索（输入框专用）

@@ -6,12 +6,6 @@
 
       <!-- 筛选栏（操作按钮与筛选同级） -->
       <div class="inner-toolbar">
-        <el-select v-model="filters.status" placeholder="状态" clearable style="width:100px" @change="handleSearch">
-          <el-option v-for="key in entryStatuses" :key="key" :label="QuestionStatusLabels[key]" :value="key" />
-        </el-select>
-        <el-select v-model="filters.difficulty" placeholder="难度" clearable style="width:90px" @change="handleSearch">
-          <el-option v-for="(label, key) in DifficultyLabels" :key="key" :label="label" :value="key" />
-        </el-select>
         <el-input v-model="filters.keyword" placeholder="搜索题干..." clearable>
           <template #prefix>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -19,12 +13,19 @@
             </svg>
           </template>
         </el-input>
+        <el-select v-model="filters.status" placeholder="状态" clearable style="width:100px" @change="handleSearch">
+          <el-option v-for="key in entryStatuses" :key="key" :label="QuestionStatusLabels[key]" :value="key" />
+        </el-select>
+        <el-select v-model="filters.difficulty" placeholder="难度" clearable style="width:90px" @change="handleSearch">
+          <el-option v-for="(label, key) in DifficultyLabels" :key="key" :label="label" :value="key" />
+        </el-select>
         <div style="flex:1" />
-        <el-button @click="showImport = true">批量导入</el-button>
-        <button class="btn-pink" @click="$router.push('/questions/create')">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
-          </svg>
+        <el-button style="color:#5e8df9;padding:0 8px !important" @click="showImport = true">
+          <SvgIcon name="upload" :size="15" color="#5e8df9" style="margin-right:5px" />
+          批量导入
+        </el-button>
+        <button class="btn-pink" style="padding:0 8px;gap:5px" @click="$router.push('/questions/create')">
+          <SvgIcon name="add" :size="15" color="#fff" />
           录入题干
         </button>
       </div>
@@ -126,12 +127,17 @@
         </el-table>
 
         <div class="paginator">
-          <span>共 <span class="num" style="color:var(--text-1);font-weight:600">{{ total }}</span> 条题目</span>
-          <div style="display:flex;align-items:center;gap:6px">
-            <el-button size="small" :disabled="page <= 1" @click="prevPage">上一页</el-button>
-            <span style="font-size:13px;color:var(--text-3);padding:0 4px">{{ page }} / {{ totalPages }}</span>
-            <el-button size="small" :disabled="page >= totalPages" @click="nextPage">下一页</el-button>
-          </div>
+          <el-pagination
+            v-model:current-page="page"
+            v-model:page-size="pageSize"
+            :page-sizes="[10, 20, 50, 100, 200]"
+            :total="total"
+            background
+            size="small"
+            layout="total, ->, prev, pager, next, sizes"
+            @current-change="loadData"
+            @size-change="onSizeChange"
+          />
         </div>
       </div>
     </div>
@@ -171,7 +177,8 @@ const questions = ref<Question[]>([])
 const total = ref(0)
 const page = ref(1)
 const totalPages = ref(1)
-const PAGE_SIZE = 20
+const pageSize = ref(50)
+const PAGE_SIZE = pageSize
 const showImport = ref(false)
 const batchStems = ref('')
 
@@ -200,7 +207,7 @@ function formatDate(dt: string) {
 async function loadData() {
   loading.value = true
   try {
-    const params: Record<string, unknown> = { page: page.value, limit: PAGE_SIZE, order_by: 'created_at_desc' }
+    const params: Record<string, unknown> = { page: page.value, limit: pageSize.value, order_by: 'created_at_desc' }
     if (filters.status)     params.status     = filters.status
     if (filters.difficulty) params.difficulty = filters.difficulty
     if (filters.keyword)    params.keyword    = filters.keyword
@@ -216,6 +223,7 @@ async function loadData() {
 
 
 function handleSearch() { page.value = 1; loadData() }
+function onSizeChange() { page.value = 1; loadData() }
 function prevPage() { if (page.value > 1) { page.value--; loadData() } }
 
 // 防抖搜索（输入框专用）

@@ -65,7 +65,17 @@
       </el-table>
 
       <div class="paginator">
-        <span>共 <span class="num" style="color:var(--text-1);font-weight:600">{{ total }}</span> 位家长</span>
+        <el-pagination
+          v-model:current-page="page"
+          v-model:page-size="pageSize"
+          :page-sizes="[10, 20, 50, 100, 200]"
+          :total="total"
+          background
+          size="small"
+          layout="total, ->, prev, pager, next, sizes"
+          @current-change="loadData"
+          @size-change="onSizeChange"
+        />
       </div>
     </div>
 
@@ -110,18 +120,21 @@ import { fromNow } from '@/utils/format'
 const loading = ref(false)
 const parents = ref<Parent[]>([])
 const total = ref(0)
+const page = ref(1)
+const pageSize = ref(50)
 const keyword = ref('')
 
 async function loadData() {
   loading.value = true
   try {
-    const res = await parentApi.getList({ keyword: keyword.value, limit: 50 })
+    const res = await parentApi.getList({ keyword: keyword.value, page: page.value, limit: pageSize.value })
     parents.value = res.list
     total.value = res.total
   } finally { loading.value = false }
 }
 
-function search() { loadData() }
+function search() { page.value = 1; loadData() }
+function onSizeChange() { page.value = 1; loadData() }
 
 // 防抖搜索（输入框专用）
 let _searchTimer: ReturnType<typeof setTimeout> | null = null
