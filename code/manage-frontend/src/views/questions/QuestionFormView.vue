@@ -310,4 +310,9 @@ async function handleSave(mode: 'draft' | 'analyze') {
   border-top: 1px solid var(--border);
   line-height: 1.5;
 }
+
+// 深色主题：indigo 变为亮黄绿，图标上文字需改为深色
+:global([data-theme="dark"]) .flow-step--active .flow-step__num {
+  color: #0D0D0D;
+}
 </style>

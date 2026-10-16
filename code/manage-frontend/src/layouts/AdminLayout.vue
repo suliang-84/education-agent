@@ -440,4 +440,9 @@ async function handleCommand(cmd: string) {
   padding: 15px;
   background: var(--bg-page);
 }
+
+// 深色主题：indigo 为亮黄绿，user-avatar 文字改为深色
+:global([data-theme="dark"]) .user-avatar {
+  color: #0D0D0D;
+}
 </style>

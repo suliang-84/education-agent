@@ -20,7 +20,7 @@
           <el-option v-for="(label, key) in DifficultyLabels" :key="key" :label="label" :value="key" />
         </el-select>
         <div style="flex:1" />
-        <el-button class="btn-import" style="color:#5e8df9;padding:0 8px !important" @click="showImport = true">
+        <el-button class="btn-import" style="color:var(--indigo);padding:0 8px !important" @click="showImport = true">
           <SvgIcon name="upload" :size="15" style="margin-right:5px" />
           批量导入
         </el-button>
@@ -103,8 +103,8 @@
                 <el-button text size="small" style="color:var(--indigo)" @click="$router.push(`/questions/${row.id}/edit`)">
                   <SvgIcon name="edit" :size="18" color="var(--indigo)" title="编辑" />
                 </el-button>
-                <el-button text size="small" style="color:#f3a800" @click="handleAnalyze(row)">
-                  <SvgIcon name="analyse" :size="18" color="#f3a800" title="模型分析" />
+                <el-button text size="small" style="color:var(--amber)" @click="handleAnalyze(row)">
+                  <SvgIcon name="analyse" :size="18" color="var(--amber)" title="模型分析" />
                 </el-button>
                 <el-button text size="small" style="color:var(--red)" @click="handleDelete(row)">
                   <SvgIcon name="delete" :size="18" color="var(--red)" title="删除" />
@@ -470,11 +470,11 @@ onUnmounted(() => stopPolling())
     flex-shrink: 0;
   }
 
-  &--draft          { color: var(--el-table-text-color); .status-dot-label__dot { background: #ff9393; } }
-  &--analyzing      { color: var(--el-table-text-color); .status-dot-label__dot { background: #77bf01; } }
-  &--pending_review { color: var(--el-table-text-color); .status-dot-label__dot { background: #5b71cb; } }
-  &--published      { color: var(--el-table-text-color); .status-dot-label__dot { background: #10B981; } }
-  &--archived       { color: var(--el-table-text-color); .status-dot-label__dot { background: #94A3B8; } }
+  &--draft          { color: var(--el-table-text-color); .status-dot-label__dot { background: var(--red); } }
+  &--analyzing      { color: var(--el-table-text-color); .status-dot-label__dot { background: var(--green); } }
+  &--pending_review { color: var(--el-table-text-color); .status-dot-label__dot { background: var(--indigo); } }
+  &--published      { color: var(--el-table-text-color); .status-dot-label__dot { background: var(--green); } }
+  &--archived       { color: var(--el-table-text-color); .status-dot-label__dot { background: var(--text-3); } }
 }
 
 .status-badge {
@@ -533,9 +533,9 @@ onUnmounted(() => stopPolling())
   border-radius: 11px;
   border: none;
 
-  &.diff--basic     { background: #E8F5D0; color: #4A7C10; }
-  &.diff--advanced  { background: #FFF0D6; color: #B45309; }
-  &.diff--challenge { background: #FFE0E0; color: #DC2626; }
+  &.diff--basic     { background: var(--teal-dim);  color: var(--teal); }
+  &.diff--advanced  { background: var(--amber-dim); color: var(--amber); }
+  &.diff--challenge { background: var(--red-dim);   color: var(--red); }
 }
 
 .import-hint {

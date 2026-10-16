@@ -580,7 +580,7 @@ async function doDelete() {
   gap: 6px;
   flex-wrap: wrap;
   padding: 8px 14px;
-  background: #F8F9FD;
+  background: var(--bg-muted);
   border-top: 1px solid var(--border);
 }
 
@@ -636,4 +636,8 @@ async function doDelete() {
   &--archived  { background: var(--bg-muted);  color: var(--text-3); border-color: var(--border); }
 }
 
+// 深色主题：indigo 变为亮黄绿，答案 key 徽标文字需改为深色
+:global([data-theme="dark"]) .expand-key {
+  color: #0D0D0D;
+}
 </style>

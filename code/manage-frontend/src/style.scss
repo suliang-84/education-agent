@@ -342,90 +342,91 @@ $t-slow:   350ms;
 
 }
 
-// 深色主题下硬编码 #5e8df9 统一替换为 #bcfd2f
+// 深色主题下主题色统一改为 var(--indigo)
 [data-theme="dark"] {
   // 按钮边框
   .el-button {
-    border-color: #bcfd2f !important;
-    &--default { color: #bcfd2f !important; }
-    &--primary { background: #bcfd2f !important; color: #0D0D0D !important; border-color: #bcfd2f !important; }
+    border-color: var(--indigo) !important;
+    &--default { color: var(--indigo) !important; }
+    &--primary { background: var(--indigo) !important; color: #0D0D0D !important; border-color: var(--indigo) !important; }
   }
 
   // 表单 hover/focus
   .el-input__wrapper {
-    &:hover    { border-color: #bcfd2f !important; }
-    &.is-focus { border-color: #bcfd2f !important; }
+    &:hover    { border-color: var(--indigo) !important; }
+    &.is-focus { border-color: var(--indigo) !important; }
   }
   .el-select__wrapper {
-    &.is-hovering:not(.is-focused) { box-shadow: 0 0 0 1px #bcfd2f inset !important; }
-    &.is-focused                   { box-shadow: 0 0 0 1px #bcfd2f inset !important; }
+    &.is-hovering:not(.is-focused) { box-shadow: 0 0 0 1px var(--indigo) inset !important; }
+    &.is-focused                   { box-shadow: 0 0 0 1px var(--indigo) inset !important; }
   }
   .el-select .el-input__wrapper {
-    &:hover, &.is-hovering { box-shadow: 0 0 0 1px #bcfd2f inset !important; }
-    &.is-focus             { box-shadow: 0 0 0 1px #bcfd2f inset !important; }
+    &:hover, &.is-hovering { box-shadow: 0 0 0 1px var(--indigo) inset !important; }
+    &.is-focus             { box-shadow: 0 0 0 1px var(--indigo) inset !important; }
   }
 
   // btn-pink 背景
   .btn-pink {
-    background: #bcfd2f !important;
+    background: var(--indigo) !important;
     color: #0D0D0D !important;
-    &:hover { background: #a8e020 !important; }
+    &:hover { background: var(--indigo-hover) !important; }
   }
 
-  // 分页高亮按钮文字 #1e2612，prev/next hover 与 pager li 一致
+  // 分页高亮按钮
   .el-pagination {
-    --el-pagination-hover-color: #bcfd2f;
+    --el-pagination-hover-color: var(--indigo);
 
     // 上一页/下一页 hover 样式
     .btn-prev, .btn-next {
       background-color: var(--el-fill-color) !important;
       &:hover {
         background: transparent !important;
-        color: #bcfd2f !important;
+        color: var(--indigo) !important;
       }
     }
 
     .el-pager li {
-      &:hover     { background: transparent !important; color: #5e8df9 !important; }
+      &:hover     { background: transparent !important; color: var(--indigo) !important; }
       &.is-active {
         background: var(--indigo) !important;
-        color: #1e2612 !important;
-        &:hover { background: var(--indigo) !important; color: #1e2612 !important; }
+        color: #0D0D0D !important;
+        &:hover { background: var(--indigo) !important; color: #0D0D0D !important; }
       }
     }
 
     &.is-background {
       .btn-prev, .btn-next {
         background-color: var(--el-fill-color) !important;
-        &:hover { background: transparent !important; color: #5e8df9 !important; }
+        &:hover { background: transparent !important; color: var(--indigo) !important; }
       }
 
       .el-pager li.is-active {
         background-color: var(--indigo) !important;
-        color: #1e2612 !important;
-        &:hover { background-color: var(--indigo) !important; color: #1e2612 !important; }
+        color: #0D0D0D !important;
+        &:hover { background-color: var(--indigo) !important; color: #0D0D0D !important; }
       }
     }
   }
 
-  // 批量导入按钮：暗主题背景#222222，文字#bcfd2f
+  // 批量导入按钮
   .btn-import {
-    background: #222222 !important;
-    color: #bcfd2f !important;
-    border-color: #bcfd2f !important;
+    background: var(--bg-muted) !important;
+    color: var(--indigo) !important;
+    border-color: var(--indigo) !important;
   }
 }
 
-// 深色主题下 .btn-pink 文字改为深色（亮黄绿背景上）
+// 深色主题下 .btn-pink 文字改为深色（亮色背景上）
 [data-theme="dark"] .btn-pink {
   color: #0D0D0D;
   &:hover { color: #0D0D0D; }
 }
 
-// 深色主题下 el-button--primary 使用紫色
+// 深色主题下 el-button--primary 使用主题色
 [data-theme="dark"] .el-button--primary {
   background: var(--indigo);
   border-color: var(--indigo);
+  color: #0D0D0D;
   &:hover {
     background: var(--indigo-hover);
     border-color: var(--indigo-hover);
@@ -436,49 +437,78 @@ $t-slow:   350ms;
 [data-theme="dark"] {
   .el-input__wrapper,
   .el-select .el-input__wrapper {
-    background: #222222 !important;
+    background: var(--bg-muted) !important;
     box-shadow: none !important;
-    border: 1px solid rgba(255,255,255,0.10) !important;
+    border: 1px solid var(--border-hover) !important;
     border-radius: 4px !important;
-    &:hover    { border-color: rgba(255,255,255,0.18) !important; }
-    &.is-focus { border-color: #bcfd2f !important; box-shadow: none !important; }
+    &:hover    { border-color: var(--border-strong) !important; }
+    &.is-focus { border-color: var(--indigo) !important; box-shadow: none !important; }
   }
 
   // 表格复选框背景
   .el-checkbox__inner {
-    background-color: #222222 !important;
-    border-color: rgba(255,255,255,0.20) !important;
+    background-color: var(--bg-muted) !important;
+    border-color: var(--border-strong) !important;
   }
 
   // EP v2 新版 select 根节点
   .el-select__wrapper {
-    background-color: #222222 !important;
-    box-shadow: 0 0 0 1px rgba(255,255,255,0.10) inset !important;
-    color: #F9FAFB !important;
+    background-color: var(--bg-muted) !important;
+    box-shadow: 0 0 0 1px var(--border-hover) inset !important;
+    color: var(--text-1) !important;
 
     &.is-hovering:not(.is-focused) {
-      box-shadow: 0 0 0 1px #bcfd2f inset !important;
+      box-shadow: 0 0 0 1px var(--indigo) inset !important;
     }
     &.is-focused {
-      box-shadow: 0 0 0 1px #bcfd2f inset !important;
+      box-shadow: 0 0 0 1px var(--indigo) inset !important;
     }
   }
 
-  .el-input__inner { color: #F9FAFB !important; }
+  .el-input__inner { color: var(--text-1) !important; }
 
   .el-textarea__inner {
-    background: #222222 !important;
-    color: #F9FAFB !important;
-    box-shadow: 0 0 0 1.5px rgba(255,255,255,0.08) !important;
-    &:focus { box-shadow: 0 0 0 2px #bcfd2f !important; }
+    background: var(--bg-muted) !important;
+    color: var(--text-1) !important;
+    box-shadow: 0 0 0 1.5px var(--border) !important;
+    &:focus { box-shadow: 0 0 0 2px var(--indigo) !important; }
   }
 
+  // Descriptions
+  .el-descriptions__label   { background: var(--bg-muted) !important; color: var(--text-2) !important; }
+  .el-descriptions__content { background: var(--bg-surface) !important; color: var(--text-1) !important; }
+  .el-descriptions__cell    { border-color: var(--border) !important; }
+
+  // Upload dragger
+  .el-upload-dragger {
+    background: var(--bg-muted) !important;
+    border-color: var(--border-hover) !important;
+    &:hover { background: var(--bg-surface) !important; }
+  }
+
+  // Dialog
+  .el-dialog {
+    background: var(--el-bg-color-overlay) !important;
+    &__header { border-bottom-color: var(--border) !important; }
+    &__footer { border-top-color: var(--border) !important; }
+  }
+
+  // Message box
+  .el-message-box {
+    background: var(--el-bg-color-overlay) !important;
+    border: 1px solid var(--border) !important;
+    &__content { color: var(--text-2) !important; }
+  }
+
+  // Form label
+  .el-form-item__label { color: var(--text-2) !important; }
+
   .el-select-dropdown {
-    background: #242424 !important;
+    background: var(--el-bg-color-overlay) !important;
     &__item {
-      color: #9CA3AF;
-      &.is-selected, &.selected { color: #bcfd2f; background: rgba(188,253,47,0.12); }
-      &:hover { background: #2A2A2A; color: #F9FAFB; }
+      color: var(--text-2);
+      &.is-selected, &.selected { color: var(--indigo); background: var(--indigo-dim); }
+      &:hover { background: var(--bg-muted); color: var(--text-1); }
     }
   }
 
@@ -522,35 +552,35 @@ $t-slow:   350ms;
   }
 
   .el-dialog {
-    background: #242424;
-    &__header { border-bottom-color: rgba(255,255,255,0.08); }
-    &__footer { border-top-color: rgba(255,255,255,0.08); }
-    &__title { color: #F9FAFB; }
+    background: var(--el-bg-color-overlay);
+    &__header { border-bottom-color: var(--border); }
+    &__footer { border-top-color: var(--border); }
+    &__title { color: var(--text-1); }
   }
 
   .el-dropdown-menu {
-    background: #242424;
-    &__item { color: #9CA3AF; &:hover { background: rgba(188,253,47,0.12); color: #bcfd2f; } }
+    background: var(--el-bg-color-overlay);
+    &__item { color: var(--text-2); &:hover { background: var(--indigo-dim); color: var(--indigo); } }
   }
 
   .el-message-box {
-    background: #242424;
-    border: 1px solid rgba(255,255,255,0.08);
-    &__title { color: #F9FAFB; }
+    background: var(--el-bg-color-overlay);
+    border: 1px solid var(--border);
+    &__title { color: var(--text-1); }
   }
 
   .el-radio-button__inner {
-    background: #222222;
-    border-color: rgba(255,255,255,0.10);
-    color: #9CA3AF;
+    background: var(--bg-muted);
+    border-color: var(--border-hover);
+    color: var(--text-2);
   }
 
   .el-tag {
-    &--success { background: rgba(74,222,128,0.12);  color: #4ADE80;  border-color: rgba(74,222,128,0.25); }
-    &--warning { background: rgba(252,211,77,0.12);  color: #FCD34D;  border-color: rgba(252,211,77,0.25); }
-    &--danger  { background: rgba(249,115,22,0.12);  color: #F97316;  border-color: rgba(249,115,22,0.25); }
-    &--info    { background: rgba(255,255,255,0.06); color: #9CA3AF;  border-color: rgba(255,255,255,0.10); }
-    &--primary { background: rgba(188,253,47,0.12);  color: #bcfd2f;  border-color: rgba(188,253,47,0.25); }
+    &--success { background: var(--green-dim);   color: var(--green);   border-color: var(--green-border); }
+    &--warning { background: var(--amber-dim);   color: var(--amber);   border-color: var(--amber-border); }
+    &--danger  { background: var(--red-dim);     color: var(--red);     border-color: var(--red-border); }
+    &--info    { background: var(--border);      color: var(--text-2);  border-color: var(--border-hover); }
+    &--primary { background: var(--indigo-dim);  color: var(--indigo);  border-color: var(--indigo-border); }
   }
 }
 
@@ -579,7 +609,7 @@ body {
 
 // Card
 .el-card {
-  background: $bg-surface;
+  background: var(--bg-surface);
   border: none;
   border-radius: $r-xl !important;
   box-shadow: $shadow-sm;
@@ -619,13 +649,13 @@ body {
   // 无 type 和 default type 均设置主题色文字
   &--default,
   &:not([class*="el-button--"]) {
-    background: $bg-surface;
-    border-color: #5e8df9;
-    color: #5e8df9;
+    background: var(--bg-surface);
+    border-color: var(--indigo);
+    color: var(--indigo);
 
     &:hover {
-      background: $indigo-light;
-      color: $indigo;
+      background: var(--indigo-light);
+      color: var(--indigo);
     }
   }
 
@@ -752,7 +782,7 @@ $form-height:       30px;
   height: $form-height !important;
 
   &__wrapper {
-    background: $bg-surface !important;
+    background: var(--bg-surface) !important;
     box-shadow: none !important;
     border: 1px solid $form-border !important;
     border-radius: $form-radius !important;
@@ -780,7 +810,7 @@ $form-height:       30px;
 .el-textarea__inner {
   font-family: $font-sans !important;
   font-size: 13px !important;
-  background: $bg-surface !important;
+  background: var(--bg-surface) !important;
   color: $text-1 !important;
   border-radius: $form-radius !important;
   border: 1px solid $form-border !important;
@@ -841,7 +871,7 @@ $form-height:       30px;
 
 // Select dropdown
 .el-select-dropdown {
-  background: $bg-surface !important;
+  background: var(--bg-surface) !important;
   border: none !important;
   border-radius: $r-xs !important;
   box-shadow: $shadow-md !important;
@@ -896,14 +926,15 @@ $form-height:       30px;
 
 // Dialog
 .el-dialog {
-  background: $bg-surface;
+  background: var(--bg-surface);
   border-radius: $r-2xl !important;
   box-shadow: $shadow-lg !important;
   border: none;
 
-  &__header { border-bottom: 1px solid $border; padding: 20px 24px 18px; }
-  &__title  { font-size: 16px; font-weight: 700; color: $text-1; }
-  &__footer { border-top: 1px solid $border; padding: 16px 24px; }
+  &__header { border-bottom: 1px solid var(--border); padding: 20px 24px 18px; }
+  &__title  { font-size: 16px; font-weight: 700; color: var(--text-1); }
+  &__body   { color: var(--text-2); }
+  &__footer { border-top: 1px solid var(--border); padding: 16px 24px; }
 }
 
 .el-overlay {
@@ -915,8 +946,8 @@ $form-height:       30px;
 .el-descriptions {
   font-size: 13.5px;
 
-  &__label   { color: $text-2; font-weight: 500; font-size: 12.5px; background: #F8F9FD; }
-  &__content { color: $text-1; background: $bg-surface; }
+  &__label   { color: $text-2; font-weight: 500; font-size: 12.5px; background: var(--bg-muted); }
+  &__content { color: $text-1; background: var(--bg-surface); }
 
   &.is-bordered .el-descriptions__cell { border-color: $border; }
 }
@@ -935,7 +966,7 @@ $form-height:       30px;
 .el-divider {
   border-color: $border;
 
-  &__text { background: $bg-surface; color: $text-3; font-size: 12px; }
+  &__text { background: var(--bg-surface); color: $text-3; font-size: 12px; }
 }
 
 // Switch
@@ -948,7 +979,7 @@ $form-height:       30px;
 
 // Dropdown
 .el-dropdown-menu {
-  background: $bg-surface;
+  background: var(--bg-surface);
   border: none;
   border-radius: $r-lg;
   padding: 6px;
@@ -981,7 +1012,7 @@ $form-height:       30px;
 // Radio button
 .el-radio-button {
   &__inner {
-    background: $bg-surface;
+    background: var(--bg-surface);
     border-color: $border;
     color: $text-2;
     font-size: 12.5px;
@@ -1051,7 +1082,7 @@ $form-height:       30px;
 
 // Date picker
 .el-date-picker {
-  background: $bg-surface;
+  background: var(--bg-surface);
   border: none;
   border-radius: $r-lg;
   box-shadow: $shadow-md;
@@ -1080,17 +1111,18 @@ $form-height:       30px;
 
 // Message box
 .el-message-box {
-  background: $bg-surface;
-  border: none;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
   border-radius: $r-2xl;
   box-shadow: $shadow-lg;
 
-  &__title { font-weight: 700; color: $text-1; }
+  &__title   { font-weight: 700; color: var(--text-1); }
+  &__content { color: var(--text-2); }
 }
 
 // Upload
 .el-upload-dragger {
-  background: #FAFBFF;
+  background: var(--bg-muted);
   border: 2px dashed $border-hover;
   border-radius: $r-lg;
 
@@ -1262,7 +1294,7 @@ $form-height:       30px;
   gap: 10px;
   flex-wrap: wrap;
   padding: 14px 18px;
-  background: $bg-surface;
+  background: var(--bg-surface);
   border-radius: $r-xl;
   box-shadow: $shadow-sm;
 
@@ -1287,7 +1319,7 @@ $form-height:       30px;
 // ── Stat Card ────────────────────────────────────────────────
 
 .stat-card {
-  background: $bg-surface;
+  background: var(--bg-surface);
   border-radius: $r-xl;
   padding: 20px 22px 22px;
   display: flex;
@@ -1366,7 +1398,7 @@ $form-height:       30px;
 // ── Review Card ──────────────────────────────────────────────
 
 .review-card {
-  background: $bg-surface;
+  background: var(--bg-surface);
   border-radius: $r-xl;
   padding: 20px;
   box-shadow: $shadow-sm;
@@ -1417,7 +1449,7 @@ $form-height:       30px;
 // ── JSON Viewer ──────────────────────────────────────────────
 
 .json-viewer {
-  background: #F8F9FD;
+  background: var(--bg-muted);
   border-radius: $r-lg;
   padding: 12px 14px;
   font-family: $font-mono;
