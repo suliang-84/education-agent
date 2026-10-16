@@ -716,6 +716,16 @@ body {
 
   .el-table__body-wrapper { background: transparent; }
 
+  // 禁用行背景 transition，避免主题切换时固定列比普通列慢
+  &.el-table--enable-row-transition .el-table__body td.el-table__cell {
+    transition: none !important;
+  }
+
+  // 禁用复选框 transition，避免主题切换时颜色延迟
+  .el-checkbox__inner {
+    transition: none !important;
+  }
+
   // 操作列图标按钮：去除内边距，只保留图标间 10px 间距
   td.el-table__cell .cell .el-button {
     padding: 0 !important;
