@@ -344,11 +344,45 @@ $t-slow:   350ms;
 
 // 深色主题下主题色统一改为 var(--indigo)
 [data-theme="dark"] {
-  // 按钮边框
+  // 覆盖 EP 内部填充变量，这是按钮白色背景的真正来源
+  --el-fill-color-blank: #222222;
+  --el-fill-color-light: #2a2a2a;
+  --el-fill-color:       #222222;
+
+  // 按钮——覆盖 EP 内部变量确保暗主题生效
+  --el-button-bg-color: #222222;
+  --el-button-border-color: #3a3a3a;
+  --el-button-text-color: var(--indigo);
+  --el-button-hover-bg-color: #2a2a2a;
+  --el-button-hover-border-color: var(--indigo);
+  --el-button-hover-text-color: var(--indigo);
+
   .el-button {
-    border-color: var(--indigo) !important;
-    &--default { color: var(--indigo) !important; }
-    &--primary { background: var(--indigo) !important; color: #0D0D0D !important; border-color: var(--indigo) !important; }
+    // 在 .el-button 作用域内覆盖，优先级高于 EP 内部声明
+    --el-button-border-color: var(--indigo);
+    --el-button-bg-color: transparent;
+    --el-button-text-color: var(--indigo);
+    --el-button-hover-bg-color: rgba(188, 253, 47, 0.08);
+    --el-button-hover-border-color: var(--indigo);
+    --el-button-hover-text-color: var(--indigo);
+
+    &--default,
+    &:not([class*="el-button--"]) {
+      background: transparent !important;
+      color: var(--indigo) !important;
+      border-color: var(--indigo) !important;
+      &:hover {
+        background: rgba(188, 253, 47, 0.08) !important;
+        border-color: var(--indigo) !important;
+      }
+    }
+    &--primary {
+      --el-button-border-color: var(--indigo);
+      --el-button-bg-color: var(--indigo);
+      background: var(--indigo) !important;
+      color: #0D0D0D !important;
+      border-color: var(--indigo) !important;
+    }
   }
 
   // 表单 hover/focus
@@ -639,7 +673,7 @@ body {
   padding: 0 8px !important;
   border-radius: $r-xs;
   transition: all $t-fast $ease-out;
-  border: 1px solid #5e8df9;
+  border: 1px solid var(--el-button-border-color, var(--indigo));
   box-shadow: none !important;
   border-radius: 4px;
   white-space: nowrap;

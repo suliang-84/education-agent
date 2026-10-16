@@ -315,4 +315,36 @@ async function handleSave(mode: 'draft' | 'analyze') {
 :global([data-theme="dark"]) .flow-step--active .flow-step__num {
   color: #0D0D0D;
 }
+
+// 暗主题：背景 #222222，边框 #3a3a3a，文字 #6d7278
+:global([data-theme="dark"]) {
+  // 卡片区域背景
+  .form-section,
+  .analysis-preview {
+    background: #222222;
+    border: 1px solid #3a3a3a;
+    color: #6d7278;
+  }
+
+  // 流程横幅
+  .flow-banner {
+    background: #222222;
+    border-color: #3a3a3a;
+    color: #6d7278;
+  }
+
+  .flow-step { color: #6d7278; }
+  .flow-arrow { color: #3a3a3a; }
+
+  .section-title { color: #6d7278; }
+  .section-hint  { color: #6d7278; }
+  .analysis-tip  { color: #6d7278; border-top-color: #3a3a3a; }
+
+  // 预览项
+  .preview-item {
+    background: #2a2a2a;
+    &__title { color: #6d7278; }
+    &__desc  { color: #6d7278; }
+  }
+}
 </style>
