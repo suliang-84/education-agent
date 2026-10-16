@@ -17,28 +17,6 @@
       </button>
     </div>
 
-    <!-- 流程说明横幅 -->
-    <div class="flow-banner">
-      <div class="flow-step" :class="{ 'flow-step--active': true }">
-        <span class="flow-step__num">1</span>
-        <span>录入题干</span>
-      </div>
-      <div class="flow-arrow">→</div>
-      <div class="flow-step">
-        <span class="flow-step__num">2</span>
-        <span>大模型分析</span>
-      </div>
-      <div class="flow-arrow">→</div>
-      <div class="flow-step">
-        <span class="flow-step__num">3</span>
-        <span>审核结果</span>
-      </div>
-      <div class="flow-arrow">→</div>
-      <div class="flow-step">
-        <span class="flow-step__num">4</span>
-        <span>发布上线</span>
-      </div>
-    </div>
 
     <el-form ref="formRef" :model="form" :rules="rules" label-width="0" v-loading="loading">
 
@@ -248,8 +226,9 @@ async function handleSave(mode: 'draft' | 'analyze') {
 
 // ── 表单分区 ─────────────────────────────────────────────────
 .form-section {
-  padding: 22px 24px;
+  padding: 10px;
   margin-bottom: 16px;
+  border-radius: 4px;
 }
 
 .section-hint {
@@ -316,35 +295,39 @@ async function handleSave(mode: 'draft' | 'analyze') {
   color: #0D0D0D;
 }
 
-// 暗主题：背景 #222222，边框 #3a3a3a，文字 #6d7278
-:global([data-theme="dark"]) {
-  // 卡片区域背景
-  .form-section,
-  .analysis-preview {
-    background: #222222;
-    border: 1px solid #3a3a3a;
-    color: #6d7278;
-  }
 
-  // 流程横幅
-  .flow-banner {
-    background: #222222;
-    border-color: #3a3a3a;
-    color: #6d7278;
-  }
+// 深色主题：indigo 变为亮黄绿，图标上文字需改为深色
+:global([data-theme="dark"]) .flow-step--active .flow-step__num {
+  color: #0D0D0D;
+}
+</style>
 
-  .flow-step { color: #6d7278; }
-  .flow-arrow { color: #3a3a3a; }
+<style>
+/* 暗主题 form-section 全局覆盖（不加 scoped，确保选择器生效） */
+[data-theme="dark"] .form-section,
+[data-theme="dark"] .analysis-preview {
+  background: #242424 !important;
+  border: 1px solid #444444 !important;
+  border-radius: 4px !important;
+  padding: 10px !important;
+}
 
-  .section-title { color: #6d7278; }
-  .section-hint  { color: #6d7278; }
-  .analysis-tip  { color: #6d7278; border-top-color: #3a3a3a; }
+[data-theme="dark"] .form-section .section-title,
+[data-theme="dark"] .analysis-preview .section-title {
+  color: #ffffff !important;
+}
 
-  // 预览项
-  .preview-item {
-    background: #2a2a2a;
-    &__title { color: #6d7278; }
-    &__desc  { color: #6d7278; }
-  }
+[data-theme="dark"] .form-section .section-hint,
+[data-theme="dark"] .analysis-preview .section-hint {
+  color: #6d7278 !important;
+}
+
+[data-theme="dark"] .analysis-tip {
+  color: #6d7278 !important;
+  border-top-color: #3a3a3a !important;
+}
+
+[data-theme="dark"] .preview-item {
+  background: #2a2a2a !important;
 }
 </style>
