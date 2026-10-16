@@ -21,7 +21,7 @@
       />
     </div>
 
-    <div class="surface" style="overflow:hidden">
+    <div class="surface surface--table">
       <el-table :data="logs" v-loading="loading" style="width:100%">
         <el-table-column label="时间" width="155">
           <template #default="{ row }">
@@ -67,11 +67,15 @@
       </el-table>
 
       <div class="paginator">
-        <span>共 <span class="num" style="color:var(--text-1);font-weight:600">{{ total }}</span> 条记录</span>
-        <div style="display:flex;gap:6px">
-          <el-button size="small" :disabled="cursor === 0" @click="prevPage">上一页</el-button>
-          <el-button size="small" :disabled="!hasMore" @click="nextPage">下一页</el-button>
-        </div>
+        <el-pagination
+          v-model:current-page="page"
+          :page-size="pageSize"
+          :total="total"
+          background
+          size="small"
+          layout="total, ->, prev, pager, next"
+          @current-change="onPageChange"
+        />
       </div>
     </div>
 
@@ -120,6 +124,8 @@ const logs = ref<AuditLog[]>([])
 const total = ref(0)
 const hasMore = ref(false)
 const cursor = ref(0)
+const page = ref(1)
+const pageSize = 20
 const showDetail = ref(false)
 const currentLog = ref<AuditLog | null>(null)
 
@@ -149,15 +155,16 @@ function viewDetail(row: AuditLog) { currentLog.value = row; showDetail.value = 
 async function loadData() {
   loading.value = true
   try {
-    const params: Record<string, unknown> = { cursor: cursor.value, limit: 20, ...filters }
+    const params: Record<string, unknown> = { cursor: cursor.value, limit: pageSize, ...filters }
     if (filters.date_range?.length === 2) { params.date_from = filters.date_range[0]; params.date_to = filters.date_range[1] }
     const res = await auditLogApi.getList(params)
     logs.value = res.list; total.value = res.total; hasMore.value = res.has_more
   } finally { loading.value = false }
 }
 
-function handleSearch() { cursor.value = 0; loadData() }
-function prevPage() { cursor.value = Math.max(0, cursor.value - 20); loadData() }
+function handleSearch() { cursor.value = 0; page.value = 1; loadData() }
+function onPageChange(p: number) { page.value = p; cursor.value = (p - 1) * pageSize; loadData() }
+function prevPage() { cursor.value = Math.max(0, cursor.value - pageSize); page.value = Math.max(1, page.value - 1); loadData() }
 
 // 防抖搜索（输入框专用）
 let _searchTimer: ReturnType<typeof setTimeout> | null = null
@@ -166,7 +173,7 @@ function debouncedSearch() {
   _searchTimer = setTimeout(handleSearch, 1000)
 }
 watch(() => filters.admin_username, debouncedSearch)
-function nextPage() { cursor.value += 20; loadData() }
+function nextPage() { cursor.value += pageSize; page.value += 1; loadData() }
 
 onMounted(loadData)
 </script>

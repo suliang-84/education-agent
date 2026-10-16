@@ -125,7 +125,7 @@
           <el-table-column label="操作" width="200" align="center" fixed="right">
             <template #default="{ row }">
               <el-button text size="small" style="color:var(--indigo)" @click="$router.push(`/students/${row.id}`)">画像</el-button>
-              <el-button text size="small" style="color:var(--purple)" @click="$router.push(`/students/${row.id}/ai-prompt`)">摘要</el-button>
+              <el-button text size="small" style="color:var(--indigo)" @click="$router.push(`/students/${row.id}/ai-prompt`)">摘要</el-button>
               <el-button text size="small" style="color:var(--text-2)" @click="openBindParent(row)">绑定家长</el-button>
             </template>
           </el-table-column>

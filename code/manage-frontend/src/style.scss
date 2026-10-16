@@ -138,6 +138,9 @@ $t-slow:   350ms;
   --indigo-light:  #{$indigo-light};
   --indigo-border: #{$indigo-border};
   --indigo-dim:    #{$indigo-dim};
+  --color-primary: #5e8df9;
+  --color-primary-hover: #4a77f0;
+  --color-primary-light: rgba(94, 141, 249, 0.12);
   --pink:          #{$pink};
   --pink-hover:    #{$pink-hover};
   --pink-shadow:   #{$pink-shadow};
@@ -262,6 +265,9 @@ $t-slow:   350ms;
   --indigo-light:  rgba(124, 58, 237, 0.15);
   --indigo-border: rgba(124, 58, 237, 0.30);
   --indigo-dim:    rgba(124, 58, 237, 0.10);
+  --color-primary: #bcfd2f;
+  --color-primary-hover: #a8e020;
+  --color-primary-light: rgba(188, 253, 47, 0.12);
 
   // CTA 改为亮黄绿
   --pink:          #BEF264;
@@ -312,12 +318,12 @@ $t-slow:   350ms;
 
   // Element Plus 深色覆盖
   --el-color-primary:         #bcfd2f;
-  --el-color-primary-light-3: rgba(124, 58, 237, 0.28);
-  --el-color-primary-light-5: rgba(124, 58, 237, 0.18);
-  --el-color-primary-light-7: rgba(124, 58, 237, 0.10);
-  --el-color-primary-light-8: rgba(124, 58, 237, 0.07);
-  --el-color-primary-light-9: rgba(124, 58, 237, 0.04);
-  --el-color-primary-dark-2:  #6D28D9;
+  --el-color-primary-light-3: rgba(188, 253, 47, 0.28);
+  --el-color-primary-light-5: rgba(188, 253, 47, 0.18);
+  --el-color-primary-light-7: rgba(188, 253, 47, 0.10);
+  --el-color-primary-light-8: rgba(188, 253, 47, 0.07);
+  --el-color-primary-light-9: rgba(188, 253, 47, 0.04);
+  --el-color-primary-dark-2:  #a8e020;
   --el-border-color:          rgba(255, 255, 255, 0.10);
   --el-border-color-light:    rgba(255, 255, 255, 0.06);
   --el-border-color-lighter:  rgba(255, 255, 255, 0.04);
@@ -471,7 +477,7 @@ $t-slow:   350ms;
     background: #242424 !important;
     &__item {
       color: #9CA3AF;
-      &.is-selected, &.selected { color: #A78BFA; background: rgba(124,58,237,0.12); }
+      &.is-selected, &.selected { color: #bcfd2f; background: rgba(188,253,47,0.12); }
       &:hover { background: #2A2A2A; color: #F9FAFB; }
     }
   }
@@ -524,7 +530,7 @@ $t-slow:   350ms;
 
   .el-dropdown-menu {
     background: #242424;
-    &__item { color: #9CA3AF; &:hover { background: rgba(124,58,237,0.12); color: #A78BFA; } }
+    &__item { color: #9CA3AF; &:hover { background: rgba(188,253,47,0.12); color: #bcfd2f; } }
   }
 
   .el-message-box {
@@ -544,7 +550,7 @@ $t-slow:   350ms;
     &--warning { background: rgba(252,211,77,0.12);  color: #FCD34D;  border-color: rgba(252,211,77,0.25); }
     &--danger  { background: rgba(249,115,22,0.12);  color: #F97316;  border-color: rgba(249,115,22,0.25); }
     &--info    { background: rgba(255,255,255,0.06); color: #9CA3AF;  border-color: rgba(255,255,255,0.10); }
-    &--primary { background: rgba(124,58,237,0.12);  color: #A78BFA;  border-color: rgba(124,58,237,0.25); }
+    &--primary { background: rgba(188,253,47,0.12);  color: #bcfd2f;  border-color: rgba(188,253,47,0.25); }
   }
 }
 

@@ -27,7 +27,7 @@
     </div>
 
     <!-- ── 筛选栏 ── -->
-    <div class="surface cognitive-surface" style="padding:0;overflow:hidden" v-loading="loading">
+    <div class="surface surface--table cognitive-surface" style="padding:0" v-loading="loading">
       <div class="tab-filter-bar">
         <el-select v-model="filterStatus" placeholder="全部状态" clearable size="small" style="width:120px">
           <el-option label="草稿" value="draft" />
