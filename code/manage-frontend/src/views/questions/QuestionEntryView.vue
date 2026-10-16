@@ -533,9 +533,9 @@ onUnmounted(() => stopPolling())
   border-radius: 11px;
   border: none;
 
-  &.diff--basic     { background: var(--teal-dim);  color: var(--teal); }
-  &.diff--advanced  { background: var(--amber-dim); color: var(--amber); }
-  &.diff--challenge { background: var(--red-dim);   color: var(--red); }
+  &.diff--basic     { background: #E8F5D0; color: #4A7C10; }
+  &.diff--advanced  { background: #FFF0D6; color: #B45309; }
+  &.diff--challenge { background: #FFE0E0; color: #DC2626; }
 }
 
 .import-hint {
