@@ -1,3 +1,13 @@
+// 在 Vue 挂载前立即应用主题，避免暗主题刷新页面时白色闪烁（FOUC）
+;(function () {
+  const saved = localStorage.getItem('mesh-theme')
+  if (saved === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark')
+  } else {
+    document.documentElement.setAttribute('data-theme', 'light')
+  }
+})()
+
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import ElementPlus from 'element-plus'

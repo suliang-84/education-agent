@@ -5,6 +5,17 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MESH 管理后台</title>
+    <!-- Step1: 同步读取主题并立即设置 data-theme + 内联背景色，在任何外部资源加载前执行 -->
+    <script>
+      (function(){
+        var theme = localStorage.getItem('mesh-theme') || 'light';
+        var html = document.documentElement;
+        html.setAttribute('data-theme', theme);
+        // 直接设置背景色，防止外部 CSS 加载前浏览器绘制白色
+        html.style.backgroundColor = theme === 'dark' ? '#111111' : '#f2f3f7';
+        html.style.colorScheme = theme === 'dark' ? 'dark' : 'light';
+      })();
+    </script>
   </head>
   <body>
     <div id="app"></div>

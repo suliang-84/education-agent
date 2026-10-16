@@ -1052,6 +1052,22 @@ $form-height:       30px;
   td.current:not(.disabled) .el-date-table-cell { background: $indigo; }
 }
 
+// Loading 遮罩——跟随主题背景色，避免暗主题下白色闪烁
+.el-loading-mask {
+  background-color: rgba(var(--bg-surface-rgb, 255,255,255), 0.85) !important;
+}
+
+// 亮色主题：白色半透明
+:root .el-loading-mask,
+[data-theme="light"] .el-loading-mask {
+  background-color: rgba(255, 255, 255, 0.85) !important;
+}
+
+// 暗色主题：深色半透明
+[data-theme="dark"] .el-loading-mask {
+  background-color: rgba(26, 26, 26, 0.85) !important;
+}
+
 // Message box
 .el-message-box {
   background: $bg-surface;
