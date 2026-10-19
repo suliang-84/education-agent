@@ -2,24 +2,18 @@
   <div class="page-root" v-loading="loading">
 
     <!-- ── 顶部操作栏 ── -->
-    <div class="review-topbar">
-      <el-button size="small" @click="$router.push('/questions/entry')">
+    <div class="form-topbar">
+      <el-button size="small" class="btn-back" @click="$router.push('/questions')">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="margin-right:4px">
           <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/>
         </svg>
-        返回列表
+        返回
       </el-button>
-      <span v-if="question" class="id-chip">#{{ question.id }}</span>
-      <span v-if="question?.analysis_round" style="font-size:13px;color:var(--text-3)">
-        第 {{ question.analysis_round }} 次分析结果
-      </span>
       <div style="flex:1" />
       <template v-if="question?.status === 'pending_review'">
         <el-button @click="openReject" :loading="saving">驳回</el-button>
         <button class="btn-pink" type="button" @click="handlePublish" :disabled="saving">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-          </svg>
+          <SvgIcon name="deploy" :size="13" style="margin-right:4px" />
           发布上线
         </button>
       </template>
@@ -599,7 +593,7 @@ async function handlePublish() {
       transfer_directions: [...form.migration_directions],
     })
     ElMessage.success('题目已发布')
-    router.push('/questions/entry')
+    router.push('/questions')
   } finally { saving.value = false }
 }
 
@@ -616,23 +610,37 @@ async function handleReject() {
     await questionApi.reject(Number(route.params.id), { rejection_reason: rejectReason.value })
     rejectDialogVisible.value = false
     ElMessage.success('驳回成功，题目已回到草稿状态，请返回列表手动触发重新分析')
-    router.push('/questions/entry')
+    router.push('/questions')
   } finally { saving.value = false }
 }
 </script>
 
 <style lang="scss" scoped>
-.review-topbar {
+// ── 顶部操作栏 ───────────────────────────────────────────────
+.form-topbar {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 4px;
-  flex-wrap: wrap;
+}
+
+// ── 返回按钮 ─────────────────────────────────────────────────
+[data-theme="light"] .btn-back.el-button {
+  background-color: #ffffff;
+  color: #9ca2af;
+  border-color: #ffffff;
+  &:hover { color: var(--color-primary); border-color: var(--color-primary); }
+}
+[data-theme="dark"] .btn-back.el-button {
+  background-color: #242424;
+  color: #9ca2af;
+  border-color: #242424;
+  &:hover { color: var(--color-primary); border-color: var(--color-primary); }
 }
 
 .section-block {
-  padding: 22px 24px;
-  margin-bottom: 16px;
+  padding: 5px 15px 15px;
+  margin-bottom: 15px;
+  border-radius: 4px !important;
 }
 
 .stem-display {
@@ -673,14 +681,12 @@ async function handleReject() {
 }
 
 .sub-section-title {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--text-3);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  padding: 14px 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+  padding: 12px 0 10px;
   border-bottom: 1px solid var(--border);
-  margin-bottom: 16px;
+  margin-bottom: 14px;
   display: flex;
   align-items: center;
   gap: 10px;

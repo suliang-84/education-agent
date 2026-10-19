@@ -3,30 +3,7 @@
 
 
     <!-- ── 测试状态看板 ── -->
-    <div class="status-board" :class="publishedCount >= 10 ? 'status-board--ok' : 'status-board--warn'">
-      <div class="status-board__left">
-        <div class="status-icon">
-          <svg v-if="publishedCount >= 10" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-          </svg>
-          <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
-          </svg>
-        </div>
-        <div>
-          <div class="status-board__label">测试状态</div>
-          <div class="status-board__text" v-if="publishedCount >= 10">● 已发布 <strong>{{ publishedCount }}</strong> 道 — 测试功能已就绪，学生可正常参加测试</div>
-          <div class="status-board__text" v-else>● 已发布 <strong>{{ publishedCount }}</strong> 道 — ⚠ 不足10道，测试功能已暂停（至少需发布10道）</div>
-        </div>
-      </div>
-      <div class="status-board__counts">
-        <span class="count-chip count-chip--draft">草稿 {{ draftCount }}</span>
-        <span class="count-chip count-chip--published">已发布 {{ publishedCount }}</span>
-        <span class="count-chip count-chip--archived">已下架 {{ archivedCount }}</span>
-      </div>
-    </div>
-
-    <!-- ── 筛选栏 ── -->
+<!-- ── 筛选栏 ── -->
     <div class="surface surface--table cognitive-surface" style="padding:0" v-loading="loading">
       <div class="tab-filter-bar">
         <el-select v-model="filterStatus" placeholder="全部状态" clearable size="small" style="width:120px">
@@ -370,60 +347,6 @@ async function doDelete() {
 }
 
 // ── 测试状态看板 ─────────────────────────────────────────────
-.status-board {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 14px 20px;
-  border-radius: var(--r-xl);
-  border: 1.5px solid;
-  flex-wrap: wrap;
-
-  &--ok {
-    background: var(--green-dim);
-    border-color: var(--green-border);
-    color: var(--green);
-
-    .status-icon { background: rgba(16,185,129,0.12); }
-  }
-
-  &--warn {
-    background: var(--amber-dim);
-    border-color: var(--amber-border);
-    color: var(--amber);
-
-    .status-icon { background: rgba(217,119,6,0.12); }
-  }
-
-  &__left {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-
-  &__label {
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    opacity: 0.7;
-    margin-bottom: 2px;
-  }
-
-  &__text {
-    font-size: 13.5px;
-    font-weight: 500;
-
-    strong { font-family: var(--font-mono); font-weight: 700; }
-  }
-
-  &__counts {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-}
 
 .status-icon {
   width: 36px;

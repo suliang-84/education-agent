@@ -30,19 +30,7 @@
         </button>
       </div>
 
-      <!-- 批量操作栏 -->
-      <div v-if="selected.length > 0" class="batch-bar">
-        <span class="batch-bar__info">已选 <b>{{ selected.length }}</b> 条</span>
-        <el-button size="small" type="primary" :loading="batchAnalyzing" @click="handleBatchAnalyze">
-          批量模型分析
-        </el-button>
-        <el-button size="small" type="danger" :loading="batchDeleting" @click="handleBatchDelete">
-          批量删除
-        </el-button>
-        <el-button size="small" text @click="selected = []">取消选择</el-button>
-      </div>
-
-      <!-- 题目列表表格 -->
+<!-- 题目列表表格 -->
       <div class="surface surface--table">
         <el-table
           :data="questions"
@@ -371,25 +359,6 @@ onUnmounted(() => stopPolling())
 </script>
 
 <style lang="scss" scoped>
-// ── 批量操作栏 ────────────────────────────────────────────────
-.batch-bar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 14px;
-  background: var(--indigo-light);
-  border: 1.5px solid var(--indigo-border);
-  border-radius: var(--r-lg);
-  margin-bottom: 10px;
-
-  &__info {
-    font-size: 13px;
-    color: var(--indigo);
-    font-weight: 500;
-    flex-shrink: 0;
-  }
-}
-
 // ── 表格区 ───────────────────────────────────────────────────
 .table-panel {
   flex: 1;
