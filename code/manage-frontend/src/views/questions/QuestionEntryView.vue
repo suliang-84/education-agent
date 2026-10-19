@@ -68,7 +68,7 @@
           </el-table-column>
 
           <!-- 状态 -->
-          <el-table-column label="状态" width="110">
+          <el-table-column label="状态" width="110" align="center">
             <template #default="{ row }">
               <span class="status-dot-label" :class="`status-dot-label--${row.status}`">
                 <span class="status-dot-label__dot" />
@@ -80,7 +80,7 @@
           </el-table-column>
 
           <!-- 难度 -->
-          <el-table-column label="难度" width="80">
+          <el-table-column label="难度" width="80" align="center">
             <template #default="{ row }">
               <span v-if="row.difficulty" class="diff-badge" :class="`diff--${row.difficulty}`">
                 {{ DifficultyLabels[row.difficulty as Difficulty] }}
@@ -115,7 +115,7 @@
               </template>
               <template v-else-if="row.status === 'pending_review'">
                 <el-button text size="small" style="color:var(--indigo)" @click="$router.push(`/questions/${row.id}/review`)">
-                  <SvgIcon name="audit" :size="18" color="var(--indigo)" title="审核结果" />
+                  <SvgIcon name="audit" :size="18" color="#aa9afb" title="审核结果" />
                 </el-button>
                 <el-button text size="small" style="color:var(--green)" :loading="publishingId === row.id" @click="handlePublish(row)">
                   <SvgIcon name="deploy" :size="18" color="var(--green)" title="发布" />

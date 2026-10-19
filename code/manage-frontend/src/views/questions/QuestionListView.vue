@@ -104,13 +104,6 @@
               </svg>
             </template>
           </el-input>
-          <span v-if="treeFilter.subject_id" class="tree-breadcrumb">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 00-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0z"/>
-            </svg>
-            {{ treeBreadcrumb }}
-            <el-button text size="small" @click="clearTreeFilter" style="padding:0 4px;font-size:11px;color:var(--text-3)">✕</el-button>
-          </span>
         </div>
 
         <!-- 题目列表表格 -->
@@ -120,9 +113,9 @@
             v-loading="loading"
             style="width:100%"
           >
-            <el-table-column label="ID" width="90">
-              <template #default="{ row }">
-                <span class="id-chip">#{{ row.id }}</span>
+            <el-table-column label="序号" width="60" align="center">
+              <template #default="{ $index }">
+                <span class="num" style="color:var(--text-3);font-size:12px">{{ (page - 1) * pageSize + $index + 1 }}</span>
               </template>
             </el-table-column>
 
@@ -135,7 +128,7 @@
             </el-table-column>
 
             <!-- 归属：五级体系（科目·年级·学期） -->
-            <el-table-column label="归属" width="180">
+            <el-table-column label="归属" width="140">
               <template #default="{ row }">
                 <span v-if="row.subject_id" style="font-size:12.5px;color:var(--text-2)">
                   {{ subjectName(row.subject_id) }} · {{ gradeName(row.grade_id) }} · {{ semesterName(row.semester_id) }}
@@ -145,7 +138,7 @@
             </el-table-column>
 
             <!-- 难度 -->
-            <el-table-column label="难度" width="80">
+            <el-table-column label="难度" width="80" align="center">
               <template #default="{ row }">
                 <span v-if="row.difficulty" class="diff-badge" :class="`diff--${row.difficulty}`">
                   {{ DifficultyLabels[row.difficulty as Difficulty] }}
@@ -155,13 +148,12 @@
             </el-table-column>
 
             <!-- 主五力 -->
-            <el-table-column label="主五力" width="90">
+            <el-table-column label="主五力" width="90" align="center">
               <template #default="{ row }">
-                <template v-if="row.five_power_weights">
-                  <span class="power-badge" :class="`power-badge--${topPower(row.five_power_weights)}`">
-                    {{ FivePowerLabels[topPower(row.five_power_weights) as FivePower] }}
-                  </span>
-                </template>
+                <span v-if="row.five_power_weights" class="power-dot-label" :class="`power-dot-label--${topPower(row.five_power_weights)}`">
+                  <span class="power-dot-label__dot" />
+                  {{ FivePowerLabels[topPower(row.five_power_weights) as FivePower] }}
+                </span>
                 <span v-else style="color:var(--text-3);font-size:12px">—</span>
               </template>
             </el-table-column>
@@ -174,19 +166,17 @@
             </el-table-column>
 
             <!-- 操作 -->
-            <el-table-column label="操作" width="150" fixed="right">
+            <el-table-column label="操作" width="90" fixed="right">
               <template #default="{ row }">
-                <el-button text size="small" style="color:var(--text-2)" @click="$router.push(`/questions/${row.id}/review`)">查看</el-button>
-                <el-button
-                  v-if="row.is_active !== false"
-                  text size="small" style="color:var(--amber)"
-                  @click="handleDeactivate(row)"
-                >停用</el-button>
-                <el-button
-                  v-else
-                  text size="small" style="color:var(--green)"
-                  @click="handleActivate(row)"
-                >启用</el-button>
+                <el-button text size="small" style="color:var(--color-primary)" @click="$router.push(`/questions/${row.id}/review`)">
+                  <SvgIcon name="detail" :size="18" color="var(--color-primary)" title="查看" />
+                </el-button>
+                <el-button v-if="row.is_active !== false" text size="small" class="btn-no-hover" style="color:var(--red)" @click="handleDeactivate(row)">
+                  <SvgIcon name="pause" :size="18" color="var(--red)" title="停用" />
+                </el-button>
+                <el-button v-else text size="small" class="btn-no-hover" style="color:var(--green)" @click="handleActivate(row)">
+                  <SvgIcon name="play" :size="18" color="var(--green)" title="启用" />
+                </el-button>
               </template>
             </el-table-column>
 
@@ -223,6 +213,7 @@ import { DifficultyLabels, FivePowerLabels } from '@/types'
 const loading = ref(false)
 const questions = ref<Question[]>([])
 const total = ref(0)
+const totalAll = ref(0)
 const page = ref(1)
 const totalPages = ref(1)
 const pageSize = ref(50)
@@ -260,7 +251,7 @@ async function loadKnowledgeTree() {
   } catch { /* ignore */ }
 }
 
-const allCount = computed(() => total.value)
+const allCount = computed(() => totalAll.value)
 
 // ── 知识体系 ID → 名称映射 ────────────────────────────────────
 const nodeNameByTypeId = computed<Record<string, string>>(() => {
@@ -391,7 +382,12 @@ async function handleActivate(row: Question) {
   loadData()
 }
 
-onMounted(() => { loadData(); loadKnowledgeTree() })
+async function loadTotalAll() {
+  const res = await questionApi.getList({ page: 1, limit: 1, status: 'published' })
+  totalAll.value = res.total
+}
+
+onMounted(() => { loadData(); loadKnowledgeTree(); loadTotalAll() })
 </script>
 
 <style lang="scss" scoped>
@@ -411,6 +407,12 @@ onMounted(() => { loadData(); loadKnowledgeTree() })
   padding: 12px 0;
   overflow-y: auto;    // 树节点过多时内部滚动
   overflow-x: hidden;
+  border-radius: 4px !important;
+  background: #ffffff !important;
+
+  [data-theme="dark"] & {
+    background: #1a1a1a !important;
+  }
 
   &__title {
     display: flex;
@@ -450,10 +452,10 @@ onMounted(() => { loadData(); loadKnowledgeTree() })
 
   &--all { font-weight: 600; color: var(--text-1); cursor: pointer; }
   &--l1  { padding-left: 14px; font-weight: 600; color: var(--text-1); }
-  &--l2  { padding-left: 24px; }
-  &--l3  { padding-left: 34px; font-size: 12.5px; color: var(--text-3); }
-  &--l4  { padding-left: 44px; font-size: 12px; color: var(--text-3); }
-  &--l5  { padding-left: 54px; font-size: 11.5px; color: var(--text-3); cursor: pointer;
+  &--l2  { padding-left: 24px; color: var(--text-2); }
+  &--l3  { padding-left: 34px; font-size: 12.5px; color: var(--text-2); }
+  &--l4  { padding-left: 44px; font-size: 12px; color: var(--text-2); }
+  &--l5  { padding-left: 54px; font-size: 11.5px; color: var(--text-2); cursor: pointer;
             &:hover { color: var(--indigo); } }
 
   &__label {
@@ -468,7 +470,6 @@ onMounted(() => { loadData(); loadKnowledgeTree() })
 
     &:hover {
       color: var(--indigo);
-      background: rgba(79, 70, 229, 0.06);
     }
   }
 
@@ -619,16 +620,42 @@ onMounted(() => { loadData(); loadKnowledgeTree() })
   &--off { background: var(--amber-dim);  color: var(--amber);  border-color: var(--amber-border);  .active-badge__dot { background: var(--amber); } }
 }
 
-.diff-badge {
-  font-size: 11.5px;
-  font-weight: 500;
-  padding: 3px 10px;
-  border-radius: var(--r-pill);
-  border: 1.5px solid;
+// ── 主五力：圆点 + 文字（参考录入页状态列）────────────────────
+.power-dot-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 13.5px;
+  font-weight: 400;
 
-  &.diff--basic     { background: var(--teal-dim);  color: var(--teal);  border-color: var(--teal-border); }
-  &.diff--advanced  { background: var(--amber-dim); color: var(--amber); border-color: var(--amber-border); }
-  &.diff--challenge { background: var(--red-dim);   color: var(--red);   border-color: var(--red-border); }
+  &__dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  &--INSIGHT   { color: var(--el-table-text-color); .power-dot-label__dot { background: var(--power-insight); } }
+  &--CONSTRUCT { color: var(--el-table-text-color); .power-dot-label__dot { background: var(--power-construct); } }
+  &--DEDUCE    { color: var(--el-table-text-color); .power-dot-label__dot { background: var(--power-deduce); } }
+  &--ADAPT     { color: var(--el-table-text-color); .power-dot-label__dot { background: var(--power-adapt); } }
+  &--MIGRATE   { color: var(--el-table-text-color); .power-dot-label__dot { background: var(--power-migrate); } }
+}
+
+.diff-badge {
+  font-size: 12px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 22px;
+  border-radius: 11px;
+  border: none;
+
+  &.diff--basic     { background: #E8F5D0; color: #4A7C10; }
+  &.diff--advanced  { background: #FFF0D6; color: #B45309; }
+  &.diff--challenge { background: #FFE0E0; color: #DC2626; }
 }
 
 .embed-badge {
@@ -640,5 +667,10 @@ onMounted(() => { loadData(); loadKnowledgeTree() })
 
   &.embed--ok   { background: var(--green-dim); color: var(--green); border-color: var(--green-border); }
   &.embed--fail { background: var(--red-dim);   color: var(--red);   border-color: var(--red-border); }
+}
+
+:deep(.btn-no-hover:hover) {
+  background: transparent !important;
+  border-color: transparent !important;
 }
 </style>

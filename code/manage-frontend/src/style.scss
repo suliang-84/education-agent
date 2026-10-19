@@ -250,7 +250,7 @@ $t-slow:   350ms;
   // 深色主题主题色覆盖
   --indigo:        #bcfd2f;
   --indigo-hover:  #a8e020;
-  --indigo-light:  rgba(188, 253, 47, 0.12);
+  --indigo-light:  #222222;
   --indigo-border: rgba(188, 253, 47, 0.30);
   --indigo-dim:    rgba(188, 253, 47, 0.08);
 
@@ -262,7 +262,7 @@ $t-slow:   350ms;
   // 品牌色（深色下激活色改为紫色）
   --indigo:        #bcfd2f;
   --indigo-hover:  #a8e020;
-  --indigo-light:  rgba(124, 58, 237, 0.15);
+  --indigo-light:  #222222;
   --indigo-border: rgba(124, 58, 237, 0.30);
   --indigo-dim:    rgba(124, 58, 237, 0.10);
   --color-primary: #bcfd2f;
@@ -550,14 +550,14 @@ $t-slow:   350ms;
   .el-table {
     // 深色模式在 .el-table 内覆盖，与 EP 原始定义同级
     --el-table-tr-bg-color:        #1A1A1A;
-    --el-table-header-bg-color:    rgba(255,255,255,0.04);
+    --el-table-header-bg-color:    #202020;
     --el-table-header-text-color:  #9CA3AF;
     --el-table-text-color:         #F9FAFB;
-    --el-table-row-hover-bg-color: rgba(255,255,255,0.04);
-    --el-table-border-color:       rgba(255,255,255,0.06);
-    --el-table-border:             1px solid rgba(255,255,255,0.06);
-    --el-table-fixed-left-column:  inset 8px 0 8px -8px rgba(0,0,0,0.3);
-    --el-table-fixed-right-column: inset -8px 0 8px -8px rgba(0,0,0,0.3);
+    --el-table-row-hover-bg-color: #222222;
+    --el-table-border-color:       #202020;
+    --el-table-border:             1px solid #202020;
+    --el-table-fixed-left-column:  none;
+    --el-table-fixed-right-column: none;
 
     background: transparent;
     th.el-table__cell {
@@ -584,6 +584,7 @@ $t-slow:   350ms;
       }
     }
     .el-table__body-wrapper { background: transparent; }
+    .el-table__inner-wrapper { border-color: #202020 !important; }
   }
 
   .el-dialog {
@@ -671,6 +672,7 @@ body {
   font-size: 13px;
   font-weight: 400;
   height: 30px !important;
+  cursor: pointer !important;
   padding: 0 8px !important;
   border-radius: $r-xs;
   transition: all $t-fast $ease-out;
@@ -732,8 +734,8 @@ body {
   --el-table-row-hover-bg-color: #F5F7FF;
   --el-table-border-color:       rgba(96, 141, 248, 0.15);
   --el-table-border:             1px solid rgba(96, 141, 248, 0.15);
-  --el-table-fixed-left-column:  inset 8px 0 8px -8px rgba(96,141,248,0.12);
-  --el-table-fixed-right-column: inset -8px 0 8px -8px rgba(96,141,248,0.12);
+  --el-table-fixed-left-column:  none;
+  --el-table-fixed-right-column: none;
 
   font-size: 13px;
   background: transparent;
@@ -757,6 +759,7 @@ body {
     padding: 0 12px;
 
     > .cell { padding: 0; font-weight: 600; }
+    &.is-center > .cell { justify-content: center; }
   }
 
   // ── 数据行（读变量，固定列 background:inherit 从 tr 获取正确颜色）──
@@ -777,6 +780,10 @@ body {
       padding: 0;
       overflow: hidden;
     }
+
+    &.is-center > .cell {
+      justify-content: center;
+    }
   }
 
   .el-table__body-wrapper { background: transparent; }
@@ -795,9 +802,13 @@ body {
   td.el-table__cell .cell .el-button {
     padding: 0 !important;
     min-width: unset !important;
+    cursor: pointer !important;
   }
   td.el-table__cell .cell .el-button + .el-button {
     margin-left: 15px;
+  }
+  td.el-table__cell .cell .svg-icon {
+    cursor: pointer;
   }
 
   &--striped .el-table__body tr.el-table__row--striped td {

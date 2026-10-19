@@ -5,7 +5,7 @@
     v-bind="$attrs"
   >
     <title v-if="title">{{ title }}</title>
-    <use :href="`#icon-${name}`" :fill="color || 'currentColor'" />
+    <use :href="`#icon-${name}`" />
   </svg>
 </template>
 
