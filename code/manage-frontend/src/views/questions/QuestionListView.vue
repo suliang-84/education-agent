@@ -518,7 +518,7 @@ onMounted(() => { loadData(); loadKnowledgeTree() })
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 // ── 状态统计胶囊 ─────────────────────────────────────────────

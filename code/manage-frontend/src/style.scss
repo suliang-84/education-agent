@@ -11,7 +11,7 @@
 // 背景
 $bg-page:    #f2f3f7;
 $bg-surface: #FFFFFF;
-$bg-muted:   #F0F2FA;
+$bg-muted: #f5f6fa;
 
 // 品牌色
 $indigo:        #5e8df9;
@@ -71,7 +71,7 @@ $shadow-lg: 0 12px 40px rgba(79,70,229,0.14), 0 4px 16px rgba(0,0,0,0.07);
 $shadow-pink: 0 4px 14px #{$pink-shadow};
 
 // 圆角
-$r-xs:   6px;
+$r-xs:   4px;
 $r-sm:   8px;
 $r-md:   10px;
 $r-lg:   14px;
@@ -504,8 +504,9 @@ $t-slow:   350ms;
   .el-textarea__inner {
     background: var(--bg-muted) !important;
     color: var(--text-1) !important;
-    box-shadow: 0 0 0 1.5px var(--border) !important;
-    &:focus { box-shadow: 0 0 0 2px var(--indigo) !important; }
+    box-shadow: none !important;
+    &:hover { border-color: var(--indigo) !important; }
+    &:focus { border-color: var(--indigo) !important; box-shadow: none !important; }
   }
 
   // Descriptions
@@ -1228,9 +1229,9 @@ $form-height:       30px;
   background: #5e8df9;
   color: #fff;
   border: none;
-  border-radius: $r-xs;
+  border-radius: 4px;
   height: 30px;
-  padding: 0 16px;
+  padding: 0 8px;
   font-size: 13px;
   font-weight: 400;
   font-family: $font-sans;
@@ -1254,7 +1255,7 @@ $form-height:       30px;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
   max-width: 1440px;
   overflow-y: auto;        // 兜底：表单类页面在此滚动
   overflow-x: hidden;
@@ -1424,10 +1425,11 @@ $form-height:       30px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16px;
+  height: 30px;
+  margin-bottom: 5px;
 }
 
-.section-title { font-size: 13px; font-weight: 400; color: $text-1; }
+.section-title { font-size: 13px; font-weight: 600; color: $text-1; }
 
 // ── Review Card ──────────────────────────────────────────────
 

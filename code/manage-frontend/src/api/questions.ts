@@ -115,6 +115,20 @@ export const questionApi = {
     request.post<unknown, { question_id: number; status: string }>('/questions', data),
 
   /**
+   * 识别图片中的题干文字（大模型视觉）
+   * POST /api/v1/admin/questions/recognize-image
+   */
+  recognizeImage: (file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return request.post<unknown, { stem: string }>(
+      '/questions/recognize-image',
+      form,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    )
+  },
+
+  /**
    * 编辑草稿题干（仅 draft 状态允许）
    * PATCH /api/v1/admin/questions/{question_id}
    */

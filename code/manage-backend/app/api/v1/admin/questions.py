@@ -1,17 +1,43 @@
 """题库管理路由 — §9.1"""
 import asyncio
-from fastapi import APIRouter, Depends, Query
+import base64
+from fastapi import APIRouter, Depends, Query, UploadFile, File, HTTPException
 from sqlalchemy import select, func, case
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.question import Question
 
 from app.core.response import ok_response
+from app.core.llm import chat_vision
 from app.dependencies import get_current_admin, get_db
 from app.models.admin import AdminUser
 from app.schemas.questions import QuestionCreateReq, PublishPayload, RejectReq, SetActiveReq
 from app.services import audit_service, questions_service
 
 router = APIRouter()
+
+
+@router.post("/questions/recognize-image", summary="识别图片中的题干文字")
+async def recognize_image(
+    file: UploadFile = File(...),
+    _: AdminUser = Depends(get_current_admin),
+):
+    """上传图片，调用大模型视觉能力识别其中的文字内容，返回题干文本。"""
+    allowed = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+    content_type = file.content_type or "image/jpeg"
+    if content_type not in allowed:
+        raise HTTPException(status_code=400, detail="仅支持 JPG / PNG / WEBP / GIF 格式")
+
+    data = await file.read()
+    if len(data) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="图片大小不能超过 10MB")
+
+    image_base64 = base64.b64encode(data).decode("utf-8")
+    try:
+        text = await chat_vision(image_base64, content_type)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"图片识别失败：{str(e)}")
+
+    return ok_response({"stem": text}, "识别成功")
 
 
 @router.get("/knowledge-tree", summary="五级知识体系树")
