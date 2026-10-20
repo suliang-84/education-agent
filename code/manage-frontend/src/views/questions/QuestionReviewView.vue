@@ -642,7 +642,7 @@ async function handleReject() {
   border: 1px solid rgba(96, 141, 248, 0.15) !important;
 
   [data-theme="dark"] & {
-    background: #1a1a1a !important;
+    background: #242424 !important;
     border-color: #202020 !important;
   }
 }
@@ -815,7 +815,7 @@ async function handleReject() {
 
 .thoughts-grid {
   background: var(--bg-muted);
-  border-radius: var(--r-lg);
+  border-radius: 4px;
   padding: 14px 16px 4px;
   margin-bottom: 4px;
 }
