@@ -21,13 +21,10 @@
 
     <div v-if="question">
 
-      <!-- ── 原始题干（只读）── -->
+      <!-- ── 题干内容（只读）── -->
       <div class="surface section-block">
         <div class="section-hd">
-          <span class="section-title">原始题干</span>
-          <span class="status-badge" :class="`status-badge--${question.status}`">
-            {{ QuestionStatusLabels[question.status as QuestionStatus] }}
-          </span>
+          <span class="section-title">题干内容</span>
         </div>
         <div class="stem-display">{{ question.stem }}</div>
       </div>
@@ -641,6 +638,13 @@ async function handleReject() {
   padding: 5px 15px 15px;
   margin-bottom: 15px;
   border-radius: 4px !important;
+  box-shadow: none !important;
+  border: 1px solid rgba(96, 141, 248, 0.15) !important;
+
+  [data-theme="dark"] & {
+    background: #1a1a1a !important;
+    border-color: #202020 !important;
+  }
 }
 
 .stem-display {
@@ -648,10 +652,15 @@ async function handleReject() {
   color: var(--text-1);
   line-height: 1.75;
   background: var(--bg-muted);
-  border-radius: var(--r-lg);
+  border-radius: 4px;
   padding: 14px 16px;
   white-space: pre-wrap;
   word-break: break-word;
+
+  [data-theme="dark"] & {
+    background: #282b31;
+    color: #ffffff;
+  }
 }
 
 .edit-hint {
@@ -685,7 +694,6 @@ async function handleReject() {
   font-weight: 600;
   color: var(--text-2);
   padding: 12px 0 10px;
-  border-bottom: 1px solid var(--border);
   margin-bottom: 14px;
   display: flex;
   align-items: center;
@@ -702,7 +710,7 @@ async function handleReject() {
 
 .answer-block {
   background: var(--bg-muted);
-  border-radius: var(--r-lg);
+  border-radius: 4px;
   padding: 16px 16px 4px;
   margin-bottom: 12px;
 }
