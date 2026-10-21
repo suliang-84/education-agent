@@ -505,7 +505,8 @@ $t-slow:   350ms;
     background: var(--bg-muted) !important;
     color: var(--text-1) !important;
     box-shadow: none !important;
-    &:hover { border-color: var(--indigo) !important; }
+    border-color: var(--border-hover) !important;
+    &:hover { border-color: var(--border-hover) !important; }
     &:focus { border-color: var(--indigo) !important; box-shadow: none !important; }
   }
 

@@ -831,7 +831,7 @@ async function handleReject() {
   min-height: 32px;
 }
 
-// ── 覆盖 EP CSS 变量（在页面根级别生效）──────────────────────
+// ── 覆盖 EP CSS 变量 ─────────────────────────────────────────
 :deep(.el-form) {
   --el-disabled-text-color: var(--text-1);
   --el-disabled-bg-color: var(--bg-muted);
@@ -839,18 +839,60 @@ async function handleReject() {
   --el-color-primary: var(--color-primary);
 }
 
-// ── disabled：textarea 覆盖
-// 根因：全局 dark 主题对 .el-textarea__inner:hover 设置了 border-color: var(--indigo)
-// 必须在此覆盖 border-color（而非 box-shadow），否则暗主题 hover 仍显示荧光绿边框
+// ── 全页面表单组件：去除 hover 效果，cursor 改为默认箭头 ──────
+// cursor
+:deep(.el-input__wrapper),
+:deep(.el-select__wrapper),
+:deep(.el-textarea__inner),
+:deep(.el-input-number) {
+  cursor: default !important;
+  * { cursor: default !important; }
+}
+
+// input/select hover（亮主题）：维持基础边框色，不变蓝
+:deep(.el-input__wrapper:hover:not(.is-focus)) {
+  border-color: rgba(220, 224, 234, 1) !important;
+  box-shadow: none !important;
+}
+:deep(.el-select__wrapper.is-hovering:not(.is-focused)) {
+  box-shadow: 0 0 0 1px rgba(220, 224, 234, 1) inset !important;
+}
+:deep(.el-select .el-input__wrapper:hover) {
+  box-shadow: 0 0 0 1px rgba(220, 224, 234, 1) inset !important;
+  border-color: rgba(220, 224, 234, 1) !important;
+}
+// textarea hover（亮主题）
+:deep(.el-textarea__inner:hover) {
+  border-color: rgba(220, 224, 234, 1) !important;
+}
+
+// input/select hover（暗主题）：维持暗主题基础边框色
+[data-theme="dark"] .page-root :deep(.el-input__wrapper:hover:not(.is-focus)) {
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+[data-theme="dark"] .page-root :deep(.el-select__wrapper.is-hovering:not(.is-focused)) {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.10) inset !important;
+}
+[data-theme="dark"] .page-root :deep(.el-select .el-input__wrapper:hover) {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.10) inset !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+// textarea hover（暗主题）
+[data-theme="dark"] .page-root :deep(.el-textarea__inner:hover) {
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+// ── disabled：文字颜色（textarea / input）────────────────────
 :deep(.el-textarea.is-disabled .el-textarea__inner) {
   color: var(--text-1) !important;
   -webkit-text-fill-color: var(--text-1) !important;
-  cursor: default !important;
-  &:hover { border-color: var(--border) !important; }
+}
+:deep(.el-input.is-disabled .el-input__inner),
+:deep(.el-input-number.is-disabled .el-input__inner) {
+  -webkit-text-fill-color: var(--text-1) !important;
 }
 
 // ── disabled+checked：radio / checkbox button 用主题亮色高亮 ──
-// EP 禁用+选中态不走 --el-radio-button-checked-bg-color，需直接选择器覆盖
 :deep(.el-radio-button__orig-radio:checked:disabled + .el-radio-button__inner),
 :deep(.el-checkbox-button__original:checked:disabled + .el-checkbox-button__inner) {
   background-color: var(--color-primary) !important;
@@ -858,28 +900,18 @@ async function handleReject() {
   box-shadow: -1px 0 0 0 var(--color-primary) !important;
   color: #ffffff !important;
 }
-// 暗主题下亮色背景（#bcfd2f）需深色文字
-.page-root :deep(.el-radio-button__orig-radio:checked:disabled + .el-radio-button__inner),
-.page-root :deep(.el-checkbox-button__original:checked:disabled + .el-checkbox-button__inner) {
-  color: #ffffff;
-}
 [data-theme="dark"] .page-root :deep(.el-radio-button__orig-radio:checked:disabled + .el-radio-button__inner),
 [data-theme="dark"] .page-root :deep(.el-checkbox-button__original:checked:disabled + .el-checkbox-button__inner) {
   color: #0D0D0D !important;
 }
 
-// ── disabled：input / select cursor & text color ────────────────
-:deep(.el-input.is-disabled),
-:deep(.el-select.is-disabled),
-:deep(.el-input-number.is-disabled) {
+// ── radio / checkbox button disabled cursor ─────────────────────
+:deep(.el-radio-button.is-disabled .el-radio-button__inner),
+:deep(.el-checkbox-button.is-disabled .el-checkbox-button__inner) {
   cursor: default !important;
-  * { cursor: default !important; }
-  .el-input__inner { -webkit-text-fill-color: var(--text-1) !important; }
-  .el-input__wrapper:hover { border-color: var(--border) !important; }
-  .el-select__wrapper:hover { box-shadow: 0 0 0 1px var(--border) inset !important; }
 }
 
-// ── 知识点 multiple select disabled：去除 tag 盒子样式 ──────────
+// ── 知识点 select disabled：去除 tag 盒子样式 ────────────────
 :deep(.el-select.is-disabled .el-tag) {
   background: transparent !important;
   border-color: transparent !important;
@@ -889,11 +921,5 @@ async function handleReject() {
   line-height: 22px !important;
   .el-tag__content { color: var(--text-1) !important; }
   .el-tag__close { display: none !important; }
-}
-
-// ── radio / checkbox button disabled cursor ─────────────────────
-:deep(.el-radio-button.is-disabled .el-radio-button__inner),
-:deep(.el-checkbox-button.is-disabled .el-checkbox-button__inner) {
-  cursor: default !important;
 }
 </style>
