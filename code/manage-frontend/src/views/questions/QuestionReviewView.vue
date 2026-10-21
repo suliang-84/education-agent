@@ -26,7 +26,7 @@
         <div class="section-hd">
           <span class="section-title">题干内容</span>
         </div>
-        <div class="stem-display">{{ question.stem }}</div>
+        <el-input v-model="question.stem" type="textarea" :rows="7" :disabled="!isEditable" />
       </div>
 
       <!-- ── 分析结果（可修改，仅 pending_review 状态）── -->
@@ -41,47 +41,39 @@
           </span>
         </div>
 
-        <el-form :model="form" label-width="100px">
+        <el-form :model="form" label-width="90px">
 
           <!-- ── 归属体系（五级）── -->
-          <div class="sub-section-title">归属体系（五级知识体系）</div>
-          <el-row :gutter="20">
-            <el-col :span="5">
-              <el-form-item label="科目">
-                <el-select v-model="form.subject_id" :disabled="!isEditable" style="width:100%" @change="onSubjectChange">
-                  <el-option v-for="s in subjectOptions" :key="s.id" :label="s.name" :value="s.id" />
-                </el-select>
-              </el-form-item>
-            </el-col>
-            <el-col :span="5">
-              <el-form-item label="年级">
-                <el-select v-model="form.grade_id" :disabled="!isEditable" style="width:100%" @change="onGradeChange">
-                  <el-option v-for="g in gradeOptions" :key="g.id" :label="g.name" :value="g.id" />
-                </el-select>
-              </el-form-item>
-            </el-col>
-            <el-col :span="5">
-              <el-form-item label="学期">
-                <el-select v-model="form.semester_id" :disabled="!isEditable" style="width:100%" @change="onSemesterChange">
-                  <el-option v-for="s in semesterOptions" :key="s.id" :label="s.name" :value="s.id" />
-                </el-select>
-              </el-form-item>
-            </el-col>
-            <el-col :span="9">
-              <el-form-item label="章节">
-                <el-select
-                  v-model="form.chapter_id"
-                  :disabled="!isEditable || chapterOptions.length === 0"
-                  style="width:100%"
-                  clearable
-                  :placeholder="chapterOptions.length === 0 ? '请先选择学期' : '请选择章节'"
-                  @change="onChapterChange"
-                >
-                  <el-option v-for="c in chapterOptions" :key="c.id" :label="c.name" :value="c.id" />
-                </el-select>
-              </el-form-item>
-            </el-col>
-          </el-row>
+          <div class="sub-section-title">归属体系</div>
+          <div class="belongs-row">
+            <el-form-item label="科目">
+              <el-select v-model="form.subject_id" :disabled="!isEditable" style="width:100%" @change="onSubjectChange">
+                <el-option v-for="s in subjectOptions" :key="s.id" :label="s.name" :value="s.id" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="年级">
+              <el-select v-model="form.grade_id" :disabled="!isEditable" style="width:100%" @change="onGradeChange">
+                <el-option v-for="g in gradeOptions" :key="g.id" :label="g.name" :value="g.id" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="学期">
+              <el-select v-model="form.semester_id" :disabled="!isEditable" style="width:100%" @change="onSemesterChange">
+                <el-option v-for="s in semesterOptions" :key="s.id" :label="s.name" :value="s.id" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="章节" style="flex:2">
+              <el-select
+                v-model="form.chapter_id"
+                :disabled="!isEditable || chapterOptions.length === 0"
+                style="width:100%"
+                clearable
+                :placeholder="chapterOptions.length === 0 ? '请先选择学期' : '请选择章节'"
+                @change="onChapterChange"
+              >
+                <el-option v-for="c in chapterOptions" :key="c.id" :label="c.name" :value="c.id" />
+              </el-select>
+            </el-form-item>
+          </div>
 
           <el-form-item label="知识点">
             <el-select
@@ -700,6 +692,17 @@ async function handleReject() {
   gap: 10px;
 }
 
+.belongs-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: nowrap;
+
+  .el-form-item {
+    flex: 1;
+    margin-bottom: 16px;
+  }
+}
+
 .sub-section-hint {
   font-size: 11.5px;
   font-weight: 400;
@@ -826,5 +829,71 @@ async function handleReject() {
   align-items: center;
   gap: 6px;
   min-height: 32px;
+}
+
+// ── 覆盖 EP CSS 变量（在页面根级别生效）──────────────────────
+:deep(.el-form) {
+  --el-disabled-text-color: var(--text-1);
+  --el-disabled-bg-color: var(--bg-muted);
+  --el-disabled-border-color: var(--border);
+  --el-color-primary: var(--color-primary);
+}
+
+// ── disabled：textarea 覆盖
+// 根因：全局 dark 主题对 .el-textarea__inner:hover 设置了 border-color: var(--indigo)
+// 必须在此覆盖 border-color（而非 box-shadow），否则暗主题 hover 仍显示荧光绿边框
+:deep(.el-textarea.is-disabled .el-textarea__inner) {
+  color: var(--text-1) !important;
+  -webkit-text-fill-color: var(--text-1) !important;
+  cursor: default !important;
+  &:hover { border-color: var(--border) !important; }
+}
+
+// ── disabled+checked：radio / checkbox button 用主题亮色高亮 ──
+// EP 禁用+选中态不走 --el-radio-button-checked-bg-color，需直接选择器覆盖
+:deep(.el-radio-button__orig-radio:checked:disabled + .el-radio-button__inner),
+:deep(.el-checkbox-button__original:checked:disabled + .el-checkbox-button__inner) {
+  background-color: var(--color-primary) !important;
+  border-color: var(--color-primary) !important;
+  box-shadow: -1px 0 0 0 var(--color-primary) !important;
+  color: #ffffff !important;
+}
+// 暗主题下亮色背景（#bcfd2f）需深色文字
+.page-root :deep(.el-radio-button__orig-radio:checked:disabled + .el-radio-button__inner),
+.page-root :deep(.el-checkbox-button__original:checked:disabled + .el-checkbox-button__inner) {
+  color: #ffffff;
+}
+[data-theme="dark"] .page-root :deep(.el-radio-button__orig-radio:checked:disabled + .el-radio-button__inner),
+[data-theme="dark"] .page-root :deep(.el-checkbox-button__original:checked:disabled + .el-checkbox-button__inner) {
+  color: #0D0D0D !important;
+}
+
+// ── disabled：input / select cursor & text color ────────────────
+:deep(.el-input.is-disabled),
+:deep(.el-select.is-disabled),
+:deep(.el-input-number.is-disabled) {
+  cursor: default !important;
+  * { cursor: default !important; }
+  .el-input__inner { -webkit-text-fill-color: var(--text-1) !important; }
+  .el-input__wrapper:hover { border-color: var(--border) !important; }
+  .el-select__wrapper:hover { box-shadow: 0 0 0 1px var(--border) inset !important; }
+}
+
+// ── 知识点 multiple select disabled：去除 tag 盒子样式 ──────────
+:deep(.el-select.is-disabled .el-tag) {
+  background: transparent !important;
+  border-color: transparent !important;
+  color: var(--text-1) !important;
+  padding: 0 2px !important;
+  height: 22px !important;
+  line-height: 22px !important;
+  .el-tag__content { color: var(--text-1) !important; }
+  .el-tag__close { display: none !important; }
+}
+
+// ── radio / checkbox button disabled cursor ─────────────────────
+:deep(.el-radio-button.is-disabled .el-radio-button__inner),
+:deep(.el-checkbox-button.is-disabled .el-checkbox-button__inner) {
+  cursor: default !important;
 }
 </style>
