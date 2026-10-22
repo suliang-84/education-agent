@@ -195,6 +195,14 @@ export const questionApi = {
     ),
 
   /**
+   * 更新已发布/已停用题目的完整字段（subject/grade/answer/weights 等）
+   * 不改变状态，仅更新内容字段
+   * PATCH /api/v1/admin/questions/{question_id}/content
+   */
+  updateFull: (questionId: number, data: PublishPayload & { stem?: string }) =>
+    request.patch<unknown, { question_id: number }>(`/questions/${questionId}/content`, data),
+
+  /**
    * 软删除题目（仅 draft 状态允许）
    * DELETE /api/v1/admin/questions/{question_id}
    * 接口文档：§9.1.8

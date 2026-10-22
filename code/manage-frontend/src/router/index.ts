@@ -76,6 +76,12 @@ const router = createRouter({
           meta: { title: '审核分析结果' },
         },
         {
+          path: 'questions/:id/archived-edit',
+          name: 'QuestionArchivedEdit',
+          component: () => import('@/views/questions/QuestionArchivedEditView.vue'),
+          meta: { title: '编辑训练题' },
+        },
+        {
           path: 'cognitive-test',
           name: 'CognitiveTest',
           component: () => import('@/views/cognitive-test/CognitiveTestView.vue'),
