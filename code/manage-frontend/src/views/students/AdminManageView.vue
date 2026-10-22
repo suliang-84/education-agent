@@ -11,9 +11,9 @@
         </el-button>
       </div>
       <el-table :data="adminUsers" v-loading="loading" style="width:100%">
-        <el-table-column label="ID" width="70" align="center">
-          <template #default="{ row }">
-            <span class="num" style="color:var(--text-3)">{{ row.id }}</span>
+        <el-table-column label="序号" width="60" align="center">
+          <template #default="{ $index }">
+            <span class="num" style="color:var(--text-3);font-size:12px">{{ $index + 1 }}</span>
           </template>
         </el-table-column>
 
@@ -54,10 +54,16 @@
 
         <el-table-column label="操作" width="200" align="center" fixed="right">
           <template #default="{ row }">
-            <el-button v-if="row.is_active === 1" text size="small" style="color:var(--amber)" @click="toggleAdmin(row, 0)">停用</el-button>
-            <el-button v-if="row.is_active === 0" text size="small" style="color:var(--green)" @click="toggleAdmin(row, 1)">启用</el-button>
+            <el-button v-if="row.is_active === 1" text size="small" style="color:var(--amber)" @click="toggleAdmin(row, 0)">
+              <SvgIcon name="pause" :size="18" color="var(--amber)" title="停用" />
+            </el-button>
+            <el-button v-if="row.is_active === 0" text size="small" style="color:var(--green)" @click="toggleAdmin(row, 1)">
+              <SvgIcon name="play" :size="18" color="var(--green)" title="启用" />
+            </el-button>
             <el-button text size="small" style="color:var(--indigo)" @click="confirmResetPwd(row)">重置密码</el-button>
-            <el-button v-if="row.is_active === 0" text size="small" style="color:var(--red)" @click="confirmDelete(row)">删除</el-button>
+            <el-button v-if="row.is_active === 0" text size="small" style="color:var(--red)" @click="confirmDelete(row)">
+              <SvgIcon name="delete" :size="18" color="var(--red)" title="删除" />
+            </el-button>
           </template>
         </el-table-column>
       </el-table>

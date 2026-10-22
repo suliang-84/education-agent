@@ -85,8 +85,6 @@
                 v-else
                 v-model="form.knowledge_point_ids"
                 multiple
-                collapse-tags
-                collapse-tags-tooltip
                 :disabled="knowledgePointOptions.length === 0"
                 :placeholder="knowledgePointOptions.length === 0 ? '请先选择章节' : '请选择知识点（可多选）'"
                 style="width:100%"
@@ -104,11 +102,11 @@
                 <el-form-item label="题目类型">
                   <span v-if="!isEditable" class="plain-value">{{ questionTypeLabel }}</span>
                   <el-radio-group v-else v-model="form.question_type" @change="onQuestionTypeChange">
-                    <el-radio-button value="SINGLE_CHOICE">单选题</el-radio-button>
-                    <el-radio-button value="MULTIPLE_CHOICE">多选题</el-radio-button>
-                    <el-radio-button value="FILL_BLANK">填空题</el-radio-button>
-                    <el-radio-button value="TRUE_FALSE">判断题</el-radio-button>
-                    <el-radio-button value="APPLICATION">应用题</el-radio-button>
+                    <el-radio value="SINGLE_CHOICE">单选题</el-radio>
+                    <el-radio value="MULTIPLE_CHOICE">多选题</el-radio>
+                    <el-radio value="FILL_BLANK">填空题</el-radio>
+                    <el-radio value="TRUE_FALSE">判断题</el-radio>
+                    <el-radio value="APPLICATION">应用题</el-radio>
                   </el-radio-group>
                 </el-form-item>
               </el-col>
@@ -116,9 +114,9 @@
                 <el-form-item label="难度等级">
                   <span v-if="!isEditable" class="plain-value">{{ difficultyLabel }}</span>
                   <el-radio-group v-else v-model="form.difficulty">
-                    <el-radio-button value="basic">基础</el-radio-button>
-                    <el-radio-button value="advanced">进阶</el-radio-button>
-                    <el-radio-button value="challenge">挑战</el-radio-button>
+                    <el-radio value="basic">基础</el-radio>
+                    <el-radio value="advanced">进阶</el-radio>
+                    <el-radio value="challenge">挑战</el-radio>
                   </el-radio-group>
                 </el-form-item>
               </el-col>
@@ -133,12 +131,11 @@
             <el-form-item label="正确选项">
               <span v-if="!isEditable" class="plain-value">{{ form.answer_single || '—' }}</span>
               <el-radio-group v-else v-model="form.answer_single">
-                <el-radio-button value="A">A</el-radio-button>
-                <el-radio-button value="B">B</el-radio-button>
-                <el-radio-button value="C">C</el-radio-button>
-                <el-radio-button value="D">D</el-radio-button>
+                <el-radio value="A">A</el-radio>
+                <el-radio value="B">B</el-radio>
+                <el-radio value="C">C</el-radio>
+                <el-radio value="D">D</el-radio>
               </el-radio-group>
-              <div class="answer-hint">标注题干中正确选项对应的字母</div>
             </el-form-item>
           </div>
 
@@ -147,39 +144,45 @@
             <el-form-item label="正确选项">
               <span v-if="!isEditable" class="plain-value">{{ form.answer_multi.join('、') || '—' }}</span>
               <el-checkbox-group v-else v-model="form.answer_multi">
-                <el-checkbox-button value="A">A</el-checkbox-button>
-                <el-checkbox-button value="B">B</el-checkbox-button>
-                <el-checkbox-button value="C">C</el-checkbox-button>
-                <el-checkbox-button value="D">D</el-checkbox-button>
+                <el-checkbox value="A">A</el-checkbox>
+                <el-checkbox value="B">B</el-checkbox>
+                <el-checkbox value="C">C</el-checkbox>
+                <el-checkbox value="D">D</el-checkbox>
               </el-checkbox-group>
-              <div class="answer-hint">可选多个正确选项</div>
             </el-form-item>
           </div>
 
           <!-- 填空题 -->
           <div v-else-if="form.question_type === 'FILL_BLANK'" class="answer-block">
             <el-form-item label="标准答案">
-              <span v-if="!isEditable" class="plain-value">
-                {{ form.answer_blanks.filter(Boolean).join('、') || '—' }}
-              </span>
-              <div v-else class="fill-blank-answers">
-                <div v-for="(ans, idx) in form.answer_blanks" :key="idx" class="fill-blank-item">
-                  <span class="fill-blank-label">第 {{ idx + 1 }} 空</span>
-                  <el-input
-                    v-model="form.answer_blanks[idx]"
-                    placeholder="填入标准答案"
-                    style="width:180px"
-                    size="small"
-                  />
-                  <el-button
-                    v-if="form.answer_blanks.length > 1"
-                    text size="small" style="color:var(--red)"
-                    @click="form.answer_blanks.splice(idx, 1)"
-                  >删除</el-button>
-                </div>
-                <el-button size="small" @click="form.answer_blanks.push('')">+ 添加空</el-button>
+              <div v-if="!isEditable" class="plain-steps">
+                <span v-for="(ans, idx) in form.answer_blanks" :key="idx" class="plain-value" style="margin-bottom:6px">
+                  {{ idx + 1 }}. {{ ans || '—' }}
+                </span>
               </div>
-              <div class="answer-hint">多空题目请逐空填写标准答案</div>
+              <div v-else class="key-steps">
+                <el-input
+                  v-for="(ans, idx) in form.answer_blanks" :key="idx"
+                  v-model="form.answer_blanks[idx]"
+                  placeholder="填入标准答案"
+                  style="margin-bottom:6px"
+                >
+                  <template #prefix><span style="margin-right:10px">{{ idx + 1 }}.</span></template>
+                  <template #suffix>
+                    <SvgIcon
+                      name="add" :size="15" color="var(--color-primary)"
+                      style="cursor:pointer;margin-right:6px"
+                      @click="form.answer_blanks.splice(idx + 1, 0, '')"
+                    />
+                    <SvgIcon
+                      v-if="form.answer_blanks.length > 1"
+                      name="delete" :size="15" color="var(--red)"
+                      style="cursor:pointer"
+                      @click="form.answer_blanks.splice(idx, 1)"
+                    />
+                  </template>
+                </el-input>
+              </div>
             </el-form-item>
           </div>
 
@@ -190,8 +193,8 @@
                 {{ form.answer_tf ? '✓ 正确（对）' : '✗ 错误（错）' }}
               </span>
               <el-radio-group v-else v-model="form.answer_tf">
-                <el-radio-button :value="true">✓ 正确（对）</el-radio-button>
-                <el-radio-button :value="false">✗ 错误（错）</el-radio-button>
+                <el-radio :value="true">✓ 正确（对）</el-radio>
+                <el-radio :value="false">✗ 错误（错）</el-radio>
               </el-radio-group>
             </el-form-item>
           </div>
@@ -213,24 +216,28 @@
                 </span>
               </div>
               <div v-else class="key-steps">
-                <div v-for="(step, idx) in form.answer_steps" :key="idx" class="key-step-item">
-                  <el-input
-                    v-model="form.answer_steps[idx]"
-                    :placeholder="`第 ${idx + 1} 个关键步骤`"
-                    size="small"
-                    style="flex:1"
-                  >
-                    <template #prefix>{{ idx + 1 }}.</template>
-                  </el-input>
-                  <el-button
-                    v-if="form.answer_steps.length > 1"
-                    text size="small" style="color:var(--red)"
-                    @click="form.answer_steps.splice(idx, 1)"
-                  >删除</el-button>
-                </div>
-                <el-button size="small" @click="form.answer_steps.push('')">+ 添加步骤</el-button>
+                <el-input
+                  v-for="(step, idx) in form.answer_steps" :key="idx"
+                  v-model="form.answer_steps[idx]"
+                  :placeholder="`第 ${idx + 1} 个关键步骤`"
+                  style="margin-bottom:6px"
+                >
+                  <template #prefix><span style="margin-right:10px">{{ idx + 1 }}.</span></template>
+                  <template #suffix>
+                    <SvgIcon
+                      name="add" :size="15" color="var(--color-primary)"
+                      style="cursor:pointer;margin-right:6px"
+                      @click="form.answer_steps.splice(idx + 1, 0, '')"
+                    />
+                    <SvgIcon
+                      v-if="form.answer_steps.length > 1"
+                      name="delete" :size="15" color="var(--red)"
+                      style="cursor:pointer"
+                      @click="form.answer_steps.splice(idx, 1)"
+                    />
+                  </template>
+                </el-input>
               </div>
-              <div class="answer-hint">列出解题的关键推导步骤，无需完整，突出思路节点即可</div>
             </el-form-item>
           </div>
 
@@ -304,32 +311,7 @@
             </el-form-item>
           </div>
 
-          <!-- 迁移方向 -->
-          <div class="sub-section-title">迁移方向</div>
-          <div class="section-content">
-            <el-form-item label="迁移方向">
-              <span v-if="!isEditable" class="plain-value">{{ migrationDisplayText }}</span>
-            <div v-else class="tag-area">
-              <el-tag
-                v-for="(d, i) in form.migration_directions" :key="i"
-                type="success" closable
-                :disable-transitions="false"
-                @close="form.migration_directions.splice(i, 1)"
-                style="margin-right:6px;margin-bottom:4px"
-              >{{ d }}</el-tag>
-              <el-input
-                v-if="mdInputVisible"
-                ref="mdInputRef"
-                v-model="mdInput"
-                size="small"
-                style="width:130px"
-                @keyup.enter="addMigrationDir"
-                @blur="addMigrationDir"
-              />
-              <el-button v-else size="small" @click="showMdInput">+ 添加方向</el-button>
-            </div>
-          </el-form-item>
-          </div>
+          <!-- 迁移方向（已隐藏）-->
 
         </el-form>
       </div>
@@ -665,6 +647,12 @@ async function handleReject() {
 </script>
 
 <style lang="scss" scoped>
+// ── 隐藏页面滚动条 ────────────────────────────────────────────
+.page-root {
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
+
 // ── 顶部操作栏 ───────────────────────────────────────────────
 .form-topbar {
   display: flex;
@@ -810,6 +798,7 @@ async function handleReject() {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  width: 100%;
 }
 
 .key-step-item {
@@ -997,22 +986,13 @@ async function handleReject() {
   -webkit-text-fill-color: var(--text-1) !important;
 }
 
-// ── disabled+checked：radio / checkbox button 用主题亮色高亮 ──
-:deep(.el-radio-button__orig-radio:checked:disabled + .el-radio-button__inner),
-:deep(.el-checkbox-button__original:checked:disabled + .el-checkbox-button__inner) {
-  background-color: var(--color-primary) !important;
-  border-color: var(--color-primary) !important;
-  box-shadow: -1px 0 0 0 var(--color-primary) !important;
-  color: #ffffff !important;
+// ── disabled radio/checkbox cursor ──────────────────────────────
+:deep(.el-radio.is-disabled .el-radio__input),
+:deep(.el-checkbox.is-disabled .el-checkbox__input) {
+  cursor: default !important;
 }
-[data-theme="dark"] .page-root :deep(.el-radio-button__orig-radio:checked:disabled + .el-radio-button__inner),
-[data-theme="dark"] .page-root :deep(.el-checkbox-button__original:checked:disabled + .el-checkbox-button__inner) {
-  color: #0D0D0D !important;
-}
-
-// ── radio / checkbox button disabled cursor ─────────────────────
-:deep(.el-radio-button.is-disabled .el-radio-button__inner),
-:deep(.el-checkbox-button.is-disabled .el-checkbox-button__inner) {
+:deep(.el-radio.is-disabled),
+:deep(.el-checkbox.is-disabled) {
   cursor: default !important;
 }
 

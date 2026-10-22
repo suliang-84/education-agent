@@ -46,9 +46,9 @@
 
         <el-table :data="students" v-loading="sLoading" style="width:100%">
 
-          <el-table-column label="ID" width="90">
-            <template #default="{ row }">
-              <span class="id-chip">#{{ row.id }}</span>
+          <el-table-column label="序号" width="60" align="center">
+            <template #default="{ $index }">
+              <span class="num" style="color:var(--text-3);font-size:12px">{{ (sPage - 1) * 20 + $index + 1 }}</span>
             </template>
           </el-table-column>
 
@@ -64,21 +64,23 @@
             </template>
           </el-table-column>
 
-          <el-table-column label="最强力" width="100">
+          <el-table-column label="最强力" width="100" align="center">
             <template #default="{ row }">
-              <span v-if="row.strongest_power" class="power-badge" :class="`power-badge--${row.strongest_power}`">
+              <span v-if="row.strongest_power" class="power-dot-label" :class="`power-dot-label--${row.strongest_power}`">
+                <span class="power-dot-label__dot" />
                 {{ FivePowerLabels[row.strongest_power as FivePower] }}
               </span>
-              <span v-else class="tag-muted">未测试</span>
+              <span v-else style="color:var(--text-3);font-size:12px">—</span>
             </template>
           </el-table-column>
 
-          <el-table-column label="最弱力" width="100">
+          <el-table-column label="最弱力" width="100" align="center">
             <template #default="{ row }">
-              <span v-if="row.weakest_power" class="power-badge" :class="`power-badge--${row.weakest_power}`">
+              <span v-if="row.weakest_power" class="power-dot-label" :class="`power-dot-label--${row.weakest_power}`">
+                <span class="power-dot-label__dot" />
                 {{ FivePowerLabels[row.weakest_power as FivePower] }}
               </span>
-              <span v-else class="tag-muted">未测试</span>
+              <span v-else style="color:var(--text-3);font-size:12px">—</span>
             </template>
           </el-table-column>
 
@@ -110,9 +112,13 @@
 
           <el-table-column label="操作" width="200" align="center" fixed="right">
             <template #default="{ row }">
-              <el-button text size="small" style="color:var(--indigo)" @click="$router.push(`/students/${row.id}`)">画像</el-button>
+              <el-button text size="small" style="color:var(--color-primary)" @click="$router.push(`/students/${row.id}`)">
+                <SvgIcon name="profile" :size="18" color="var(--color-primary)" title="画像" />
+              </el-button>
               <el-button text size="small" style="color:var(--indigo)" @click="$router.push(`/students/${row.id}/ai-prompt`)">摘要</el-button>
-              <el-button text size="small" style="color:var(--text-2)" @click="openBindParent(row)">绑定家长</el-button>
+              <el-button text size="small" style="color:var(--color-primary)" @click="openBindParent(row)">
+                <SvgIcon name="bind" :size="18" color="var(--color-primary)" title="绑定家长" />
+              </el-button>
             </template>
           </el-table-column>
 
@@ -142,9 +148,9 @@
 
         <el-table :data="parents" v-loading="pLoading" style="width:100%">
 
-          <el-table-column label="ID" width="90">
-            <template #default="{ row }">
-              <span class="id-chip">#{{ row.id }}</span>
+          <el-table-column label="序号" width="60" align="center">
+            <template #default="{ $index }">
+              <span class="num" style="color:var(--text-3);font-size:12px">{{ $index + 1 }}</span>
             </template>
           </el-table-column>
 
@@ -215,9 +221,9 @@
         </div>
         <el-table :data="adminUsers" v-loading="aLoading" style="width:100%">
 
-          <el-table-column label="ID" width="70" align="center">
-            <template #default="{ row }">
-              <span class="num" style="color:var(--text-3)">{{ row.id }}</span>
+          <el-table-column label="序号" width="60" align="center">
+            <template #default="{ $index }">
+              <span class="num" style="color:var(--text-3);font-size:12px">{{ $index + 1 }}</span>
             </template>
           </el-table-column>
 
@@ -262,18 +268,18 @@
                 v-if="row.is_active === 1"
                 text size="small" style="color:var(--amber)"
                 @click="toggleAdmin(row, 0)"
-              >停用</el-button>
+              ><SvgIcon name="pause" :size="18" color="var(--amber)" title="停用" /></el-button>
               <el-button
                 v-if="row.is_active === 0"
                 text size="small" style="color:var(--green)"
                 @click="toggleAdmin(row, 1)"
-              >启用</el-button>
+              ><SvgIcon name="play" :size="18" color="var(--green)" title="启用" /></el-button>
               <el-button text size="small" style="color:var(--indigo)" @click="confirmResetPwd(row)">重置密码</el-button>
               <el-button
                 v-if="row.is_active === 0"
                 text size="small" style="color:var(--red)"
                 @click="confirmDeleteAdmin(row)"
-              >删除</el-button>
+              ><SvgIcon name="delete" :size="18" color="var(--red)" title="删除" /></el-button>
             </template>
           </el-table-column>
 
@@ -625,6 +631,27 @@ onMounted(loadStudents)
 </script>
 
 <style lang="scss" scoped>
+.power-dot-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 13.5px;
+  font-weight: 400;
+
+  &__dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  &--INSIGHT   { color: var(--el-table-text-color); .power-dot-label__dot { background: var(--power-insight); } }
+  &--CONSTRUCT { color: var(--el-table-text-color); .power-dot-label__dot { background: var(--power-construct); } }
+  &--DEDUCE    { color: var(--el-table-text-color); .power-dot-label__dot { background: var(--power-deduce); } }
+  &--ADAPT     { color: var(--el-table-text-color); .power-dot-label__dot { background: var(--power-adapt); } }
+  &--MIGRATE   { color: var(--el-table-text-color); .power-dot-label__dot { background: var(--power-migrate); } }
+}
+
 // ── Tab 栏 ───────────────────────────────────────────────────
 .tab-bar {
   display: flex;

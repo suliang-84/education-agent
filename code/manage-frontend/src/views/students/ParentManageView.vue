@@ -12,9 +12,9 @@
       </div>
 
       <el-table :data="parents" v-loading="loading" style="width:100%">
-        <el-table-column label="ID" width="90">
-          <template #default="{ row }">
-            <span class="id-chip">#{{ row.id }}</span>
+        <el-table-column label="序号" width="60" align="center">
+          <template #default="{ $index }">
+            <span class="num" style="color:var(--text-3);font-size:12px">{{ (page - 1) * pageSize + $index + 1 }}</span>
           </template>
         </el-table-column>
 

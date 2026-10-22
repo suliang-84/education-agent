@@ -9,7 +9,7 @@
         <el-select v-model="filterStatus" placeholder="全部状态" clearable size="small" style="width:120px">
           <el-option label="草稿" value="draft" />
           <el-option label="已发布" value="published" />
-          <el-option label="已下架" value="archived" />
+          <el-option label="已停用" value="archived" />
         </el-select>
         <el-input v-model="searchText" placeholder="搜索题干..." clearable size="small" style="flex:1;min-width:130px;max-width:260px">
           <template #prefix>
@@ -18,7 +18,6 @@
             </svg>
           </template>
         </el-input>
-        <span style="font-size:13px;color:var(--text-3);flex-shrink:0">共 {{ filteredQuestions.length }} 道</span>
         <div style="flex:1" />
         <el-button type="primary" @click="router.push('/cognitive-test/create')">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px">
@@ -67,27 +66,19 @@
           </template>
         </el-table-column>
 
-        <!-- 题号 -->
-        <el-table-column label="#" prop="question_no" width="60" align="center">
-          <template #default="{ row }">
-            <span class="num" style="font-weight:600;color:var(--indigo)">{{ row.question_no }}</span>
+        <!-- 序号 -->
+        <el-table-column label="序号" width="60" align="center">
+          <template #default="{ $index }">
+            <span class="num" style="color:var(--text-3);font-size:12px">{{ $index + 1 }}</span>
           </template>
         </el-table-column>
 
         <!-- 状态 -->
-        <el-table-column label="状态" width="90">
+        <el-table-column label="状态" width="90" align="center">
           <template #default="{ row }">
             <span class="status-badge" :class="`status-badge--${row.status}`">
               {{ CognitiveQuestionStatusLabels[row.status as CognitiveQuestionStatus] }}
             </span>
-          </template>
-        </el-table-column>
-
-        <!-- 答案数 -->
-        <el-table-column label="答案数" width="80" align="center">
-          <template #default="{ row }">
-            <span class="num" style="color:var(--text-2)">{{ row.answers?.length ?? 0 }}</span>
-            <span style="color:var(--text-3);font-size:12px"> 项</span>
           </template>
         </el-table-column>
 
@@ -123,19 +114,27 @@
                   <SvgIcon name="edit" :size="18" color="var(--indigo)" title="编辑" />
                 </el-button>
                 <el-button text size="small" style="color:var(--green)" @click="confirmPublish(row)">发布</el-button>
-                <el-button text size="small" style="color:var(--red)" @click="confirmDelete(row)">删除</el-button>
+                <el-button text size="small" style="color:var(--red)" @click="confirmDelete(row)">
+                  <SvgIcon name="delete" :size="18" color="var(--red)" title="删除" />
+                </el-button>
               </template>
               <!-- 已发布 -->
               <template v-else-if="row.status === 'published'">
-                <el-button text size="small" style="color:var(--amber)" @click="confirmArchive(row)">下架</el-button>
+                <el-button text size="small" style="color:var(--amber)" @click="confirmArchive(row)">
+                  <SvgIcon name="pause" :size="18" color="var(--amber)" title="停用" />
+                </el-button>
               </template>
-              <!-- 已下架 -->
+              <!-- 已停用 -->
               <template v-else>
                 <el-button text size="small" style="color:var(--indigo)" @click="router.push(`/cognitive-test/${row.id}/edit`)">
                   <SvgIcon name="edit" :size="18" color="var(--indigo)" title="编辑" />
                 </el-button>
-                <el-button text size="small" style="color:var(--green)" @click="confirmRepublish(row)">重新发布</el-button>
-                <el-button text size="small" style="color:var(--red)" @click="confirmDelete(row)">删除</el-button>
+                <el-button text size="small" style="color:var(--green)" @click="confirmRepublish(row)">
+                  <SvgIcon name="play" :size="18" color="var(--green)" title="启用" />
+                </el-button>
+                <el-button text size="small" style="color:var(--red)" @click="confirmDelete(row)">
+                  <SvgIcon name="delete" :size="18" color="var(--red)" title="删除" />
+                </el-button>
               </template>
             </div>
           </template>
@@ -162,21 +161,21 @@
       </template>
     </el-dialog>
 
-    <!-- ── 下架确认弹窗 ── -->
-    <el-dialog v-model="archiveDialogVisible" title="确认下架此题目？" width="440px">
+    <!-- ── 停用确认弹窗 ── -->
+    <el-dialog v-model="archiveDialogVisible" title="确认停用此题目？" width="440px">
       <div style="line-height:1.8;font-size:14px;color:var(--text-2)">
-        <p>下架后该题不再参与新测试组卷。</p>
-        <p>当前已发布：<strong class="num">{{ publishedCount }}</strong> 道，下架后将剩：<strong class="num">{{ publishedCount - 1 }}</strong> 道</p>
+        <p>停用后该题不再参与新测试组卷。</p>
+        <p>当前已发布：<strong class="num">{{ publishedCount }}</strong> 道，停用后将剩：<strong class="num">{{ publishedCount - 1 }}</strong> 道</p>
         <div v-if="publishedCount - 1 < 10" style="margin-top:12px;padding:10px 14px;background:var(--amber-dim);border:1px solid var(--amber-border);border-radius:var(--r-lg);color:var(--amber);font-size:13px">
-          ⚠ 下架后已发布题目将不足10道，测试功能将暂停，请尽快补充发布。
+          ⚠ 停用后已发布题目将不足10道，测试功能将暂停，请尽快补充发布。
         </div>
         <div v-else style="margin-top:12px;padding:10px 14px;background:var(--indigo-light);border:1px solid var(--indigo-border);border-radius:var(--r-lg);color:var(--indigo);font-size:13px">
-          下架后仍有 {{ publishedCount - 1 }} 道题目，测试功能保持正常。
+          停用后仍有 {{ publishedCount - 1 }} 道题目，测试功能保持正常。
         </div>
       </div>
       <template #footer>
         <el-button @click="archiveDialogVisible = false">取消</el-button>
-        <el-button type="warning" :loading="saving" @click="doArchive">确认下架</el-button>
+        <el-button type="warning" :loading="saving" @click="doArchive">确认停用</el-button>
       </template>
     </el-dialog>
 
@@ -184,7 +183,7 @@
     <el-dialog v-model="deleteDialogVisible" title="确认删除此草稿题目？" width="400px">
       <div style="line-height:1.8;font-size:14px;color:var(--text-2)">
         <p>此操作不可撤销，草稿题目将被永久删除。</p>
-        <p style="color:var(--text-3);font-size:13px">已发布或已下架的题目不可删除。</p>
+        <p style="color:var(--text-3);font-size:13px">已发布或已停用的题目不可删除。</p>
       </div>
       <template #footer>
         <el-button @click="deleteDialogVisible = false">取消</el-button>
@@ -286,7 +285,7 @@ async function doArchive() {
     await cognitiveApi.archive(actionTarget.value.id)
     actionTarget.value.status = 'archived'
     archiveDialogVisible.value = false
-    ElMessage.success('题目已下架')
+    ElMessage.success('题目已停用')
   } finally {
     saving.value = false
   }
@@ -545,17 +544,21 @@ async function doDelete() {
   &--MIGRATE   { background: var(--power-migrate); }
 }
 
-// ── 状态 Badge ───────────────────────────────────────────────
+// ── 状态 Badge（样式与训练题列表难度列一致）────────────────────
 .status-badge {
-  font-size: 11.5px;
-  font-weight: 600;
-  padding: 3px 10px;
-  border-radius: var(--r-pill);
-  border: 1.5px solid;
+  font-size: 12px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 22px;
+  padding: 0 10px;
+  border-radius: 11px;
+  border: none;
 
-  &--draft     { background: var(--bg-muted);  color: var(--text-2); border-color: var(--border-hover); }
-  &--published { background: var(--green-dim); color: var(--green);  border-color: var(--green-border); }
-  &--archived  { background: var(--bg-muted);  color: var(--text-3); border-color: var(--border); }
+  &--draft     { background: #FFF0D6; color: #B45309; }
+  &--published { background: #E8F5D0; color: #4A7C10; }
+  &--archived  { background: #FFE0E0; color: #DC2626; }
 }
 
 // 深色主题：indigo 变为亮黄绿，答案 key 徽标文字需改为深色

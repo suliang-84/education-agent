@@ -97,8 +97,8 @@
               <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"/>
             </svg>
             <div>
-              <div class="preview-item__title">典型错误 + 迁移方向</div>
-              <div class="preview-item__desc">学生常见错误 + 可迁移应用场景</div>
+              <div class="preview-item__title">典型错误</div>
+              <div class="preview-item__desc">学生常见错误</div>
             </div>
           </div>
         </div>
@@ -189,6 +189,12 @@ async function handleSave(mode: 'draft' | 'analyze') {
 </script>
 
 <style lang="scss" scoped>
+// ── 隐藏页面滚动条 ────────────────────────────────────────────
+.page-root {
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
+
 // ── 顶部操作栏（返回+操作按钮同行）────────────────────────────
 .form-topbar {
   display: flex;
