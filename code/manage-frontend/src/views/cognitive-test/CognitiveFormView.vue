@@ -1,46 +1,45 @@
 <template>
   <div class="page-root">
 
-    <!-- ── 页头 ── -->
-    <div class="page-header">
-      <div style="display:flex;align-items:center;gap:12px">
-        <el-button size="small" @click="router.push('/cognitive-test')">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="margin-right:4px">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/>
-          </svg>
-          返回列表
+    <!-- ── 顶部操作栏 ── -->
+    <div class="form-topbar">
+      <el-button size="small" class="btn-back" @click="router.push('/cognitive-test')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="margin-right:4px">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/>
+        </svg>
+        返回
+      </el-button>
+      <div style="flex:1" />
+      <!-- 草稿：保存草稿 + 保存并发布 -->
+      <template v-if="!isEdit || currentStatus === 'draft'">
+        <el-button @click="handleSave('draft')" :loading="saving">
+          <SvgIcon v-if="!saving" name="save" :size="14" style="margin-right:4px" />
+          保存草稿
         </el-button>
-        <div>
-          <h1 class="page-title">{{ pageTitle }}</h1>
-          <p class="page-subtitle">{{ pageSubtitle }}</p>
-        </div>
-      </div>
-      <div style="display:flex;gap:10px;align-items:center">
-        <!-- 草稿：保存草稿 + 保存并发布 -->
-        <template v-if="!isEdit || currentStatus === 'draft'">
-          <el-button @click="handleSave('draft')" :loading="saving">保存草稿</el-button>
-          <button class="btn-pink" type="button" @click="handleSave('publish')" :disabled="saving || loading">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:5px">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-            保存并发布
-          </button>
-        </template>
-        <!-- 已下架：保存修改 + 保存并重新发布 -->
-        <template v-else-if="currentStatus === 'archived'">
-          <el-button @click="handleSave('save')" :loading="saving">保存修改</el-button>
-          <button class="btn-pink" type="button" @click="handleSave('republish')" :disabled="saving || loading">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:5px">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-            保存并重新发布
-          </button>
-        </template>
-        <!-- 已发布：保存修改（自动生效）-->
-        <template v-else>
-          <el-button type="primary" @click="handleSave('save')" :loading="saving">保存修改</el-button>
-        </template>
-      </div>
+        <button class="btn-pink" type="button" @click="handleSave('publish')" :disabled="saving || loading">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          保存并发布
+        </button>
+      </template>
+      <!-- 已下架：保存修改 + 保存并重新发布 -->
+      <template v-else-if="currentStatus === 'archived'">
+        <el-button @click="handleSave('save')" :loading="saving">
+          <SvgIcon v-if="!saving" name="save" :size="14" style="margin-right:4px" />
+          保存修改
+        </el-button>
+        <button class="btn-pink" type="button" @click="handleSave('republish')" :disabled="saving || loading">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          保存并重新发布
+        </button>
+      </template>
+      <!-- 已发布：保存修改（自动生效）-->
+      <template v-else>
+        <el-button type="primary" @click="handleSave('save')" :loading="saving">保存修改</el-button>
+      </template>
     </div>
 
     <!-- ── 已下架题目的历史成绩保护说明 ── -->
@@ -83,7 +82,10 @@
       <!-- ── 基础信息 ── -->
       <div class="form-section surface">
         <div class="section-hd">
-          <span class="section-title">基础信息</span>
+          <span class="section-title">
+            <SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />
+            基础信息
+          </span>
         </div>
         <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
           <el-row :gutter="24">
@@ -117,7 +119,10 @@
       <!-- ── 题干内容 ── -->
       <div class="form-section surface">
         <div class="section-hd">
-          <span class="section-title">题干内容</span>
+          <span class="section-title">
+            <SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />
+            题干内容
+          </span>
           <span class="section-badge">展示给学生，支持 Markdown / LaTeX</span>
         </div>
         <el-form ref="stemFormRef" :model="form" :rules="rules" label-width="0">
@@ -137,7 +142,10 @@
       <!-- ── 答案配置 ── -->
       <div class="form-section surface">
         <div class="section-hd">
-          <span class="section-title">答案配置</span>
+          <span class="section-title">
+            <SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />
+            答案配置
+          </span>
           <div style="display:flex;align-items:center;gap:10px">
             <span class="section-badge">每行合计需为 10（整数）</span>
             <el-button
@@ -353,11 +361,6 @@ onMounted(async () => {
 })
 
 // ── 保存 ─────────────────────────────────────────────────────
-// action:
-//   'draft'     → 新增/草稿：仅保存为草稿
-//   'publish'   → 新增/草稿：保存并首次发布
-//   'save'      → 已发布/已下架：仅保存内容（不改变状态）
-//   'republish' → 已下架：保存内容后重新发布
 async function handleSave(action: 'draft' | 'publish' | 'save' | 'republish') {
   const [v1, v2] = await Promise.all([
     formRef.value?.validate().catch(() => false),
@@ -374,7 +377,6 @@ async function handleSave(action: 'draft' | 'publish' | 'save' | 'republish') {
     return
   }
 
-  // 发布/重新发布前校验权重并弹窗确认
   if (action === 'publish' || action === 'republish') {
     if (!allWeightsValid.value) {
       ElMessage.warning('存在答案权重合计不等于 10，请检查后再发布')
@@ -382,7 +384,6 @@ async function handleSave(action: 'draft' | 'publish' | 'save' | 'republish') {
     }
 
     if (action === 'republish') {
-      // 已下架 → 重新发布：专属确认文案，强调历史成绩不受影响
       await ElMessageBox.confirm(
         `重新发布后该题将重新加入测试题池。\n\n` +
         `当前已发布：${publishedCount.value} 道，发布后将达：${publishedCount.value + 1} 道。\n\n` +
@@ -391,7 +392,6 @@ async function handleSave(action: 'draft' | 'publish' | 'save' | 'republish') {
         { confirmButtonText: '确认重新发布', cancelButtonText: '取消', type: 'info' }
       ).catch(() => { throw new Error('cancelled') })
     } else {
-      // 草稿 → 首次发布
       const willEnable = publishedCount.value < 10 && publishedCount.value + 1 >= 10
       await ElMessageBox.confirm(
         `发布后该题将加入测试池。当前已发布 ${publishedCount.value} 道，发布后将达 ${publishedCount.value + 1} 道。` +
@@ -444,6 +444,52 @@ async function handleSave(action: 'draft' | 'publish' | 'save' | 'republish') {
 </script>
 
 <style lang="scss" scoped>
+// ── 顶部操作栏 ───────────────────────────────────────────────
+.form-topbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+// ── 返回按钮 ─────────────────────────────────────────────────
+[data-theme="light"] .btn-back.el-button {
+  background-color: #ffffff;
+  color: #9ca2af;
+  border-color: #ffffff;
+  &:hover { color: var(--color-primary); border-color: var(--color-primary); }
+}
+[data-theme="dark"] .btn-back.el-button {
+  background-color: #242424;
+  color: #9ca2af;
+  border-color: #242424;
+  &:hover { color: var(--color-primary); border-color: var(--color-primary); }
+}
+
+// ── 表单分区 ─────────────────────────────────────────────────
+.form-section {
+  padding: 5px 15px 15px;
+  margin-bottom: 15px;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+  border: 1px solid rgba(96, 141, 248, 0.15) !important;
+}
+
+.section-badge {
+  font-size: 12px;
+  color: var(--indigo);
+  background: var(--indigo-light);
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+  font-weight: 500;
+}
+
+.form-hint {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 6px;
+  line-height: 1.5;
+}
+
 // ── 已下架题目安全编辑提示 ───────────────────────────────────
 .archive-notice {
   display: flex;
@@ -510,28 +556,6 @@ async function handleSave(action: 'draft' | 'publish' | 'save' | 'republish') {
   strong { font-family: var(--font-mono); font-weight: 700; }
 }
 
-// ── 表单分区 ─────────────────────────────────────────────────
-.form-section {
-  padding: 22px 24px;
-  margin-bottom: 16px;
-}
-
-.section-badge {
-  font-size: 12px;
-  color: var(--indigo);
-  background: var(--indigo-light);
-  padding: 3px 10px;
-  border-radius: var(--r-pill);
-  font-weight: 500;
-}
-
-.form-hint {
-  font-size: 12px;
-  color: var(--text-3);
-  margin-top: 6px;
-  line-height: 1.5;
-}
-
 // ── 答案区说明文字 ───────────────────────────────────────────
 .answers-intro {
   font-size: 13px;
@@ -566,7 +590,6 @@ async function handleSave(action: 'draft' | 'publish' | 'save' | 'republish') {
     background: rgba(239, 68, 68, 0.02);
   }
 
-  // ── 答案头部（编号 + 文本 + 删除）────────────────────────
   &__header {
     display: flex;
     align-items: center;
@@ -575,7 +598,6 @@ async function handleSave(action: 'draft' | 'publish' | 'save' | 'republish') {
     background: var(--bg-surface);
   }
 
-  // ── 权重区 ───────────────────────────────────────────────
   &__weights {
     padding: 12px 16px 14px;
     background: var(--bg-muted);
@@ -583,7 +605,6 @@ async function handleSave(action: 'draft' | 'publish' | 'save' | 'republish') {
   }
 }
 
-// 答案编号标牌（A/B/C/D…）
 .answer-key-badge {
   width: 32px;
   height: 32px;
@@ -599,7 +620,6 @@ async function handleSave(action: 'draft' | 'publish' | 'save' | 'republish') {
   letter-spacing: 0;
 }
 
-// 答案文本输入区（撑满剩余宽度）
 .answer-text-wrap {
   flex: 1;
   min-width: 0;
@@ -640,7 +660,6 @@ async function handleSave(action: 'draft' | 'publish' | 'save' | 'republish') {
   }
 }
 
-// 五力维度彩色圆点
 .power-dot {
   width: 8px;
   height: 8px;
@@ -654,7 +673,6 @@ async function handleSave(action: 'draft' | 'publish' | 'save' | 'republish') {
   &--MIGRATE   { background: var(--power-migrate); }
 }
 
-// 合计显示
 .weight-sum {
   display: flex;
   flex-direction: column;
@@ -720,5 +738,12 @@ async function handleSave(action: 'draft' | 'publish' | 'save' | 'republish') {
   padding: 7px 12px;
   border-radius: var(--r-lg);
   border: 1px solid var(--red-border);
+}
+</style>
+
+<style>
+[data-theme="dark"] .form-section {
+  background: #242424 !important;
+  border-color: #202020 !important;
 }
 </style>

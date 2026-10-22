@@ -26,7 +26,7 @@
       <!-- 题干 -->
       <div class="form-section surface stem-section">
         <div class="section-hd">
-          <span class="section-title">题干内容</span>
+          <span class="section-title"><SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />题干内容</span>
           <el-upload
             action="#"
             :auto-upload="false"
@@ -60,7 +60,7 @@
       <!-- 大模型分析说明 -->
       <div class="analysis-preview surface">
         <div class="section-hd">
-          <span class="section-title">大模型将自动分析以下内容</span>
+          <span class="section-title"><SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />大模型将自动分析以下内容</span>
         </div>
         <div class="preview-grid">
           <div class="preview-item">
@@ -392,10 +392,6 @@ async function handleSave(mode: 'draft' | 'analyze') {
   border: 1px solid #444444 !important;
 }
 
-[data-theme="dark"] .form-section .section-title,
-[data-theme="dark"] .analysis-preview .section-title {
-  color: #ffffff !important;
-}
 
 [data-theme="dark"] .form-section .section-hint,
 [data-theme="dark"] .analysis-preview .section-hint {

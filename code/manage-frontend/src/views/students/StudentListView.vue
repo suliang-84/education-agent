@@ -1,20 +1,6 @@
 <template>
   <div class="page-root">
 
-    <!-- ── 页头 ── -->
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">用户管理</h1>
-        <p class="page-subtitle">统一管理学生、家长和管理员账号</p>
-      </div>
-      <el-button v-if="activeTab === 'admins' && isSuperAdmin" type="primary" @click="openCreateAdmin">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:5px">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
-        </svg>
-        新增管理员
-      </el-button>
-    </div>
-
     <!-- ── Tab 切换 ── -->
     <div class="surface" style="padding:0;overflow:hidden">
 
@@ -218,6 +204,15 @@
 
       <!-- ════ Tab 3：管理员账号 ════ -->
       <div v-show="activeTab === 'admins'">
+        <div class="tab-toolbar">
+          <div style="flex:1" />
+          <el-button v-if="isSuperAdmin" type="primary" @click="openCreateAdmin">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+            </svg>
+            新增管理员
+          </el-button>
+        </div>
         <el-table :data="adminUsers" v-loading="aLoading" style="width:100%">
 
           <el-table-column label="ID" width="70" align="center">
@@ -665,8 +660,8 @@ onMounted(loadStudents)
 .tab-toolbar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 14px 16px;
+  gap: 10px;
+  padding: 10px 16px;
   border-bottom: 1px solid var(--border);
   flex-wrap: wrap;
 }
