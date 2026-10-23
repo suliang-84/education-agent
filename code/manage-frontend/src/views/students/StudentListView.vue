@@ -27,7 +27,7 @@
 
       <!-- ════ Tab 1：学生管理 ════ -->
       <div v-show="activeTab === 'students'">
-        <div class="tab-toolbar">
+        <div class="inner-toolbar">
           <el-input v-model="sFilters.keyword" placeholder="昵称 / 手机号" clearable style="width:180px">
             <template #prefix>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -136,7 +136,7 @@
 
       <!-- ════ Tab 2：家长管理 ════ -->
       <div v-show="activeTab === 'parents'">
-        <div class="tab-toolbar">
+        <div class="inner-toolbar">
           <el-input v-model="pKeyword" placeholder="搜索家长昵称 / 手机号" clearable style="width:220px">
             <template #prefix>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -210,7 +210,7 @@
 
       <!-- ════ Tab 3：管理员账号 ════ -->
       <div v-show="activeTab === 'admins'">
-        <div class="tab-toolbar">
+        <div class="inner-toolbar">
           <div style="flex:1" />
           <el-button v-if="isSuperAdmin" type="primary" @click="openCreateAdmin">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px">
@@ -681,15 +681,6 @@ onMounted(loadStudents)
     border-bottom-color: var(--indigo);
     font-weight: 600;
   }
-}
-
-// ── 工具栏 ───────────────────────────────────────────────────
-.tab-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 16px;
-  flex-wrap: wrap;
 }
 
 // ── 用户头像 ─────────────────────────────────────────────────

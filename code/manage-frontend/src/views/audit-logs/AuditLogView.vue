@@ -1,19 +1,19 @@
 <template>
   <div class="page-root">
+    <div class="inner-toolbar">
+      <el-input v-model="filters.admin_username" placeholder="管理员账号" clearable style="width:150px" />
+      <el-select v-model="filters.action_type" placeholder="操作类型" clearable style="width:180px" @change="handleSearch">
+        <el-option v-for="t in actionTypes" :key="t.value" :label="t.label" :value="t.value" />
+      </el-select>
+      <el-date-picker
+        v-model="filters.date_range" type="daterange"
+        range-separator="–" start-placeholder="开始日期" end-placeholder="结束日期"
+        format="YYYY-MM-DD" value-format="YYYY-MM-DD"
+        style="width:240px"
+        @change="handleSearch"
+      />
+    </div>
     <div class="surface surface--table">
-      <div class="inner-toolbar">
-        <el-input v-model="filters.admin_username" placeholder="管理员账号" clearable style="width:150px" />
-        <el-select v-model="filters.action_type" placeholder="操作类型" clearable style="width:180px" @change="handleSearch">
-          <el-option v-for="t in actionTypes" :key="t.value" :label="t.label" :value="t.value" />
-        </el-select>
-        <el-date-picker
-          v-model="filters.date_range" type="daterange"
-          range-separator="–" start-placeholder="开始日期" end-placeholder="结束日期"
-          format="YYYY-MM-DD" value-format="YYYY-MM-DD"
-          style="width:240px"
-          @change="handleSearch"
-        />
-      </div>
       <el-table :data="logs" v-loading="loading" style="width:100%">
         <el-table-column label="时间" width="155">
           <template #default="{ row }">

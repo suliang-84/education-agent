@@ -3,9 +3,8 @@
 
 
     <!-- ── 测试状态看板 ── -->
-<!-- ── 筛选栏 ── -->
-    <!-- ── 筛选栏（独立，有背景） ── -->
-    <div class="inner-toolbar surface">
+    <!-- ── 筛选栏 ── -->
+    <div class="inner-toolbar">
       <el-select v-model="filterStatus" placeholder="全部状态" clearable size="small" style="width:120px">
         <el-option label="草稿" value="draft" />
         <el-option label="已发布" value="published" />

@@ -1,23 +1,22 @@
 <template>
   <div class="page-root">
+    <div class="inner-toolbar">
+      <el-input v-model="filters.keyword" placeholder="昵称 / 手机号" clearable>
+        <template #prefix>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/>
+          </svg>
+        </template>
+      </el-input>
+      <el-select v-model="filters.grade" placeholder="年级" clearable style="width:90px" @change="search">
+        <el-option v-for="g in grades" :key="g" :label="g" :value="g" />
+      </el-select>
+      <el-select v-model="filters.has_profile" placeholder="五力画像" clearable style="width:110px" @change="search">
+        <el-option label="有画像" value="true" />
+        <el-option label="未测试" value="false" />
+      </el-select>
+    </div>
     <div class="surface surface--table">
-      <div class="inner-toolbar">
-        <el-input v-model="filters.keyword" placeholder="昵称 / 手机号" clearable>
-          <template #prefix>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/>
-            </svg>
-          </template>
-        </el-input>
-        <el-select v-model="filters.grade" placeholder="年级" clearable style="width:90px" @change="search">
-          <el-option v-for="g in grades" :key="g" :label="g" :value="g" />
-        </el-select>
-        <el-select v-model="filters.has_profile" placeholder="五力画像" clearable style="width:110px" @change="search">
-          <el-option label="有画像" value="true" />
-          <el-option label="未测试" value="false" />
-        </el-select>
-      </div>
-
       <el-table :data="students" v-loading="loading" style="width:100%">
         <el-table-column label="序号" width="60" align="center">
           <template #default="{ $index }">

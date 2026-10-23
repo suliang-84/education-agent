@@ -1,15 +1,15 @@
 <template>
   <div class="page-root">
+    <div class="inner-toolbar">
+      <div style="flex:1" />
+      <el-button v-if="isSuperAdmin" type="primary" @click="openCreate">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+        </svg>
+        新增管理员
+      </el-button>
+    </div>
     <div class="surface surface--table">
-      <div class="inner-toolbar">
-        <div style="flex:1" />
-        <el-button v-if="isSuperAdmin" type="primary" @click="openCreate">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
-          </svg>
-          新增管理员
-        </el-button>
-      </div>
       <el-table :data="adminUsers" v-loading="loading" style="width:100%">
         <el-table-column label="序号" width="60" align="center">
           <template #default="{ $index }">
