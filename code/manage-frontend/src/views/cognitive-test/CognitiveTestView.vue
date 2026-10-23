@@ -4,28 +4,30 @@
 
     <!-- ── 测试状态看板 ── -->
 <!-- ── 筛选栏 ── -->
-    <div class="surface surface--table cognitive-surface" style="padding:0" v-loading="loading">
-      <div class="tab-filter-bar">
-        <el-select v-model="filterStatus" placeholder="全部状态" clearable size="small" style="width:120px">
-          <el-option label="草稿" value="draft" />
-          <el-option label="已发布" value="published" />
-          <el-option label="已停用" value="archived" />
-        </el-select>
-        <el-input v-model="searchText" placeholder="搜索题干..." clearable size="small" style="flex:1;min-width:130px;max-width:260px">
-          <template #prefix>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/>
-            </svg>
-          </template>
-        </el-input>
-        <div style="flex:1" />
-        <el-button type="primary" @click="router.push('/cognitive-test/create')">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+    <!-- ── 筛选栏（独立，有背景） ── -->
+    <div class="inner-toolbar surface">
+      <el-select v-model="filterStatus" placeholder="全部状态" clearable size="small" style="width:120px">
+        <el-option label="草稿" value="draft" />
+        <el-option label="已发布" value="published" />
+        <el-option label="已停用" value="archived" />
+      </el-select>
+      <el-input v-model="searchText" placeholder="搜索题干..." clearable size="small" style="flex:1;min-width:130px;max-width:260px">
+        <template #prefix>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/>
           </svg>
-          新增题目
-        </el-button>
-      </div>
+        </template>
+      </el-input>
+      <div style="flex:1" />
+      <el-button type="primary" @click="router.push('/cognitive-test/create')">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+        </svg>
+        新增题目
+      </el-button>
+    </div>
+
+    <div class="surface surface--table cognitive-surface" style="padding:0" v-loading="loading">
 
       <!-- ── 列表表格 ── -->
       <el-table :data="filteredQuestions" row-key="id" style="width:100%">
@@ -85,14 +87,9 @@
         <!-- 题干摘要 -->
         <el-table-column label="题干摘要" min-width="360">
           <template #default="{ row }">
-            <div>
-              <p style="color:var(--text-1);font-size:13.5px;line-height:1.5;margin:0">
-                {{ row.stem?.substring(0, 60) }}{{ (row.stem?.length ?? 0) > 60 ? '…' : '' }}
-              </p>
-              <p v-if="row.description" style="color:var(--text-3);font-size:12px;margin:3px 0 0">
-                {{ row.description?.substring(0, 40) }}{{ (row.description?.length ?? 0) > 40 ? '…' : '' }}
-              </p>
-            </div>
+            <el-tooltip :content="row.stem" placement="top-start" :show-after="300" effect="light">
+              <span class="stem-text">{{ row.stem }}</span>
+            </el-tooltip>
           </template>
         </el-table-column>
 
@@ -105,38 +102,36 @@
         </el-table-column>
 
         <!-- 操作 -->
-        <el-table-column label="操作" width="160" align="center" fixed="right">
+        <el-table-column label="操作" width="90" fixed="right">
           <template #default="{ row }">
-            <div style="display:flex;align-items:center;justify-content:center;gap:4px">
-              <!-- 草稿 -->
-              <template v-if="row.status === 'draft'">
-                <el-button text size="small" style="color:var(--indigo)" @click="router.push(`/cognitive-test/${row.id}/edit`)">
-                  <SvgIcon name="edit" :size="18" color="var(--indigo)" title="编辑" />
-                </el-button>
-                <el-button text size="small" style="color:var(--green)" @click="confirmPublish(row)">发布</el-button>
-                <el-button text size="small" style="color:var(--red)" @click="confirmDelete(row)">
-                  <SvgIcon name="delete" :size="18" color="var(--red)" title="删除" />
-                </el-button>
-              </template>
-              <!-- 已发布 -->
-              <template v-else-if="row.status === 'published'">
-                <el-button text size="small" style="color:var(--amber)" @click="confirmArchive(row)">
-                  <SvgIcon name="pause" :size="18" color="var(--amber)" title="停用" />
-                </el-button>
-              </template>
-              <!-- 已停用 -->
-              <template v-else>
-                <el-button text size="small" style="color:var(--indigo)" @click="router.push(`/cognitive-test/${row.id}/edit`)">
-                  <SvgIcon name="edit" :size="18" color="var(--indigo)" title="编辑" />
-                </el-button>
-                <el-button text size="small" style="color:var(--green)" @click="confirmRepublish(row)">
-                  <SvgIcon name="play" :size="18" color="var(--green)" title="启用" />
-                </el-button>
-                <el-button text size="small" style="color:var(--red)" @click="confirmDelete(row)">
-                  <SvgIcon name="delete" :size="18" color="var(--red)" title="删除" />
-                </el-button>
-              </template>
-            </div>
+            <!-- 草稿 -->
+            <template v-if="row.status === 'draft'">
+              <el-button text size="small" style="color:var(--indigo)" @click="router.push(`/cognitive-test/${row.id}/edit`)">
+                <SvgIcon name="edit" :size="18" color="var(--indigo)" title="编辑" />
+              </el-button>
+              <el-button text size="small" style="color:var(--green)" @click="confirmPublish(row)">发布</el-button>
+              <el-button text size="small" style="color:var(--red)" @click="confirmDelete(row)">
+                <SvgIcon name="delete" :size="18" color="var(--red)" title="删除" />
+              </el-button>
+            </template>
+            <!-- 已发布 -->
+            <template v-else-if="row.status === 'published'">
+              <el-button text size="small" style="color:var(--amber)" @click="confirmArchive(row)">
+                <SvgIcon name="pause" :size="18" color="var(--amber)" title="停用" />
+              </el-button>
+            </template>
+            <!-- 已停用 -->
+            <template v-else>
+              <el-button text size="small" style="color:var(--indigo)" @click="router.push(`/cognitive-test/${row.id}/edit`)">
+                <SvgIcon name="edit" :size="18" color="var(--indigo)" title="编辑" />
+              </el-button>
+              <el-button text size="small" style="color:var(--green)" @click="confirmRepublish(row)">
+                <SvgIcon name="play" :size="18" color="var(--green)" title="启用" />
+              </el-button>
+              <el-button text size="small" style="color:var(--red)" @click="confirmDelete(row)">
+                <SvgIcon name="delete" :size="18" color="var(--red)" title="删除" />
+              </el-button>
+            </template>
           </template>
         </el-table-column>
 
@@ -345,75 +340,15 @@ async function doDelete() {
   }
 }
 
-// ── 测试状态看板 ─────────────────────────────────────────────
-
-.status-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.count-chip {
-  font-size: 12px;
-  font-weight: 600;
-  padding: 4px 12px;
-  border-radius: var(--r-pill);
-  border: 1px solid;
-  cursor: pointer;
-  transition: opacity 0.15s;
-
-  &:hover { opacity: 0.75; }
-
-  &--draft     { background: var(--bg-muted);   color: var(--text-2); border-color: var(--border-hover); }
-  &--published { background: var(--green-dim);  color: var(--green);  border-color: var(--green-border); }
-  &--archived  { background: var(--bg-muted);   color: var(--text-3); border-color: var(--border); }
-}
-
-// ── 标签页 + 筛选栏 ──────────────────────────────────────────
-.tab-filter-bar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 16px;
-  flex-wrap: wrap;
-}
-
-.tab-group {
-  display: flex;
-  gap: 0;
-}
-
-.tab-item {
-  padding: 12px 16px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-2);
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  cursor: pointer;
-  transition: all 0.15s;
+// ── 题干列 ───────────────────────────────────────────────────
+.stem-text {
+  font-size: 13.5px;
+  color: var(--text-1);
   white-space: nowrap;
-
-  &:hover { color: var(--text-1); }
-
-  &.active {
-    color: var(--indigo);
-    border-bottom-color: var(--indigo);
-    font-weight: 600;
-  }
-}
-
-.filter-group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 0;
-  flex-wrap: wrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+  max-width: 100%;
 }
 
 // ── 展开面板 ─────────────────────────────────────────────────
@@ -484,15 +419,6 @@ async function doDelete() {
   line-height: 1.5;
 }
 
-.expand-time {
-  font-size: 12px;
-  color: var(--indigo);
-  background: var(--indigo-light);
-  border: 1px solid var(--indigo-border);
-  padding: 2px 9px;
-  border-radius: var(--r-pill);
-  flex-shrink: 0;
-}
 
 .expand-weights {
   display: flex;
