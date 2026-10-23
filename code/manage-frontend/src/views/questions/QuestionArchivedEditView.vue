@@ -57,7 +57,7 @@
                   <el-option v-for="s in semesterOptions" :key="s.id" :label="s.name" :value="s.id" />
                 </el-select>
               </el-form-item>
-              <el-form-item label="章节" style="flex:2">
+              <el-form-item label="章节" style="flex:2" class="chapter-form-item">
                 <el-select
                   v-model="form.chapter_id"
                   style="width:100%"
@@ -144,7 +144,7 @@
                   v-for="(ans, idx) in form.answer_blanks" :key="idx"
                   v-model="form.answer_blanks[idx]"
                   placeholder="填入标准答案"
-                  style="margin-bottom:6px"
+                  style="margin-bottom:10px"
                 >
                   <template #prefix><span style="margin-right:10px">{{ idx + 1 }}.</span></template>
                   <template #suffix>
@@ -186,7 +186,7 @@
                   v-for="(step, idx) in form.answer_steps" :key="idx"
                   v-model="form.answer_steps[idx]"
                   :placeholder="`第 ${idx + 1} 个关键步骤`"
-                  style="margin-bottom:6px"
+                  style="margin-bottom:10px"
                 >
                   <template #prefix><span style="margin-right:10px">{{ idx + 1 }}.</span></template>
                   <template #suffix>
@@ -224,13 +224,7 @@
           </div>
 
           <!-- 五力权重 -->
-          <div class="sub-section-title">
-            五力训练权重
-            <span class="weight-total" :class="weightTotal === 10 ? 'weight-total--ok' : 'weight-total--err'">
-              合计: {{ weightTotal }} / 10
-              <span v-if="weightTotal === 10"> ✓</span>
-            </span>
-          </div>
+          <div class="sub-section-title">五力训练权重</div>
           <div class="section-content">
             <el-form-item label=" ">
               <div class="power-weights-grid">
@@ -243,7 +237,6 @@
                     v-model="form.five_power_weights[p as FivePower]"
                     :min="0" :max="10" :step="1"
                     controls-position="right"
-                    size="small"
                     class="power-weight-val"
                   />
                 </div>
@@ -257,7 +250,6 @@
             <el-form-item
               v-for="p in powers" :key="p"
               :label="FivePowerLabels[p as FivePower]"
-              style="margin-bottom:10px"
             >
               <el-input
                 v-model="form.five_power_thoughts[p as FivePower]"
@@ -524,7 +516,8 @@ async function handleSaveAndActivate() {
   font-size: 13px;
   font-weight: 600;
   color: var(--text-2);
-  padding: 12px 0 10px;
+  padding: 0;
+  margin-bottom: 5px;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -534,13 +527,17 @@ async function handleSaveAndActivate() {
 
 .belongs-row {
   display: flex;
-  gap: 16px;
   flex-wrap: nowrap;
 
   .el-form-item {
     flex: 1;
-    margin-bottom: 16px;
+    margin-bottom: 10px;
   }
+}
+
+:deep(.chapter-form-item .el-form-item__content) {
+  height: 30px !important;
+  line-height: 30px !important;
 }
 
 // 统一子模块内容背景容器
@@ -548,8 +545,16 @@ async function handleSaveAndActivate() {
 .answer-block {
   background: var(--bg-muted);
   border-radius: 4px;
-  padding: 16px 0 4px;
+  padding: 10px 10px 10px 0;
   margin-bottom: 12px;
+
+  // 内部表单项间距 10px，最后一项去除 margin 避免与 padding-bottom 叠加
+  :deep(.el-form-item) {
+    margin-bottom: 10px;
+  }
+  :deep(.el-form-item:last-child) {
+    margin-bottom: 0;
+  }
 }
 
 .answer-hint {
@@ -580,8 +585,11 @@ async function handleSaveAndActivate() {
 .key-steps {
   display: flex;
   flex-direction: column;
-  gap: 8px;
   width: 100%;
+
+  :deep(.el-input:last-child) {
+    margin-bottom: 0 !important;
+  }
 }
 
 .key-step-item {
@@ -605,20 +613,19 @@ async function handleSaveAndActivate() {
   flex-direction: row;
   gap: 16px;
   flex-wrap: nowrap;
-  align-items: center;
+  align-items: flex-start;
 }
 
 .power-weight-item {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 6px;
+  align-items: flex-start;
 
   &__label {
     display: flex;
     align-items: center;
     gap: 4px;
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 500;
     color: var(--text-2);
     white-space: nowrap;
@@ -626,13 +633,13 @@ async function handleSaveAndActivate() {
 }
 
 .power-weight-val {
-  width: 70px !important;
+  width: 120px !important;
   text-align: center;
 }
 
 .power-dot {
-  width: 4px;
-  height: 4px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   flex-shrink: 0;
 

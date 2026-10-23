@@ -913,6 +913,25 @@ $form-height:       30px;
   border-radius: $form-radius !important;
 }
 
+// input-number controls-position="right" 上下按钮修复
+// 根因：全局 .el-input__wrapper height:30px !important 与按钮 height:50% 计算差异导致缝隙
+.el-input-number.is-controls-right {
+  .el-input-number__increase,
+  .el-input-number__decrease {
+    height: 14px !important;
+    line-height: 14px !important;
+    border-color: rgba(220, 224, 234, 1) !important;
+    box-sizing: border-box !important;
+  }
+
+  [data-theme="dark"] & {
+    .el-input-number__increase,
+    .el-input-number__decrease {
+      border-color: rgba(255, 255, 255, 0.10) !important;
+    }
+  }
+}
+
 // DatePicker
 .el-date-editor.el-input__wrapper,
 .el-date-editor .el-input__wrapper {
@@ -958,10 +977,17 @@ $form-height:       30px;
 }
 
 // Form
+// EP 默认 label 高度 32px，与我们统一的组件高度 30px 不匹配，强制对齐
 .el-form-item__label {
   font-size: 13px;
   font-weight: 500;
   color: $text-2;
+  height: 30px !important;
+  line-height: 30px !important;
+}
+
+.el-form-item__content {
+  line-height: 30px !important;
 }
 
 // Tag
