@@ -1401,6 +1401,12 @@ $form-height:       30px;
   flex-direction: column;
   overflow: hidden;
 
+  // 列表页筛选栏去除内边距
+  .tab-filter-bar,
+  .tab-toolbar {
+    padding: 0;
+  }
+
   // el-table 撑满剩余空间
   > .el-table {
     flex: 1;
@@ -1472,8 +1478,6 @@ $form-height:       30px;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--border);
   flex-wrap: wrap;
   .el-input  { width: 200px !important; flex: none; }
   .el-select { width: 120px !important; flex: none; }

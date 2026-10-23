@@ -501,7 +501,7 @@ async function handleSaveAndActivate() {
 
 .section-block {
   padding: 5px 15px 15px;
-  margin-bottom: 15px;
+  margin-bottom: 10px;
   border-radius: 4px !important;
   box-shadow: none !important;
   border: 1px solid rgba(96, 141, 248, 0.15) !important;
