@@ -401,7 +401,7 @@ onMounted(() => { loadData(); loadKnowledgeTree(); loadTotalAll() })
   flex: 1;
   min-height: 0;
   display: flex;
-  gap: 16px;
+  gap: 10px;
   align-items: stretch;   // 左树与右表等高
 }
 
@@ -527,62 +527,6 @@ onMounted(() => { loadData(); loadKnowledgeTree(); loadTotalAll() })
   gap: 10px;
 }
 
-// ── 状态统计胶囊 ─────────────────────────────────────────────
-.stat-pills {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.stat-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  border-radius: var(--r-pill);
-  border: 1.5px solid var(--border-hover);
-  background: var(--bg-surface);
-  font-size: 13px;
-  color: var(--text-2);
-  cursor: pointer;
-  transition: all 0.15s;
-  user-select: none;
-
-  &:hover { border-color: var(--indigo); color: var(--indigo); background: var(--indigo-light); }
-
-  &--active {
-    background: var(--indigo-light);
-    border-color: var(--indigo);
-    color: var(--indigo);
-    font-weight: 600;
-  }
-
-  &__dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-  }
-
-  &__count { font-weight: 700; color: var(--text-1); }
-}
-
-.status-dot {
-  &--published { background: var(--green); }
-  &--archived  { background: var(--text-3); }
-}
-
-.tree-breadcrumb {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  color: var(--indigo);
-  background: var(--indigo-light);
-  padding: 4px 10px;
-  border-radius: var(--r-pill);
-  border: 1px solid var(--indigo-border);
-}
-
 // ── 题干列 ───────────────────────────────────────────────────
 .stem-cell { display: flex; align-items: center; gap: 8px; }
 .stem-text {
@@ -591,39 +535,6 @@ onMounted(() => { loadData(); loadKnowledgeTree(); loadTotalAll() })
   flex: 1; min-width: 0;
 }
 .stem-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-
-.status-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11.5px;
-  font-weight: 600;
-  padding: 3px 10px;
-  border-radius: var(--r-pill);
-  border: 1.5px solid;
-
-  &__dot { width: 6px; height: 6px; border-radius: 50%; }
-
-  &--published { background: var(--green-dim);  color: var(--green);  border-color: var(--green-border);  .status-badge__dot { background: var(--green); } }
-  &--archived  { background: var(--bg-muted);   color: var(--text-3); border-color: var(--border-hover);  .status-badge__dot { background: var(--text-3); } }
-}
-
-// ── 启用状态徽标 ─────────────────────────────────────────────
-.active-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11.5px;
-  font-weight: 600;
-  padding: 3px 10px;
-  border-radius: var(--r-pill);
-  border: 1.5px solid;
-
-  &__dot { width: 6px; height: 6px; border-radius: 50%; }
-
-  &--on  { background: var(--green-dim);  color: var(--green);  border-color: var(--green-border);  .active-badge__dot { background: var(--green); } }
-  &--off { background: var(--amber-dim);  color: var(--amber);  border-color: var(--amber-border);  .active-badge__dot { background: var(--amber); } }
-}
 
 // ── 主五力：圆点 + 文字（参考录入页状态列）────────────────────
 .power-dot-label {
@@ -663,16 +574,6 @@ onMounted(() => { loadData(); loadKnowledgeTree(); loadTotalAll() })
   &.diff--challenge { background: #FFE0E0; color: #DC2626; }
 }
 
-.embed-badge {
-  font-size: 11px;
-  font-weight: 500;
-  padding: 2px 7px;
-  border-radius: var(--r-pill);
-  border: 1px solid;
-
-  &.embed--ok   { background: var(--green-dim); color: var(--green); border-color: var(--green-border); }
-  &.embed--fail { background: var(--red-dim);   color: var(--red);   border-color: var(--red-border); }
-}
 
 :deep(.btn-no-hover:hover) {
   background: transparent !important;
