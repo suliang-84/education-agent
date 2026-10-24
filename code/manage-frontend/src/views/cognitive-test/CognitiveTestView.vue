@@ -36,30 +36,38 @@
           <template #default="{ row }">
             <div class="expand-panel">
               <!-- 题干 -->
-              <p class="expand-stem">{{ row.stem }}</p>
-              <!-- 题目描述（管理员元数据） -->
-              <p v-if="row.description" class="expand-desc">
-                <span class="expand-desc__label">题目描述：</span>{{ row.description }}
-              </p>
+              <div class="expand-section">
+                <div class="expand-section__title">
+                  <SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />题干内容
+                </div>
+                <div class="expand-stem">{{ row.stem }}</div>
+              </div>
+
+              <!-- 题目描述 -->
+              <div v-if="row.description" class="expand-section">
+                <div class="expand-section__title">
+                  <SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />题目描述
+                </div>
+                <div class="expand-desc">{{ row.description }}</div>
+              </div>
+
               <!-- 答案列表 -->
-              <div class="expand-answers">
-                <div v-for="(answer, idx) in row.answers" :key="idx" class="expand-answer">
-                  <div class="expand-answer__header">
-                    <span class="expand-key">{{ answer.key || String.fromCharCode(65 + idx) }}</span>
-                    <span class="expand-text">{{ answer.text }}</span>
-                  </div>
-                  <div class="expand-weights">
-                    <span v-for="p in powers" :key="p" class="expand-weight-chip">
-                      <span class="power-dot-xs" :class="`power-dot-xs--${p}`" />
-                      {{ FivePowerLabels[p as FivePower] }}
-                      <strong class="num">{{ answer.force_weights?.[p as FivePower] ?? 0 }}</strong>
-                    </span>
-                    <span
-                      class="expand-sum num"
-                      :class="Object.values(answer.force_weights || {}).reduce((s: number, v: number) => s + v, 0) === 10 ? 'expand-sum--ok' : 'expand-sum--err'"
-                    >
-                      合计 {{ Object.values(answer.force_weights || {}).reduce((s: number, v: number) => s + v, 0) }}
-                    </span>
+              <div class="expand-section">
+                <div class="expand-section__title">
+                  <SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />答案配置
+                </div>
+                <div class="expand-answers">
+                  <div v-for="(answer, idx) in row.answers" :key="idx" class="expand-answer">
+                    <div class="expand-answer__header">
+                      <span class="expand-key">{{ answer.key || String.fromCharCode(65 + idx) }}</span>
+                      <span class="expand-text">{{ answer.text }}</span>
+                    </div>
+                    <div class="expand-weights">
+                      <span v-for="p in powers" :key="p" class="expand-weight-chip">
+                        <span class="power-dot-xs" :class="`power-dot-xs--${p}`" />
+                        {{ FivePowerLabels[p as FivePower] }}({{ answer.force_weights?.[p as FivePower] ?? 0 }})
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -352,28 +360,41 @@ async function doDelete() {
 
 // ── 展开面板 ─────────────────────────────────────────────────
 .expand-panel {
-  padding: 16px 20px;
-  background: var(--bg-muted);
-  border-top: 1px solid var(--border);
+  padding-bottom: 10px;
+  background: var(--bg-surface);
+  display: flex;
+  flex-direction: column;
+}
+
+.expand-section {
+  background: var(--bg-surface);
+
+  [data-theme="dark"] & {
+    background: #242424;
+  }
+
+  &__title {
+    display: flex;
+    align-items: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--color-primary);
+    padding: 8px 0;
+  }
 }
 
 .expand-stem {
-  font-size: 13.5px;
+  font-size: 13px;
   color: var(--text-1);
   line-height: 1.65;
-  margin: 0 0 10px;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .expand-desc {
   font-size: 12px;
   color: var(--text-3);
-  margin: 0 0 14px;
-  padding: 6px 10px;
-  background: rgba(79, 70, 229, 0.04);
-  border-radius: var(--r-md);
-  border-left: 2px solid var(--indigo-border);
-
-  &__label { font-weight: 600; color: var(--text-2); }
+  margin-top: 6px;
 }
 
 .expand-answers {
@@ -383,33 +404,38 @@ async function doDelete() {
 }
 
 .expand-answer {
-  background: var(--bg-surface);
-  border-radius: var(--r-lg);
-  border: 1px solid var(--border);
+  border: 1px solid rgba(96, 141, 248, 0.15);
+  border-radius: 4px;
   overflow: hidden;
+
+  [data-theme="dark"] & { border-color: #202020; }
 
   &__header {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 10px 14px;
+    padding: 8px 10px;
     background: var(--bg-surface);
+
+    [data-theme="dark"] & { background: #2a2a2a; }
   }
 }
 
 .expand-key {
   width: 26px;
   height: 26px;
-  border-radius: var(--r-sm);
-  background: var(--indigo);
+  border-radius: 4px;
+  background: var(--color-primary);
   color: #fff;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
+
+[data-theme="dark"] .expand-key { color: #0D0D0D; }
 
 .expand-text {
   flex: 1;
@@ -418,40 +444,23 @@ async function doDelete() {
   line-height: 1.5;
 }
 
-
 .expand-weights {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  flex-direction: row;
+  gap: 40px;
   flex-wrap: wrap;
-  padding: 8px 14px;
+  padding: 8px 10px;
   background: var(--bg-muted);
-  border-top: 1px solid var(--border);
+  border-top: 1px solid rgba(96, 141, 248, 0.10);
 }
 
 .expand-weight-chip {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 11.5px;
+  font-size: 12.5px;
   color: var(--text-2);
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--r-pill);
-  padding: 2px 8px;
-
-  strong { color: var(--text-1); }
-}
-
-.expand-sum {
-  margin-left: auto;
-  font-size: 12px;
-  font-weight: 700;
-  padding: 2px 10px;
-  border-radius: var(--r-pill);
-
-  &--ok { background: var(--green-dim); color: var(--green); }
-  &--err { background: var(--red-dim);  color: var(--red); }
+  white-space: nowrap;
 }
 
 // 五力维度小圆点
