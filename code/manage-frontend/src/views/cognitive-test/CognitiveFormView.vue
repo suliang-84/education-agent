@@ -42,22 +42,8 @@
       </template>
     </div>
 
-    <!-- ── 已下架题目的历史成绩保护说明 ── -->
-    <div v-if="currentStatus === 'archived'" class="archive-notice">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/>
-      </svg>
-      <div>
-        <div class="archive-notice__title">已下架题目 — 可安全编辑后重新发布</div>
-        <div class="archive-notice__body">
-          此题目当前处于下架状态，您可以自由修改题干、答案和权重配置。
-          重新发布后，<strong>历史测试会话的评分结果不受影响</strong>——系统在每次测试创建时已对题目内容生成不可变快照，历史成绩始终基于测试时的快照版本计算。
-        </div>
-      </div>
-    </div>
-
     <!-- ── 已发布题目修改提醒 ── -->
-    <div v-else-if="currentStatus === 'published'" class="published-notice">
+    <div v-if="currentStatus === 'published'" class="published-notice">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0">
         <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
       </svg>
@@ -65,7 +51,7 @@
     </div>
 
     <!-- ── 新增 / 草稿状态提示 ── -->
-    <div v-else class="publish-tip" :class="publishedCount >= 10 ? 'publish-tip--normal' : 'publish-tip--warn'">
+    <div v-else-if="!isEdit || currentStatus === 'draft'" class="publish-tip" :class="publishedCount >= 10 ? 'publish-tip--normal' : 'publish-tip--warn'">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0">
         <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"/>
       </svg>
@@ -192,10 +178,7 @@
                 :disabled="form.answers.length <= 2"
                 @click="removeAnswer(idx)"
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/>
-                </svg>
-                删除
+                <SvgIcon name="delete" :size="16" color="var(--red)" />
               </el-button>
             </div>
 
@@ -444,6 +427,12 @@ async function handleSave(action: 'draft' | 'publish' | 'save' | 'republish') {
 </script>
 
 <style lang="scss" scoped>
+// ── 隐藏页面滚动条 ────────────────────────────────────────────
+.page-root {
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
+
 // ── 顶部操作栏 ───────────────────────────────────────────────
 .form-topbar {
   display: flex;
@@ -468,7 +457,7 @@ async function handleSave(action: 'draft' | 'publish' | 'save' | 'republish') {
 // ── 表单分区 ─────────────────────────────────────────────────
 .form-section {
   padding: 5px 15px 15px;
-  margin-bottom: 15px;
+  margin-bottom: 10px;
   border-radius: 4px !important;
   box-shadow: none !important;
   border: 1px solid rgba(96, 141, 248, 0.15) !important;
@@ -561,10 +550,10 @@ async function handleSave(action: 'draft' | 'publish' | 'save' | 'republish') {
   font-size: 13px;
   color: var(--text-2);
   line-height: 1.7;
-  margin-bottom: 20px;
-  padding: 10px 14px;
+  margin-bottom: 10px;
+  padding: 8px 10px;
   background: var(--bg-muted);
-  border-radius: var(--r-lg);
+  border-radius: 4px;
 
   strong { color: var(--text-1); font-weight: 600; }
 }
@@ -573,51 +562,50 @@ async function handleSave(action: 'draft' | 'publish' | 'save' | 'republish') {
 .answer-list {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  margin-bottom: 16px;
+  gap: 10px;
+  margin-bottom: 10px;
 }
 
 .answer-card {
-  border: 1.5px solid var(--border);
-  border-radius: var(--r-xl);
+  border: 1px solid rgba(96, 141, 248, 0.15);
+  border-radius: 4px;
   overflow: hidden;
-  transition: border-color 0.15s;
-
-  &:hover { border-color: var(--border-hover); }
 
   &--invalid {
     border-color: rgba(239, 68, 68, 0.40);
-    background: rgba(239, 68, 68, 0.02);
   }
 
   &__header {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 14px 16px;
+    gap: 10px;
+    padding: 8px 10px;
     background: var(--bg-surface);
   }
 
   &__weights {
-    padding: 12px 16px 14px;
+    padding: 8px 10px 10px;
     background: var(--bg-muted);
-    border-top: 1px solid var(--border);
+    border-top: 1px solid rgba(96, 141, 248, 0.10);
   }
 }
 
 .answer-key-badge {
-  width: 32px;
-  height: 32px;
-  border-radius: var(--r-sm);
-  background: var(--indigo);
+  width: 26px;
+  height: 26px;
+  border-radius: 4px;
+  background: var(--color-primary);
   color: #fff;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  letter-spacing: 0;
+}
+
+[data-theme="dark"] .answer-key-badge {
+  color: #0D0D0D;
 }
 
 .answer-text-wrap {
@@ -627,13 +615,11 @@ async function handleSave(action: 'draft' | 'publish' | 'save' | 'republish') {
 
 // ── 权重配置行 ───────────────────────────────────────────────
 .weights-label {
-  font-size: 11.5px;
-  font-weight: 600;
-  color: var(--text-3);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-2);
   display: block;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .weights-row {
@@ -653,7 +639,7 @@ async function handleSave(action: 'draft' | 'publish' | 'save' | 'republish') {
     display: flex;
     align-items: center;
     gap: 4px;
-    font-size: 11.5px;
+    font-size: 13px;
     font-weight: 500;
     color: var(--text-2);
     white-space: nowrap;
@@ -661,8 +647,8 @@ async function handleSave(action: 'draft' | 'publish' | 'save' | 'republish') {
 }
 
 .power-dot {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   flex-shrink: 0;
 
