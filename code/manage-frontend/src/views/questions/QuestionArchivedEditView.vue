@@ -88,7 +88,7 @@
             <el-row :gutter="20">
               <el-col :span="16">
                 <el-form-item label="题目类型">
-                  <el-radio-group v-model="form.question_type" @change="onQuestionTypeChange">
+                  <el-radio-group v-model="form.question_type" @change="(val: string) => { saveAnswerCache(prevQuestionType); prevQuestionType = val; onQuestionTypeChange(val) }">
                     <el-radio value="SINGLE_CHOICE">单选题</el-radio>
                     <el-radio value="MULTIPLE_CHOICE">多选题</el-radio>
                     <el-radio value="FILL_BLANK">填空题</el-radio>
@@ -347,9 +347,41 @@ const form = reactive({
 
 const weightTotal = computed(() => Object.values(form.five_power_weights).reduce((s, v) => s + v, 0))
 
-function onQuestionTypeChange() {
-  form.answer_single = 'A'; form.answer_multi = []; form.answer_blanks = ['']
-  form.answer_tf = true; form.answer_final = ''; form.answer_steps = ['']
+let prevQuestionType = form.question_type
+
+const answerCache: Record<string, {
+  answer_single?: string
+  answer_multi?: string[]
+  answer_blanks?: string[]
+  answer_tf?: boolean
+  answer_final?: string
+  answer_steps?: string[]
+}> = {}
+
+function saveAnswerCache(type: string) {
+  answerCache[type] = {
+    answer_single: form.answer_single,
+    answer_multi:  [...form.answer_multi],
+    answer_blanks: [...form.answer_blanks],
+    answer_tf:     form.answer_tf,
+    answer_final:  form.answer_final,
+    answer_steps:  [...form.answer_steps],
+  }
+}
+
+function onQuestionTypeChange(newType: string) {
+  const cached = answerCache[newType]
+  if (cached) {
+    if (cached.answer_single !== undefined) form.answer_single = cached.answer_single
+    if (cached.answer_multi  !== undefined) form.answer_multi  = [...cached.answer_multi]
+    if (cached.answer_blanks !== undefined) form.answer_blanks = [...cached.answer_blanks]
+    if (cached.answer_tf     !== undefined) form.answer_tf     = cached.answer_tf
+    if (cached.answer_final  !== undefined) form.answer_final  = cached.answer_final
+    if (cached.answer_steps  !== undefined) form.answer_steps  = [...cached.answer_steps]
+  } else {
+    form.answer_single = 'A'; form.answer_multi = []; form.answer_blanks = ['']
+    form.answer_tf = true; form.answer_final = ''; form.answer_steps = ['']
+  }
 }
 
 function deserializeAnswer(answer: any) {
@@ -455,7 +487,8 @@ async function handleSaveAndActivate() {
     return
   }
   if (weightTotal.value !== 10) {
-    ElMessage.warning('五力权重合计必须等于10分，请调整后再启用')
+    const sum = weightTotal.value
+    ElMessage.warning(`五力权重合计为 ${sum} 分（需为 10 分），请调整后再启用`)
     return
   }
   saving.value = true

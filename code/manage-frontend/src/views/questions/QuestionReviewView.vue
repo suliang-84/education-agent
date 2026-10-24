@@ -101,7 +101,7 @@
               <el-col :span="16">
                 <el-form-item label="题目类型">
                   <span v-if="!isEditable" class="plain-value">{{ questionTypeLabel }}</span>
-                  <el-radio-group v-else v-model="form.question_type" @change="onQuestionTypeChange">
+                  <el-radio-group v-else v-model="form.question_type" @change="(val: string) => { saveAnswerCache(prevQuestionType); prevQuestionType = val; onQuestionTypeChange(val) }">
                     <el-radio value="SINGLE_CHOICE">单选题</el-radio>
                     <el-radio value="MULTIPLE_CHOICE">多选题</el-radio>
                     <el-radio value="FILL_BLANK">填空题</el-radio>
@@ -485,13 +485,49 @@ const difficultyLabel = computed(() => ({
 
 const migrationDisplayText = computed(() => form.migration_directions.join('、') || '—')
 
-function onQuestionTypeChange() {
-  form.answer_single = 'A'
-  form.answer_multi  = []
-  form.answer_blanks = ['']
-  form.answer_tf     = true
-  form.answer_final  = ''
-  form.answer_steps  = ['']
+// 记录上一个题型，用于切换前保存缓存
+let prevQuestionType = form.question_type
+
+// 各题型答案缓存，切换题型时保存当前答案，切回时恢复
+const answerCache: Record<string, {
+  answer_single?: string
+  answer_multi?: string[]
+  answer_blanks?: string[]
+  answer_tf?: boolean
+  answer_final?: string
+  answer_steps?: string[]
+}> = {}
+
+function onQuestionTypeChange(newType: string) {
+  const cached = answerCache[newType]
+  if (cached) {
+    if (cached.answer_single !== undefined) form.answer_single = cached.answer_single
+    if (cached.answer_multi  !== undefined) form.answer_multi  = [...cached.answer_multi]
+    if (cached.answer_blanks !== undefined) form.answer_blanks = [...cached.answer_blanks]
+    if (cached.answer_tf     !== undefined) form.answer_tf     = cached.answer_tf
+    if (cached.answer_final  !== undefined) form.answer_final  = cached.answer_final
+    if (cached.answer_steps  !== undefined) form.answer_steps  = [...cached.answer_steps]
+  } else {
+    // 第一次切换到该题型，初始化默认值
+    form.answer_single = 'A'
+    form.answer_multi  = []
+    form.answer_blanks = ['']
+    form.answer_tf     = true
+    form.answer_final  = ''
+    form.answer_steps  = ['']
+  }
+}
+
+// 在题型切换前保存当前答案到缓存
+function saveAnswerCache(type: string) {
+  answerCache[type] = {
+    answer_single: form.answer_single,
+    answer_multi:  [...form.answer_multi],
+    answer_blanks: [...form.answer_blanks],
+    answer_tf:     form.answer_tf,
+    answer_final:  form.answer_final,
+    answer_steps:  [...form.answer_steps],
+  }
 }
 
 function deserializeAnswer(answer: any) {
@@ -586,7 +622,8 @@ function flattenTree(nodes: KnowledgeTreeNode[]): KnowledgeTreeNode[] {
 // ── 发布 ─────────────────────────────────────────────────────
 async function handlePublish() {
   if (weightTotal.value !== 10) {
-    ElMessage.warning('五力权重合计必须等于10分，请调整后再发布')
+    const sum = weightTotal.value
+    ElMessage.warning(`五力权重合计为 ${sum} 分（需为 10 分），请调整后再发布`)
     return
   }
   if (!form.subject_id || !form.grade_id || !form.semester_id) {

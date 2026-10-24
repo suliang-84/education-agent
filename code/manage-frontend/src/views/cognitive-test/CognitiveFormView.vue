@@ -65,43 +65,6 @@
 
     <div v-loading="loading">
 
-      <!-- ── 基础信息 ── -->
-      <div class="form-section surface">
-        <div class="section-hd">
-          <span class="section-title">
-            <SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />
-            基础信息
-          </span>
-        </div>
-        <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
-          <el-row :gutter="24">
-            <el-col :span="8">
-              <el-form-item label="参考时间" prop="reference_time_sec">
-                <div style="display:flex;align-items:center;gap:8px">
-                  <el-input-number
-                    v-model="form.reference_time_sec"
-                    :min="30" :max="600" :step="15"
-                    style="width:130px"
-                  />
-                  <span style="color:var(--text-3);font-size:13px">秒（建议 60~180）</span>
-                </div>
-              </el-form-item>
-            </el-col>
-            <el-col :span="16">
-              <el-form-item label="题目描述">
-                <el-input
-                  v-model="form.description"
-                  placeholder="管理员内部元数据，不展示给学生。如：测量学生在面对冲突证据时的洞察力倾向"
-                  maxlength="200"
-                  show-word-limit
-                />
-                <div class="form-hint">用于记录该题的测量意图，便于题库管理，学生不可见。</div>
-              </el-form-item>
-            </el-col>
-          </el-row>
-        </el-form>
-      </div>
-
       <!-- ── 题干内容 ── -->
       <div class="form-section surface">
         <div class="section-hd">
@@ -125,6 +88,42 @@
         </el-form>
       </div>
 
+      <!-- ── 基础信息 ── -->
+      <div class="form-section surface">
+        <div class="section-hd">
+          <span class="section-title">
+            <SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />
+            基础信息
+          </span>
+        </div>
+        <el-form ref="formRef" :model="form" :rules="rules" label-width="100px" style="margin-bottom:0">
+          <el-row :gutter="24">
+            <el-col :span="8">
+              <el-form-item label="参考时间" prop="reference_time_sec" style="margin-bottom:0">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <el-input-number
+                    v-model="form.reference_time_sec"
+                    :min="30" :max="600" :step="15"
+                    style="width:130px"
+                  />
+                  <span style="color:var(--text-3);font-size:13px">秒（建议 60~180）</span>
+                </div>
+              </el-form-item>
+            </el-col>
+            <el-col :span="16">
+              <el-form-item label="题目描述" style="margin-bottom:0">
+                <el-input
+                  v-model="form.description"
+                  placeholder="管理员内部元数据，不展示给学生。如：测量学生在面对冲突证据时的洞察力倾向"
+                  maxlength="200"
+                  show-word-limit
+                />
+              </el-form-item>
+            </el-col>
+          </el-row>
+        </el-form>
+      </div>
+
       <!-- ── 答案配置 ── -->
       <div class="form-section surface">
         <div class="section-hd">
@@ -132,19 +131,7 @@
             <SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />
             答案配置
           </span>
-          <div style="display:flex;align-items:center;gap:10px">
-            <span class="section-badge">每行合计需为 10（整数）</span>
-            <el-button
-              size="small"
-              :disabled="form.answers.length >= 8"
-              @click="addAnswer"
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:3px">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
-              </svg>
-              添加答案
-            </el-button>
-          </div>
+          <span class="section-badge">每行合计需为 10（整数）</span>
         </div>
 
         <p class="answers-intro">
@@ -174,6 +161,15 @@
               <el-button
                 text
                 size="small"
+                style="flex-shrink:0"
+                :disabled="form.answers.length >= 8"
+                @click="form.answers.splice(idx + 1, 0, makeAnswer())"
+              >
+                <SvgIcon name="add" :size="16" color="var(--color-primary)" />
+              </el-button>
+              <el-button
+                text
+                size="small"
                 style="color:var(--red);flex-shrink:0"
                 :disabled="form.answers.length <= 2"
                 @click="removeAnswer(idx)"
@@ -200,17 +196,6 @@
                     style="width:90px"
                   />
                 </div>
-                <!-- 合计 -->
-                <div class="weight-sum" :class="isWeightValid(idx) ? 'weight-sum--ok' : 'weight-sum--err'">
-                  <span class="weight-sum__label">合计</span>
-                  <span class="weight-sum__val num">{{ answerWeightSum(idx) }}</span>
-                  <svg v-if="isWeightValid(idx)" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
-                  </svg>
-                  <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-                  </svg>
-                </div>
               </div>
             </div>
           </div>
@@ -222,12 +207,6 @@
             当前 <strong class="num">{{ form.answers.length }}</strong> 个答案
             <span style="color:var(--text-3)">（最少 2 个，最多 8 个）</span>
           </span>
-          <div v-if="!allWeightsValid" class="weights-error">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/>
-            </svg>
-            存在答案权重合计不等于 10，请调整后再保存。
-          </div>
         </div>
       </div>
 
@@ -360,11 +339,19 @@ async function handleSave(action: 'draft' | 'publish' | 'save' | 'republish') {
     return
   }
 
+  // 所有保存动作都校验权重（后端强制要求五项之和 = 10）
+  if (!allWeightsValid.value) {
+    const invalid = form.answers
+      .map((_, i) => ({ idx: i, sum: answerWeightSum(i) }))
+      .filter(({ sum }) => sum !== 10)
+    const msg = invalid.map(({ idx, sum }) =>
+      `答案 ${String.fromCharCode(65 + idx)}：合计 ${sum} 分（需为 10 分）`
+    ).join('；')
+    ElMessage.warning(`五力权重不合法，请调整后再保存 — ${msg}`)
+    return
+  }
+
   if (action === 'publish' || action === 'republish') {
-    if (!allWeightsValid.value) {
-      ElMessage.warning('存在答案权重合计不等于 10，请检查后再发布')
-      return
-    }
 
     if (action === 'republish') {
       await ElMessageBox.confirm(
@@ -468,7 +455,7 @@ async function handleSave(action: 'draft' | 'publish' | 'save' | 'republish') {
   color: var(--indigo);
   background: var(--indigo-light);
   padding: 3px 10px;
-  border-radius: var(--r-pill);
+  border-radius: 4px;
   font-weight: 500;
 }
 
@@ -581,6 +568,13 @@ async function handleSave(action: 'draft' | 'publish' | 'save' | 'republish') {
     gap: 10px;
     padding: 8px 10px;
     background: var(--bg-surface);
+
+    // 图标按钮去除内边距和自动 margin，间距完全由 gap 控制
+    .el-button {
+      padding: 0 !important;
+      min-width: unset !important;
+      margin-left: 0 !important;
+    }
   }
 
   &__weights {
@@ -627,6 +621,10 @@ async function handleSave(action: 'draft' | 'publish' | 'save' | 'republish') {
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+:deep(.weight-item .el-input__inner) {
+  text-align: left !important;
 }
 
 .weight-item {
