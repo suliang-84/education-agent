@@ -68,7 +68,16 @@ async def get_student_list(
 
     # 有五力画像（is_latest）的学生集合，同时取 primary_strength
     profile_res = await db.execute(
-        select(FivePowerProfile.student_id, FivePowerProfile.primary_strength, FivePowerProfile.primary_weakness).where(
+        select(
+            FivePowerProfile.student_id,
+            FivePowerProfile.primary_strength,
+            FivePowerProfile.primary_weakness,
+            FivePowerProfile.insight_final,
+            FivePowerProfile.construct_final,
+            FivePowerProfile.deduce_final,
+            FivePowerProfile.adapt_final,
+            FivePowerProfile.migrate_final,
+        ).where(
             FivePowerProfile.student_id.in_(student_ids),
             FivePowerProfile.is_latest == True,
         )
@@ -77,6 +86,13 @@ async def get_student_list(
     profile_set = {r[0] for r in profile_rows}
     strength_map = {r[0]: r[1] for r in profile_rows}
     weakness_map = {r[0]: r[2] for r in profile_rows}
+    scores_map = {
+        r[0]: {
+            'INSIGHT': r[3], 'CONSTRUCT': r[4],
+            'DEDUCE': r[5], 'ADAPT': r[6], 'MIGRATE': r[7],
+        }
+        for r in profile_rows
+    }
 
     # 训练次数（按 student_id 分组）
     training_cnt_res = await db.execute(
@@ -104,10 +120,12 @@ async def get_student_list(
             'id': s.id,
             'nickname': s.nickname,
             'grade': s.grade,
+            'phone_masked': s.phone_masked,
             'is_minor': s.is_minor,
             'has_five_power_profile': s.id in profile_set,
             'strongest_power': strength_map.get(s.id),
             'weakest_power': weakness_map.get(s.id),
+            'five_power_scores': scores_map.get(s.id),
             'training_count': training_map.get(s.id, 0),
             'bound_parents_count': binding_map.get(s.id, 0),
             'last_login_at': s.last_login_at,

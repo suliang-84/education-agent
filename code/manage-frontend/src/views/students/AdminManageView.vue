@@ -17,30 +17,15 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="账号" width="130">
-          <template #default="{ row }">
-            <span class="mono" style="color:var(--indigo);font-weight:600">{{ row.username }}</span>
-          </template>
-        </el-table-column>
+        <el-table-column label="账号" min-width="130" prop="username" />
 
-        <el-table-column label="显示名称" width="140">
-          <template #default="{ row }">
-            <div style="display:flex;align-items:center;gap:8px">
-              <div class="user-avatar user-avatar--admin">{{ row.display_name[0] }}</div>
-              <span style="font-weight:600;color:var(--text-1)">{{ row.display_name }}</span>
-            </div>
-          </template>
-        </el-table-column>
+        <el-table-column label="显示名称" width="130" prop="display_name" />
 
-        <el-table-column label="手机号" width="130">
-          <template #default="{ row }">
-            <span class="mono" style="color:var(--text-3);font-size:13px">{{ row.phone_masked }}</span>
-          </template>
-        </el-table-column>
+        <el-table-column label="手机号" width="130" prop="phone_masked" />
 
-        <el-table-column label="状态" width="90" align="center">
+        <el-table-column label="状态" width="80" align="center">
           <template #default="{ row }">
-            <span class="status-dot" :class="row.is_active ? 'status-dot--ok' : 'status-dot--off'">
+            <span class="status-badge" :class="row.is_active ? 'status-badge--ok' : 'status-badge--off'">
               {{ row.is_active ? '启用' : '停用' }}
             </span>
           </template>
@@ -48,11 +33,11 @@
 
         <el-table-column label="最后登录" width="100">
           <template #default="{ row }">
-            <span style="color:var(--text-3);font-size:13px">{{ row.last_login_at ? fromNow(row.last_login_at) : '从未' }}</span>
+            {{ row.last_login_at ? fromNow(row.last_login_at) : '从未' }}
           </template>
         </el-table-column>
 
-        <el-table-column label="操作" width="200" align="center" fixed="right">
+        <el-table-column label="操作" width="110" align="center" fixed="right">
           <template #default="{ row }">
             <el-button v-if="row.is_active === 1" text size="small" style="color:var(--amber)" @click="toggleAdmin(row, 0)">
               <SvgIcon name="pause" :size="18" color="var(--amber)" title="停用" />
@@ -60,7 +45,9 @@
             <el-button v-if="row.is_active === 0" text size="small" style="color:var(--green)" @click="toggleAdmin(row, 1)">
               <SvgIcon name="play" :size="18" color="var(--green)" title="启用" />
             </el-button>
-            <el-button text size="small" style="color:var(--indigo)" @click="confirmResetPwd(row)">重置密码</el-button>
+            <el-button text size="small" style="color:var(--indigo)" @click="confirmResetPwd(row)">
+              <SvgIcon name="reset_password" :size="18" color="var(--indigo)" title="重置密码" />
+            </el-button>
             <el-button v-if="row.is_active === 0" text size="small" style="color:var(--red)" @click="confirmDelete(row)">
               <SvgIcon name="delete" :size="18" color="var(--red)" title="删除" />
             </el-button>
@@ -196,17 +183,19 @@ onMounted(loadData)
 </script>
 
 <style lang="scss" scoped>
-.user-avatar {
-  width: 32px; height: 32px; border-radius: 9px;
-  font-size: 13px; font-weight: 700;
-  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-  &--admin { background: var(--purple-dim); color: var(--purple); }
-}
+.status-badge {
+  font-size: 12px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 22px;
+  padding: 0 10px;
+  border-radius: 11px;
+  border: none;
 
-.status-dot {
-  font-size: 12px; font-weight: 600; padding: 3px 10px;
-  border-radius: var(--r-pill); border: 1.5px solid;
-  &--ok  { background: var(--green-dim); color: var(--green); border-color: var(--green-border); }
-  &--off { background: var(--bg-muted);  color: var(--text-3); border-color: var(--border-hover); }
+  &--ok  { background: #E8F5D0; color: #4A7C10; }
+  &--off { background: #FFE0E0; color: #DC2626; }
 }
 </style>
+

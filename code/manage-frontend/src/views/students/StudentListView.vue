@@ -52,51 +52,31 @@
             </template>
           </el-table-column>
 
-          <el-table-column label="学生" min-width="140">
+          <el-table-column label="学生" width="110" prop="nickname" />
+
+          <el-table-column label="年级" width="90">
             <template #default="{ row }">
-              <div style="display:flex;align-items:center;gap:10px">
-                <div class="user-avatar user-avatar--student">{{ row.nickname[0] }}</div>
-                <div>
-                  <div style="font-weight:600;color:var(--text-1)">{{ row.nickname }}</div>
-                  <div style="font-size:12px;color:var(--text-3)">{{ row.grade }}</div>
-                </div>
-              </div>
+              {{ gradeLabel(row.grade) }}
             </template>
           </el-table-column>
 
-          <el-table-column label="最强力" width="100" align="center">
+          <el-table-column label="五力权重分布" min-width="260">
             <template #default="{ row }">
-              <span v-if="row.strongest_power" class="power-dot-label" :class="`power-dot-label--${row.strongest_power}`">
-                <span class="power-dot-label__dot" />
-                {{ FivePowerLabels[row.strongest_power as FivePower] }}
+              <span v-if="row.five_power_scores" class="power-dist">
+                <template v-for="(item, idx) in sortedPowers(row.five_power_scores)" :key="item.key">
+                  <span class="power-dist__item">
+                    <span class="power-dot" :class="`power-dot--${item.key}`" />
+                    {{ FivePowerLabels[item.key as FivePower] }}({{ item.val }})
+                  </span>
+                  <span v-if="idx < 4" style="color:var(--text-3);margin:0 2px">></span>
+                </template>
               </span>
-              <span v-else style="color:var(--text-3);font-size:12px">—</span>
+              <span v-else style="color:var(--text-3);font-size:12px">未测试</span>
             </template>
           </el-table-column>
 
-          <el-table-column label="最弱力" width="100" align="center">
-            <template #default="{ row }">
-              <span v-if="row.weakest_power" class="power-dot-label" :class="`power-dot-label--${row.weakest_power}`">
-                <span class="power-dot-label__dot" />
-                {{ FivePowerLabels[row.weakest_power as FivePower] }}
-              </span>
-              <span v-else style="color:var(--text-3);font-size:12px">—</span>
-            </template>
-          </el-table-column>
 
-          <el-table-column label="训练次数" width="85" align="center">
-            <template #default="{ row }">
-              <span class="num" style="font-size:14px;font-weight:600;color:var(--indigo)">{{ row.training_count }}</span>
-            </template>
-          </el-table-column>
-
-          <el-table-column label="绑定家长" width="90" align="center">
-            <template #default="{ row }">
-              <span class="parent-count-badge" :class="row.bound_parents_count === 0 ? 'parent-count-badge--none' : ''">
-                {{ row.bound_parents_count }}
-              </span>
-            </template>
-          </el-table-column>
+          <el-table-column label="绑定家长" width="90" align="center" prop="bound_parents_count" />
 
           <el-table-column label="手机号" width="130">
             <template #default="{ row }">
@@ -110,12 +90,14 @@
             </template>
           </el-table-column>
 
-          <el-table-column label="操作" width="200" align="center" fixed="right">
+          <el-table-column label="操作" width="110" align="center" fixed="right">
             <template #default="{ row }">
               <el-button text size="small" style="color:var(--color-primary)" @click="$router.push(`/students/${row.id}`)">
                 <SvgIcon name="profile" :size="18" color="var(--color-primary)" title="画像" />
               </el-button>
-              <el-button text size="small" style="color:var(--indigo)" @click="$router.push(`/students/${row.id}/ai-prompt`)">摘要</el-button>
+              <el-button text size="small" style="color:var(--indigo)" @click="$router.push(`/students/${row.id}/ai-prompt`)">
+                <SvgIcon name="summary" :size="18" color="var(--indigo)" title="摘要" />
+              </el-button>
               <el-button text size="small" style="color:var(--color-primary)" @click="openBindParent(row)">
                 <SvgIcon name="bind" :size="18" color="var(--color-primary)" title="绑定家长" />
               </el-button>
@@ -160,7 +142,6 @@
                 <div class="user-avatar user-avatar--parent">{{ row.nickname[0] }}</div>
                 <div>
                   <div style="font-weight:600;color:var(--text-1)">{{ row.nickname }}</div>
-                  <span v-if="!row.is_confirmed" class="tag-pending">待激活</span>
                 </div>
               </div>
             </template>
@@ -274,7 +255,9 @@
                 text size="small" style="color:var(--green)"
                 @click="toggleAdmin(row, 1)"
               ><SvgIcon name="play" :size="18" color="var(--green)" title="启用" /></el-button>
-              <el-button text size="small" style="color:var(--indigo)" @click="confirmResetPwd(row)">重置密码</el-button>
+              <el-button text size="small" style="color:var(--indigo)" @click="confirmResetPwd(row)">
+                <SvgIcon name="reset_password" :size="18" color="var(--indigo)" title="重置密码" />
+              </el-button>
               <el-button
                 v-if="row.is_active === 0"
                 text size="small" style="color:var(--red)"
@@ -386,6 +369,20 @@ const activeTab = ref<'students' | 'parents' | 'admins'>('students')
 
 // ── 常量 ─────────────────────────────────────────────────────
 const grades = ['初一', '初二', '初三', '高一', '高二', '高三']
+
+const GRADE_LABELS: Record<string, string> = {
+  G7: '初一', G8: '初二', G9: '初三',
+  G10: '高一', G11: '高二', G12: '高三',
+}
+function gradeLabel(grade: string) {
+  return GRADE_LABELS[grade] ?? grade ?? '—'
+}
+
+function sortedPowers(scores: Record<string, number>) {
+  return Object.entries(scores)
+    .map(([key, val]) => ({ key, val }))
+    .sort((a, b) => b.val - a.val)
+}
 
 function bindMethodLabel(m: string) {
   return { INVITE_CODE: '学生邀请', PARENT_SELF: '家长主动', ADMIN: '管理员绑定' }[m] ?? m
@@ -631,6 +628,35 @@ onMounted(loadStudents)
 </script>
 
 <style lang="scss" scoped>
+.power-dist {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--text-2);
+
+  &__item {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    white-space: nowrap;
+  }
+}
+
+.power-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+
+  &--INSIGHT   { background: var(--power-insight); }
+  &--CONSTRUCT { background: var(--power-construct); }
+  &--DEDUCE    { background: var(--power-deduce); }
+  &--ADAPT     { background: var(--power-adapt); }
+  &--MIGRATE   { background: var(--power-migrate); }
+}
+
 .power-dot-label {
   display: inline-flex;
   align-items: center;
@@ -731,14 +757,6 @@ onMounted(loadStudents)
   margin-left: 6px;
 }
 
-.parent-count-badge {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--indigo);
-  font-family: var(--font-mono);
-
-  &--none { color: var(--text-3); }
-}
 
 .bound-student-tag {
   font-size: 11.5px;

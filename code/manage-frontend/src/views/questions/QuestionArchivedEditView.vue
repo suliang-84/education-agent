@@ -540,7 +540,7 @@ async function handleSaveAndActivate() {
   border: 1px solid rgba(96, 141, 248, 0.15) !important;
 
   [data-theme="dark"] & {
-    background: #242424 !important;
+    background: #1a1a1a !important;
     border-color: #202020 !important;
   }
 }

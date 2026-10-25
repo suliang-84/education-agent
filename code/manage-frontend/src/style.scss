@@ -255,8 +255,10 @@ $t-slow:   350ms;
   --indigo-dim:    rgba(188, 253, 47, 0.08);
 
   // 背景层次（近黑 → 深灰，靠色差区分层级，无需阴影）
-  --bg-page:    #111111;
-  --bg-surface: #1A1A1A;
+  // 亮主题 #f2f3f7 → 暗主题 #121212（页面底色）
+  // 亮主题 #ffffff → 暗主题 #1a1a1a（卡片/表面色）
+  --bg-page:    #121212;
+  --bg-surface: #1a1a1a;
   --bg-muted:   #222222;
 
   // 品牌色（深色下激活色改为紫色）
@@ -329,8 +331,8 @@ $t-slow:   350ms;
   --el-border-color-lighter:  rgba(255, 255, 255, 0.04);
   --el-fill-color:            #222222;
   --el-fill-color-light:      #1E1E1E;
-  --el-bg-color:              #1A1A1A;
-  --el-bg-color-page:         #111111;
+  --el-bg-color:              #1a1a1a;
+  --el-bg-color-page:         #121212;
   --el-bg-color-overlay:      #242424;
   --el-text-color-primary:    #F9FAFB;
   --el-text-color-regular:    #9CA3AF;
@@ -550,7 +552,7 @@ $t-slow:   350ms;
 
   .el-table {
     // 深色模式在 .el-table 内覆盖，与 EP 原始定义同级
-    --el-table-tr-bg-color:        #1A1A1A;
+    --el-table-tr-bg-color:        #1a1a1a;
     --el-table-header-bg-color:    #202020;
     --el-table-header-text-color:  #9CA3AF;
     --el-table-text-color:         #F9FAFB;

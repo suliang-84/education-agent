@@ -96,31 +96,25 @@
             基础信息
           </span>
         </div>
-        <el-form ref="formRef" :model="form" :rules="rules" label-width="100px" style="margin-bottom:0">
-          <el-row :gutter="24">
-            <el-col :span="8">
-              <el-form-item label="参考时间" prop="reference_time_sec" style="margin-bottom:0">
-                <div style="display:flex;align-items:center;gap:8px">
-                  <el-input-number
-                    v-model="form.reference_time_sec"
-                    :min="30" :max="600" :step="15"
-                    style="width:130px"
-                  />
-                  <span style="color:var(--text-3);font-size:13px">秒（建议 60~180）</span>
-                </div>
-              </el-form-item>
-            </el-col>
-            <el-col :span="16">
-              <el-form-item label="题目描述" style="margin-bottom:0">
-                <el-input
-                  v-model="form.description"
-                  placeholder="管理员内部元数据，不展示给学生。如：测量学生在面对冲突证据时的洞察力倾向"
-                  maxlength="200"
-                  show-word-limit
-                />
-              </el-form-item>
-            </el-col>
-          </el-row>
+        <el-form ref="formRef" :model="form" :rules="rules" label-width="80px" style="margin-bottom:0">
+          <el-form-item label="参考时间" prop="reference_time_sec" style="margin-bottom:10px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <el-input-number
+                v-model="form.reference_time_sec"
+                :min="30" :max="600" :step="15"
+                style="width:130px"
+              />
+              <span style="color:var(--text-3);font-size:13px">秒</span>
+            </div>
+          </el-form-item>
+          <el-form-item label="题目描述" style="margin-bottom:0">
+            <el-input
+              v-model="form.description"
+              placeholder="管理员内部元数据，不展示给学生。如：测量学生在面对冲突证据时的洞察力倾向"
+              maxlength="200"
+              show-word-limit
+            />
+          </el-form-item>
         </el-form>
       </div>
 
@@ -180,7 +174,6 @@
 
             <!-- 五力权重配置 -->
             <div class="answer-card__weights">
-              <span class="weights-label">五力权重分布</span>
               <div class="weights-row">
                 <div v-for="p in powers" :key="p" class="weight-item">
                   <div class="weight-item__label">
@@ -727,7 +720,7 @@ async function handleSave(action: 'draft' | 'publish' | 'save' | 'republish') {
 
 <style>
 [data-theme="dark"] .form-section {
-  background: #242424 !important;
+  background: #1a1a1a !important;
   border-color: #202020 !important;
 }
 </style>

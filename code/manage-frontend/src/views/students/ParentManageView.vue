@@ -17,36 +17,16 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="家长" min-width="150">
-          <template #default="{ row }">
-            <div style="display:flex;align-items:center;gap:10px">
-              <div class="user-avatar user-avatar--parent">{{ row.nickname[0] }}</div>
-              <div>
-                <div style="font-weight:600;color:var(--text-1)">{{ row.nickname }}</div>
-                <span v-if="!row.is_confirmed" class="tag-pending">待激活</span>
-              </div>
-            </div>
-          </template>
-        </el-table-column>
+        <el-table-column label="家长" width="110" prop="nickname" />
 
-        <el-table-column label="手机号" width="130">
-          <template #default="{ row }">
-            <span class="mono" style="color:var(--text-3);font-size:13px">{{ row.phone_masked }}</span>
-          </template>
-        </el-table-column>
+        <el-table-column label="手机号" width="130" prop="phone_masked" />
 
         <el-table-column label="绑定学生" min-width="200">
           <template #default="{ row }">
-            <div style="display:flex;gap:6px;flex-wrap:wrap">
-              <span
-                v-for="s in row.bound_students" :key="s.id"
-                class="bound-student-tag"
-                :title="`绑定方式：${bindMethodLabel(s.bind_method)}`"
-              >
-                {{ s.nickname }}({{ s.grade }})
-              </span>
-              <span v-if="row.bound_students.length === 0" class="tag-muted">暂无绑定</span>
-            </div>
+            <span v-if="row.bound_students.length === 0" style="color:var(--text-3);font-size:12px">暂无绑定</span>
+            <span v-else>
+              {{ row.bound_students.map((s: any) => `${s.nickname}(${gradeLabel(s.grade)})`).join('、') }}
+            </span>
           </template>
         </el-table-column>
 
@@ -152,6 +132,14 @@ const unbindVisible = ref(false)
 const unbindTarget = ref<Parent | null>(null)
 const unbindSelected = ref<number[]>([])
 const unbindLoading = ref(false)
+
+const GRADE_LABELS: Record<string, string> = {
+  G7: '初一', G8: '初二', G9: '初三',
+  G10: '高一', G11: '高二', G12: '高三',
+}
+function gradeLabel(grade: string) {
+  return GRADE_LABELS[grade] ?? grade ?? '—'
+}
 
 function openUnbind(row: Parent) {
   if (row.bound_students.length === 0) { ElMessage.info('该家长当前无绑定学生'); return }

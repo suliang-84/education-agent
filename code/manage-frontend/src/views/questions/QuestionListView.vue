@@ -6,13 +6,23 @@
 
       <!-- ── 左侧：五级知识体系树 ── -->
       <div class="tree-panel surface">
-        <div class="tree-panel__title">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9.776c.112-.017.227-.026.344-.026h15.812c.117 0 .232.009.344.026m-16.5 0a2.25 2.25 0 00-1.883 2.542l.857 6a2.25 2.25 0 002.227 1.932H19.05a2.25 2.25 0 002.227-1.932l.857-6a2.25 2.25 0 00-1.883-2.542m-16.5 0V6A2.25 2.25 0 016 3.75h3.879a1.5 1.5 0 011.06.44l2.122 2.12a1.5 1.5 0 001.06.44H18A2.25 2.25 0 0120.25 9v.776"/>
-          </svg>
-          知识体系
+        <!-- 树搜索框 -->
+        <div class="tree-search">
+          <el-input
+            v-model="treeKeyword"
+            placeholder="搜索知识体系..."
+            clearable
+            size="small"
+          >
+            <template #prefix>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/>
+              </svg>
+            </template>
+          </el-input>
         </div>
 
+        <div class="tree-scroll">
         <!-- 全部节点 -->
         <div
           class="tree-node tree-node--all"
@@ -24,14 +34,15 @@
         </div>
 
         <!-- 科目树 -->
-        <div v-for="subject in knowledgeTree" :key="subject.id">
+        <div v-for="subject in filteredTree" :key="subject.id">
           <!-- 科目 -->
           <div class="tree-node tree-node--l1" :class="{ active: treeFilter.subject_id === subject.id && !treeFilter.grade_id }">
             <span class="tree-toggle" @click="subject.open = !subject.open" :title="subject.open ? '折叠' : '展开'">
               {{ subject.open ? '▼' : '▶' }}
             </span>
+            <SvgIcon v-if="subjectIcon(subject.name)" :name="subjectIcon(subject.name)" :size="20" style="flex-shrink:0;margin-right:2px;vertical-align:middle" />
             <span class="tree-node__label" @click="selectSubject(subject)">{{ subject.name }}</span>
-            <span class="tree-node__count">{{ subject.published_count }}</span>
+            <span v-if="subject.published_count > 0" class="tree-node__count">{{ subject.published_count }}</span>
           </div>
 
           <!-- 年级 -->
@@ -42,7 +53,7 @@
                   {{ grade.open ? '▼' : '▶' }}
                 </span>
                 <span class="tree-node__label" @click="selectGrade(subject, grade)">{{ grade.name }}</span>
-                <span class="tree-node__count">{{ grade.published_count }}</span>
+                <span v-if="grade.published_count > 0" class="tree-node__count">{{ grade.published_count }}</span>
               </div>
 
               <!-- 学期 -->
@@ -53,7 +64,7 @@
                       {{ sem.open ? '▼' : '▶' }}
                     </span>
                     <span class="tree-node__label" @click="selectSemester(subject, grade, sem)">{{ sem.name }}</span>
-                    <span class="tree-node__count">{{ sem.published_count }}</span>
+                    <span v-if="sem.published_count > 0" class="tree-node__count">{{ sem.published_count }}</span>
                   </div>
 
                   <!-- 单元/章节 -->
@@ -64,7 +75,7 @@
                           {{ ch.open ? '▼' : '▶' }}
                         </span>
                         <span class="tree-node__label" @click="selectChapter(subject, grade, sem, ch)">{{ ch.name }}</span>
-                        <span class="tree-node__count">{{ ch.published_count }}</span>
+                        <span v-if="ch.published_count > 0" class="tree-node__count">{{ ch.published_count }}</span>
                       </div>
 
                       <!-- 知识点（叶子节点，无展开图标） -->
@@ -77,7 +88,7 @@
                         >
                           <span class="tree-leaf-dot">●</span>
                           <span class="tree-node__label">{{ kp.name }}</span>
-                          <span class="tree-node__count">{{ kp.published_count }}</span>
+                          <span v-if="kp.published_count > 0" class="tree-node__count">{{ kp.published_count }}</span>
                         </div>
                       </template>
                     </div>
@@ -86,6 +97,7 @@
               </template>
             </div>
           </template>
+        </div>
         </div>
       </div>
 
@@ -248,6 +260,19 @@ const treeBreadcrumb = computed(() => {
 
 // ── 左树数据（来自后端知识体系树接口）── ─────────────────────
 const knowledgeTree = ref<KnowledgeTreeNode[]>([])
+const treeKeyword = ref('')
+
+// 树节点名称匹配关键词（递归检查子节点）
+function nodeMatches(node: KnowledgeTreeNode, kw: string): boolean {
+  if (node.name.includes(kw)) return true
+  return (node.children ?? []).some(c => nodeMatches(c, kw))
+}
+
+const filteredTree = computed(() => {
+  const kw = treeKeyword.value.trim()
+  if (!kw) return knowledgeTree.value
+  return knowledgeTree.value.filter(subject => nodeMatches(subject, kw))
+})
 
 async function loadKnowledgeTree() {
   try {
@@ -311,7 +336,17 @@ function selectKnowledgePoint(subject: KnowledgeTreeNode, grade: KnowledgeTreeNo
   page.value = 1; loadData()
 }
 
+const SUBJECT_ICONS: Record<string, string> = {
+  '数学': 'math',
+  '物理': 'physics',
+  '化学': 'chemistry',
+}
+function subjectIcon(name: string): string {
+  return SUBJECT_ICONS[name] ?? ''
+}
+
 // ── 工具函数 ─────────────────────────────────────────────────
+
 function topPower(weights: Record<string, number>): string {
   return Object.entries(weights).sort((a, b) => b[1] - a[1])[0]?.[0] || 'CONSTRUCT'
 }
@@ -409,9 +444,9 @@ onMounted(() => { loadData(); loadKnowledgeTree(); loadTotalAll() })
 .tree-panel {
   width: 220px;
   flex-shrink: 0;
-  padding: 12px 0;
-  overflow-y: auto;    // 树节点过多时内部滚动
-  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   border-radius: 4px !important;
   background: #ffffff !important;
 
@@ -428,10 +463,31 @@ onMounted(() => { loadData(); loadKnowledgeTree(); loadTotalAll() })
     color: var(--text-3);
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    padding: 0 14px 10px;
+    padding: 12px 14px 10px;
     border-bottom: 1px solid var(--border);
-    margin-bottom: 6px;
+    flex-shrink: 0;
   }
+}
+
+
+.tree-search {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+
+  :deep(.el-input__wrapper) {
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    &:hover, &.is-focus { border: none !important; box-shadow: none !important; }
+  }
+}
+
+.tree-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 6px 0;
 }
 
 .tree-node {
@@ -456,7 +512,7 @@ onMounted(() => { loadData(); loadKnowledgeTree(); loadTotalAll() })
   }
 
   &--all { font-weight: 600; color: var(--text-1); cursor: pointer; }
-  &--l1  { padding-left: 14px; font-weight: 600; color: var(--text-1); }
+  &--l1  { padding-left: 14px; color: var(--text-1); }
   &--l2  { padding-left: 24px; color: var(--text-2); }
   &--l3  { padding-left: 34px; font-size: 12.5px; color: var(--text-2); }
   &--l4  { padding-left: 44px; font-size: 12px; color: var(--text-2); }
@@ -482,8 +538,8 @@ onMounted(() => { loadData(); loadKnowledgeTree(); loadTotalAll() })
     margin-left: auto;
     font-size: 11px;
     font-weight: 600;
-    color: var(--text-3);
-    background: var(--bg-muted);
+    color: var(--color-primary);
+    background: var(--color-primary-light);
     border-radius: 10px;
     padding: 0 6px;
     flex-shrink: 0;

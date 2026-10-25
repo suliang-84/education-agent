@@ -366,11 +366,16 @@ async function doDelete() {
   flex-direction: column;
 }
 
+// 展开行不跟随表格行 hover 变色
+:deep(.el-table__expanded-cell) {
+  background: var(--bg-surface) !important;
+}
+
 .expand-section {
   background: var(--bg-surface);
 
   [data-theme="dark"] & {
-    background: #242424;
+    background: #1a1a1a;
   }
 
   &__title {

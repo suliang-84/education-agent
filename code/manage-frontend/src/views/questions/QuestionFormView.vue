@@ -394,8 +394,8 @@ async function handleSave(mode: 'draft' | 'analyze') {
 /* 暗主题 form-section 全局覆盖（不加 scoped，确保选择器生效） */
 [data-theme="dark"] .form-section,
 [data-theme="dark"] .analysis-preview {
-  background: #242424 !important;
-  border: 1px solid #444444 !important;
+  background: #1a1a1a !important;
+  border: 1px solid #202020 !important;
 }
 
 
