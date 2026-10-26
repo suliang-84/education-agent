@@ -178,7 +178,7 @@ async function handleLogin() {
 
   // 玻璃质感：深色半透明，无模糊
   background: rgba(12, 14, 18, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(12, 14, 18, 0.75);
 
   // 阴影
   box-shadow:
