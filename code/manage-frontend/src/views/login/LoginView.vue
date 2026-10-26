@@ -215,7 +215,7 @@ async function handleLogin() {
     inset: -100%;
     border-radius: 24px;
     background: linear-gradient(
-      105deg,
+      125deg,
       transparent 40%,
       rgba(255, 255, 255, 0.06) 48%,
       rgba(255, 255, 255, 0.13) 50%,
@@ -229,11 +229,11 @@ async function handleLogin() {
 }
 
 @keyframes glass-shine {
-  0%   { transform: translateX(-100%) translateY(-100%); opacity: 0; }
+  0%   { transform: translateX(-120%) translateY(-120%); opacity: 0; }
   5%   { opacity: 1; }
-  30%  { transform: translateX(100%) translateY(100%); opacity: 1; }
-  40%  { opacity: 0; }
-  100% { transform: translateX(100%) translateY(100%); opacity: 0; }
+  75%  { transform: translateX(120%) translateY(120%); opacity: 1; }
+  82%  { opacity: 0; }
+  100% { transform: translateX(120%) translateY(120%); opacity: 0; }
 }
 
 // ── 卡片内容区（整体统一）────────────────────────────────────
