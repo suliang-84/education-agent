@@ -98,9 +98,6 @@
                   <SvgIcon name="delete" :size="18" color="var(--red)" title="删除" />
                 </el-button>
               </template>
-              <template v-else-if="row.status === 'analyzing'">
-                <span style="font-size:12px;color:var(--text-3)">分析中…</span>
-              </template>
               <template v-else-if="row.status === 'pending_review'">
                 <el-button text size="small" style="color:var(--indigo)" @click="$router.push(`/questions/${row.id}/review`)">
                   <SvgIcon name="audit" :size="18" color="#aa9afb" title="审核结果" />
