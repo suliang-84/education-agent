@@ -186,7 +186,7 @@ async function handleLogin() {
     0 32px 72px rgba(0, 0, 0, 0.50),
     0 8px 28px rgba(0, 0, 0, 0.30);
 
-  // 动态高亮边框：伪元素实现 radial-gradient 跟随鼠标
+  // 动态高亮边框
   &::before {
     content: '';
     position: absolute;
@@ -194,10 +194,10 @@ async function handleLogin() {
     border-radius: 24px;
     padding: 1px;
     background: radial-gradient(
-      300px circle at var(--mouse-x, 50%) var(--mouse-y, 0%),
-      rgba(100, 220, 200, 0.7),
-      rgba(255, 255, 255, 0.15) 40%,
-      rgba(255, 255, 255, 0.06) 70%
+      280px circle at var(--mouse-x, 50%) var(--mouse-y, 0%),
+      rgba(94, 141, 249, 0.85),
+      rgba(255, 255, 255, 0.20) 40%,
+      rgba(255, 255, 255, 0.05) 70%
     );
     -webkit-mask:
       linear-gradient(#fff 0 0) content-box,
@@ -205,13 +205,32 @@ async function handleLogin() {
     -webkit-mask-composite: xor;
     mask-composite: exclude;
     pointer-events: none;
-    z-index: 1;
+    z-index: 2;
+  }
+
+  // 内部光晕：跟随鼠标的柔和泛光，营造灯光照射感
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 24px;
+    background: radial-gradient(
+      350px circle at var(--mouse-x, 50%) var(--mouse-y, 0%),
+      rgba(94, 141, 249, 0.12),
+      rgba(94, 141, 249, 0.04) 50%,
+      transparent 70%
+    );
+    pointer-events: none;
+    z-index: 0;
+    transition: opacity 0.3s;
   }
 }
 
 // ── 卡片内容区（整体统一）────────────────────────────────────
 .card-body {
   padding: 38px 32px 32px;
+  position: relative;
+  z-index: 1;
 }
 
 .brand-sys-name {
@@ -309,8 +328,8 @@ async function handleLogin() {
 
   &:focus-within {
     background: rgba(255, 255, 255, 0.10);
-    border-color: rgba(100, 220, 200, 0.50);
-    box-shadow: 0 0 0 3px rgba(100, 220, 200, 0.08);
+    border-color: rgba(94, 141, 249, 0.50);
+    box-shadow: 0 0 0 3px rgba(94, 141, 249, 0.08);
   }
 }
 
