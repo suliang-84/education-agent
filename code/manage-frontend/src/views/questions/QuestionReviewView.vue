@@ -3,7 +3,7 @@
 
     <!-- ── 顶部操作栏 ── -->
     <div class="form-topbar">
-      <el-button size="small" class="btn-back" @click="$router.push('/questions')">
+      <el-button size="small" class="btn-back" @click="goBack">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="margin-right:4px">
           <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/>
         </svg>
@@ -12,9 +12,10 @@
       <div style="flex:1" />
       <template v-if="question?.status === 'pending_review'">
         <el-button @click="openReject" :loading="saving">驳回</el-button>
+        <el-button @click="handleSaveReview" :loading="saving">保存</el-button>
         <button class="btn-pink" type="button" @click="handlePublish" :disabled="saving">
           <SvgIcon name="deploy" :size="13" style="margin-right:4px" />
-          发布上线
+          保存并发布上线
         </button>
       </template>
     </div>
@@ -619,6 +620,42 @@ function flattenTree(nodes: KnowledgeTreeNode[]): KnowledgeTreeNode[] {
   return result
 }
 
+function buildPayload() {
+  return {
+    subject_id:          form.subject_id!,
+    grade_id:            form.grade_id!,
+    semester_id:         form.semester_id!,
+    chapter_id:          form.chapter_id ?? undefined as any,
+    knowledge_point_ids: [...form.knowledge_point_ids],
+    question_type:       form.question_type,
+    answer:              serializeAnswer() as any,
+    difficulty:          form.difficulty,
+    solution:            form.solution,
+    common_error:        form.typical_error,
+    power_solutions:     { ...form.five_power_thoughts },
+    five_power_weights:  { ...form.five_power_weights },
+    transfer_directions: [...form.migration_directions],
+  }
+}
+
+// ── 保存（仅保存当前编辑内容，不改变题目状态）──────────────────
+async function handleSaveReview() {
+  saving.value = true
+  try {
+    await questionApi.saveReview(Number(route.params.id), {
+      ...buildPayload(),
+      stem: question.value?.stem,
+    })
+    ElMessage.success('保存成功')
+    router.push('/questions/entry')
+  } finally { saving.value = false }
+}
+
+// 返回：待审核题目属于「训练题录入」流程，返回录入列表；已发布/归档的查看页返回训练题管理
+function goBack() {
+  router.push(question.value?.status === 'pending_review' ? '/questions/entry' : '/questions')
+}
+
 // ── 发布 ─────────────────────────────────────────────────────
 async function handlePublish() {
   if (weightTotal.value !== 10) {
@@ -637,21 +674,10 @@ async function handlePublish() {
   )
   saving.value = true
   try {
-    await questionApi.publish(Number(route.params.id), {
-      subject_id:          form.subject_id!,
-      grade_id:            form.grade_id!,
-      semester_id:         form.semester_id!,
-      chapter_id:          form.chapter_id ?? undefined as any,
-      knowledge_point_ids: [...form.knowledge_point_ids],
-      question_type:       form.question_type,
-      answer:              serializeAnswer() as any,
-      difficulty:          form.difficulty,
-      solution:            form.solution,
-      common_error:        form.typical_error,
-      power_solutions:     { ...form.five_power_thoughts },
-      five_power_weights:  { ...form.five_power_weights },
-      transfer_directions: [...form.migration_directions],
-    })
+    const payload = buildPayload()
+    // 先保存当前编辑内容，再发布
+    await questionApi.saveReview(Number(route.params.id), { ...payload, stem: question.value?.stem })
+    await questionApi.publish(Number(route.params.id), payload)
     ElMessage.success('题目已发布')
     router.push('/questions')
   } finally { saving.value = false }

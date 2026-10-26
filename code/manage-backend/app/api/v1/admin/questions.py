@@ -10,7 +10,7 @@ from app.core.response import ok_response
 from app.core.llm import chat_vision
 from app.dependencies import get_current_admin, get_db
 from app.models.admin import AdminUser
-from app.schemas.questions import QuestionCreateReq, PublishPayload, RejectReq, SetActiveReq, ContentUpdateReq
+from app.schemas.questions import QuestionCreateReq, PublishPayload, RejectReq, SetActiveReq, ContentUpdateReq, ReviewSaveReq
 from app.services import audit_service, questions_service
 
 router = APIRouter()
@@ -165,6 +165,21 @@ async def publish_question(
                             target_type="questions", target_id=str(qid))
     await db.commit()
     return ok_response({"question_id": qid, "status": qstatus, "embedding_status": q.embedding_status}, "题目已发布")
+
+
+@router.patch("/questions/{question_id}/review", summary="保存审核页编辑结果（不改变状态）")
+async def save_question_review(
+    question_id: int,
+    body: ReviewSaveReq,
+    db: AsyncSession = Depends(get_db),
+    current_admin: AdminUser = Depends(get_current_admin),
+):
+    q = await questions_service.save_review(db, question_id, body)
+    qid, qstatus = q.id, q.status
+    await audit_service.log(db, current_admin.id, "SAVE_QUESTION_REVIEW",
+                            target_type="questions", target_id=str(qid))
+    await db.commit()
+    return ok_response({"question_id": qid, "status": qstatus}, "审核结果已保存")
 
 
 @router.post("/questions/{question_id}/reject", summary="驳回题目（自动重新分析）")

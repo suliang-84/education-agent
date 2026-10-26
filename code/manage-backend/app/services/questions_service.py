@@ -413,6 +413,66 @@ async def update_content(db: AsyncSession, question_id: int, data) -> Question:
     return q
 
 
+# ── 审核页暂存（不改变题目状态）──────────────────────────────
+
+async def save_review(db: AsyncSession, question_id: int, data) -> Question:
+    """保存审核页当前编辑内容：同时写入题目字段与最新分析记录，使刷新后回显一致；状态保持 pending_review"""
+    q = (await db.execute(
+        select(Question).where(Question.id == question_id, Question.deleted_at.is_(None))
+    )).scalar_one_or_none()
+    if not q:
+        raise AppException('题目不存在', 404)
+    if q.status != 'pending_review':
+        raise AppException('仅待审核状态的题目可保存审核结果', 400)
+
+    ana = (await db.execute(
+        select(QuestionAnalysis)
+        .where(QuestionAnalysis.question_id == question_id)
+        .order_by(QuestionAnalysis.round.desc())
+        .limit(1)
+    )).scalar_one_or_none()
+
+    if data.stem is not None:
+        q.stem = data.stem
+    q.subject_id = data.subject_id
+    q.grade_id = data.grade_id
+    q.semester_id = data.semester_id
+    q.chapter_id = data.chapter_id
+    q.knowledge_point_ids = data.knowledge_point_ids
+    q.question_type = data.question_type
+    q.answer = data.answer
+    q.difficulty = data.difficulty
+    q.solution = data.solution
+    q.common_error = data.common_error
+    q.power_solutions = data.power_solutions
+    q.five_power_weights = data.five_power_weights
+    q.primary_power = max(data.five_power_weights, key=data.five_power_weights.get) if data.five_power_weights else None
+    q.transfer_direction = data.transfer_directions
+    flag_modified(q, 'knowledge_point_ids')
+    flag_modified(q, 'five_power_weights')
+
+    if ana:
+        ana.ai_subject_id = data.subject_id
+        ana.ai_grade_id = data.grade_id
+        ana.ai_semester_id = data.semester_id
+        ana.ai_chapter_id = data.chapter_id
+        ana.ai_knowledge_point_ids = data.knowledge_point_ids
+        ana.ai_question_type = data.question_type
+        ana.ai_answer = data.answer
+        ana.ai_difficulty = data.difficulty
+        ana.ai_solution = data.solution
+        ana.ai_common_error = data.common_error
+        ana.ai_power_solutions = data.power_solutions
+        ana.ai_five_power_weights = data.five_power_weights
+        ana.ai_transfer_directions = data.transfer_directions
+        for col in ('ai_knowledge_point_ids', 'ai_answer', 'ai_power_solutions',
+                    'ai_five_power_weights', 'ai_transfer_directions'):
+            flag_modified(ana, col)
+
+    await db.flush()
+    return q
+
+
 # ── 驳回题目 ──────────────────────────────────────────────────
 
 async def reject(db: AsyncSession, question_id: int, reason: str, operator_id: int) -> Question:

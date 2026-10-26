@@ -159,6 +159,16 @@ export const questionApi = {
     ),
 
   /**
+   * 保存审核页当前编辑结果（暂存），不改变题目状态
+   * PATCH /api/v1/admin/questions/{question_id}/review
+   */
+  saveReview: (questionId: number, data: Partial<PublishPayload> & { stem?: string }) =>
+    request.patch<unknown, { question_id: number; status: string }>(
+      `/questions/${questionId}/review`,
+      data
+    ),
+
+  /**
    * 驳回题目（审核不通过，自动重新触发模型分析）
    * 填写驳回意见后系统自动提交重分析，状态变回 analyzing
    * POST /api/v1/admin/questions/{question_id}/reject
