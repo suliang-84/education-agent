@@ -167,7 +167,7 @@ async function handleLogin() {
   padding-right: 80px;
 }
 
-// ── 卡片外壳：透明磨砂玻璃 + 鼠标跟随高亮边框 ───────────────
+// ── 卡片外壳：玻璃质感 + 定时反光 + 鼠标跟随高亮边框 ─────────
 .login-card {
   width: 400px;
   border-radius: 24px;
@@ -175,18 +175,18 @@ async function handleLogin() {
   will-change: transform;
   transform-style: preserve-3d;
   position: relative;
-  background: rgba(20, 22, 26, 0.72);
 
-  // 透明磨砂玻璃核心
-  backdrop-filter: blur(32px) saturate(160%);
-  -webkit-backdrop-filter: blur(32px) saturate(160%);
+  // 玻璃质感：深色半透明，无模糊
+  background: rgba(12, 14, 18, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 
   // 阴影
   box-shadow:
-    0 32px 72px rgba(0, 0, 0, 0.50),
-    0 8px 28px rgba(0, 0, 0, 0.30);
+    0 32px 72px rgba(0, 0, 0, 0.60),
+    0 8px 28px rgba(0, 0, 0, 0.40),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
 
-  // 动态高亮边框
+  // 动态高亮边框（鼠标跟随）
   &::before {
     content: '';
     position: absolute;
@@ -208,22 +208,32 @@ async function handleLogin() {
     z-index: 2;
   }
 
-  // 内部光晕：跟随鼠标的柔和泛光，营造灯光照射感
+  // 定时反光：单次光线扫过后长时间停顿
   &::after {
     content: '';
     position: absolute;
-    inset: 0;
+    inset: -100%;
     border-radius: 24px;
-    background: radial-gradient(
-      350px circle at var(--mouse-x, 50%) var(--mouse-y, 0%),
-      rgba(94, 141, 249, 0.12),
-      rgba(94, 141, 249, 0.04) 50%,
-      transparent 70%
+    background: linear-gradient(
+      105deg,
+      transparent 40%,
+      rgba(255, 255, 255, 0.06) 48%,
+      rgba(255, 255, 255, 0.13) 50%,
+      rgba(255, 255, 255, 0.06) 52%,
+      transparent 60%
     );
+    animation: glass-shine 8s ease-in-out infinite;
     pointer-events: none;
-    z-index: 0;
-    transition: opacity 0.3s;
+    z-index: 1;
   }
+}
+
+@keyframes glass-shine {
+  0%   { transform: translateX(-100%) translateY(-100%); opacity: 0; }
+  5%   { opacity: 1; }
+  30%  { transform: translateX(100%) translateY(100%); opacity: 1; }
+  40%  { opacity: 0; }
+  100% { transform: translateX(100%) translateY(100%); opacity: 0; }
 }
 
 // ── 卡片内容区（整体统一）────────────────────────────────────
