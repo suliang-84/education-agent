@@ -22,11 +22,6 @@
         <div class="card-body">
           <p class="brand-sys-name">MESH · 后台管理系统</p>
           <div class="brand-headline">智能教学数据尽在掌握</div>
-          <div class="brand-pills">
-            <span class="brand-pill">五力认知诊断</span>
-            <span class="brand-pill">个性化训练</span>
-            <span class="brand-pill">AI 智能助教</span>
-          </div>
 
           <form class="form-body" @submit.prevent="handleLogin">
             <div class="field">
@@ -98,6 +93,7 @@ const cardTransform = computed(() => ({
     : 'transform 0.65s cubic-bezier(0.16,1,0.3,1)',
   '--mouse-x': `${mouseX.value}%`,
   '--mouse-y': `${mouseY.value}%`,
+  '--hovering': isHovering.value ? '1' : '0',
 }))
 
 function handleCardMouseMove(e: MouseEvent) {
@@ -176,8 +172,15 @@ async function handleLogin() {
   transform-style: preserve-3d;
   position: relative;
 
-  // 玻璃质感：深色半透明，无模糊
-  background: rgba(12, 14, 18, 0.75);
+  // 玻璃质感：深色半透明 + 鼠标位置内部光晕
+  background:
+    radial-gradient(
+      400px circle at var(--mouse-x, 50%) var(--mouse-y, -20%),
+      rgba(94, 141, 249, 0.18),
+      rgba(94, 141, 249, 0.04) 40%,
+      transparent 65%
+    ),
+    rgba(12, 14, 18, 0.85);
   border: 1px solid rgba(12, 14, 18, 0.75);
 
   // 阴影
@@ -246,7 +249,7 @@ async function handleLogin() {
 .brand-sys-name {
   font-size: 18px;
   font-weight: 700;
-  color: var(--indigo);
+  color: #ffffff;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   margin-bottom: 14px;
@@ -256,10 +259,13 @@ async function handleLogin() {
 .brand-headline {
   font-size: 12px;
   font-weight: 600;
-  color: var(--text-1);
+  background: linear-gradient(to right, #cadbf3, #698cbc);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
   line-height: 1.22;
   letter-spacing: -0.025em;
-  margin-bottom: 20px;
+  margin-bottom: 50px;
 }
 
 .brand-pills {
@@ -389,13 +395,17 @@ async function handleLogin() {
   &:hover { color: var(--text-1); }
 }
 
-// ── 提交按钮：热粉色胶囊 CTA（设计规范主行动色）─────────────
+// ── 提交按钮：白到蓝渐变，鼠标移入登录框时蓝色从右铺满 ────────
 .submit-btn {
   width: 100%;
   height: 48px;
   margin-top: 4px;
-  background: linear-gradient(135deg, #F43F7E 0%, #EC4899 100%);
-  color: #fff;
+  // 背景宽度 200%：左半为白→蓝，右半为纯蓝
+  // 默认显示左半（position 0%），hover 显示右半（position 100%）
+  background: linear-gradient(to right, #cadbf3 0%, #698cbc 50%, #698cbc 100%);
+  background-size: 200% 100%;
+  background-position: 0% 0%;
+  color: #1a2a3a;
   border: none;
   border-radius: 9999px;
   font-size: 14px;
@@ -406,21 +416,20 @@ async function handleLogin() {
   align-items: center;
   justify-content: center;
   letter-spacing: 0.02em;
-  box-shadow:
-    0 4px 16px rgba(244, 63, 126, 0.40),
-    inset 0 1px 0 rgba(255, 255, 255, 0.20);
-  transition: all 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.30);
+  transition: background-position 0.8s ease, color 0.4s ease, box-shadow 0.3s ease;
 
-  &:hover {
-    background: linear-gradient(135deg, #E11D63 0%, #DB2777 100%);
-    box-shadow:
-      0 6px 24px rgba(244, 63, 126, 0.54),
-      inset 0 1px 0 rgba(255, 255, 255, 0.20);
-    transform: translateY(-1px);
-  }
-
-  &:active  { transform: scale(0.98) translateY(0); }
+  &:active  { transform: scale(0.98); }
   &.loading { opacity: 0.65; pointer-events: none; }
+}
+
+// 鼠标移入登录框时，蓝色从右线性铺满
+.login-card:hover .submit-btn {
+  background-position: 100% 0%;
+  color: #ffffff;
+  box-shadow:
+    0 4px 20px rgba(105, 140, 188, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.20);
 }
 
 .spinner {
