@@ -18,8 +18,8 @@
         :style="cardTransform"
       >
 
-        <!-- 上半：品牌区（透明，文字叠在视频上） -->
-        <div class="card-brand">
+        <!-- 整体：品牌 + 表单 -->
+        <div class="card-body">
           <p class="brand-sys-name">MESH · 后台管理系统</p>
           <div class="brand-headline">智能教学数据尽在掌握</div>
           <div class="brand-pills">
@@ -27,11 +27,6 @@
             <span class="brand-pill">个性化训练</span>
             <span class="brand-pill">AI 智能助教</span>
           </div>
-        </div>
-
-        <!-- 下半：毛玻璃磨砂表单区 -->
-        <div class="card-glass">
-          <div class="glass-shimmer" />
 
           <form class="form-body" @submit.prevent="handleLogin">
             <div class="field">
@@ -91,6 +86,8 @@ const isHovering = ref(false)
 const cardRef = ref<HTMLElement | null>(null)
 const tiltX = ref(0)
 const tiltY = ref(0)
+const mouseX = ref(50)
+const mouseY = ref(50)
 
 const form = reactive({ username: '', password: '' })
 
@@ -99,6 +96,8 @@ const cardTransform = computed(() => ({
   transition: isHovering.value
     ? 'transform 0.12s cubic-bezier(0.16,1,0.3,1)'
     : 'transform 0.65s cubic-bezier(0.16,1,0.3,1)',
+  '--mouse-x': `${mouseX.value}%`,
+  '--mouse-y': `${mouseY.value}%`,
 }))
 
 function handleCardMouseMove(e: MouseEvent) {
@@ -108,12 +107,16 @@ function handleCardMouseMove(e: MouseEvent) {
   const cy = rect.top + rect.height / 2
   tiltY.value = ((e.clientX - cx) / (rect.width / 2)) * 7
   tiltX.value = -((e.clientY - cy) / (rect.height / 2)) * 7
+  mouseX.value = ((e.clientX - rect.left) / rect.width) * 100
+  mouseY.value = ((e.clientY - rect.top) / rect.height) * 100
 }
 
 function handleMouseLeave() {
   isHovering.value = false
   tiltX.value = 0
   tiltY.value = 0
+  mouseX.value = 50
+  mouseY.value = 50
 }
 
 async function handleLogin() {
@@ -164,7 +167,7 @@ async function handleLogin() {
   padding-right: 80px;
 }
 
-// ── 卡片外壳：白色磨砂玻璃（0.4 opacity）────────────────────
+// ── 卡片外壳：透明磨砂玻璃 + 鼠标跟随高亮边框 ───────────────
 .login-card {
   width: 400px;
   border-radius: 24px;
@@ -172,23 +175,43 @@ async function handleLogin() {
   will-change: transform;
   transform-style: preserve-3d;
   position: relative;
-  background-color: #ffffff;
+  background: rgba(20, 22, 26, 0.72);
 
-  // 白色磨砂玻璃核心
-  backdrop-filter: blur(28px) saturate(180%);
-  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  // 透明磨砂玻璃核心
+  backdrop-filter: blur(32px) saturate(160%);
+  -webkit-backdrop-filter: blur(32px) saturate(160%);
 
-  // 阴影：靛蓝色调，与品牌系统一致
+  // 阴影
   box-shadow:
-    0 32px 72px rgba(79, 70, 229, 0.22),
-    0 8px 28px rgba(79, 70, 229, 0.14),
-    0 2px 6px rgba(0, 0, 0, 0.10);
+    0 32px 72px rgba(0, 0, 0, 0.50),
+    0 8px 28px rgba(0, 0, 0, 0.30);
+
+  // 动态高亮边框：伪元素实现 radial-gradient 跟随鼠标
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 24px;
+    padding: 1px;
+    background: radial-gradient(
+      300px circle at var(--mouse-x, 50%) var(--mouse-y, 0%),
+      rgba(100, 220, 200, 0.7),
+      rgba(255, 255, 255, 0.15) 40%,
+      rgba(255, 255, 255, 0.06) 70%
+    );
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+    z-index: 1;
+  }
 }
 
-// ── 上半：品牌区（继承卡片白色磨砂，深色文字）───────────────
-.card-brand {
-  padding: 38px 32px 26px;
-  background: transparent;
+// ── 卡片内容区（整体统一）────────────────────────────────────
+.card-body {
+  padding: 38px 32px 32px;
 }
 
 .brand-sys-name {
@@ -227,13 +250,6 @@ async function handleLogin() {
   letter-spacing: 0.02em;
 }
 
-// ── 下半：表单区（略深于品牌区，靛蓝细分割线）───────────────
-.card-glass {
-  position: relative;
-  padding: 24px 32px 32px;
-  background: rgba(255, 255, 255, 0.22);
-  border-top: 1px solid rgba(79, 70, 229, 0.10);
-}
 
 // 分割线正中的靛蓝微光，增加光学层次
 .glass-shimmer {
@@ -287,14 +303,14 @@ async function handleLogin() {
   gap: 10px;
   padding: 0 14px;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.58);
-  border: 1.5px solid rgba(79, 70, 229, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
 
   &:focus-within {
-    background: rgba(255, 255, 255, 0.88);
-    border-color: rgba(79, 70, 229, 0.45);
-    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.10);
+    background: rgba(255, 255, 255, 0.10);
+    border-color: rgba(100, 220, 200, 0.50);
+    box-shadow: 0 0 0 3px rgba(100, 220, 200, 0.08);
   }
 }
 
@@ -308,13 +324,25 @@ async function handleLogin() {
   min-width: 0;
   font-family: inherit;
   font-size: 14px;
-  color: var(--text-1);
+  color: rgba(255, 255, 255, 0.90);
   background: transparent;
   border: none;
   outline: none;
   padding: 11px 0;
+  -webkit-appearance: none;
+  appearance: none;
 
-  &::placeholder { color: var(--text-3); }
+  // 覆盖浏览器 autofill 白色背景
+  &:-webkit-autofill,
+  &:-webkit-autofill:hover,
+  &:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0 1000px rgba(30, 34, 40, 0.01) inset !important;
+    -webkit-text-fill-color: rgba(255, 255, 255, 0.90) !important;
+    background-color: transparent !important;
+    transition: background-color 99999s ease-in-out 0s;
+  }
+
+  &::placeholder { color: rgba(255, 255, 255, 0.35); }
 }
 
 .eye-btn {
