@@ -325,12 +325,14 @@ async function handleLogin() {
   font-family: inherit;
   font-size: 14px;
   color: rgba(255, 255, 255, 0.90);
-  background: transparent;
+  background: transparent !important;
+  background-color: transparent !important;
   border: none;
   outline: none;
   padding: 11px 0;
   -webkit-appearance: none;
   appearance: none;
+  box-shadow: none !important;
 
   // 覆盖浏览器 autofill 白色背景
   &:-webkit-autofill,
@@ -424,5 +426,13 @@ async function handleLogin() {
   .card-brand     { padding: 28px 24px 20px; }
   .card-glass     { padding: 20px 24px 28px; }
   .brand-headline { font-size: 24px; }
+}
+</style>
+
+<style>
+/* 登录页输入框透明背景（不加 scoped 确保覆盖浏览器默认样式） */
+.login-root input.field-input {
+  background: transparent !important;
+  background-color: transparent !important;
 }
 </style>
