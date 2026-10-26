@@ -8,7 +8,7 @@
     <!-- Step1: 同步读取主题并立即设置 data-theme + 内联背景色，在任何外部资源加载前执行 -->
     <script>
       (function(){
-        var theme = localStorage.getItem('mesh-theme') || 'light';
+        var theme = localStorage.getItem('mesh-theme') || 'dark';
         var html = document.documentElement;
         html.setAttribute('data-theme', theme);
         // 直接设置背景色，防止外部 CSS 加载前浏览器绘制白色

@@ -155,7 +155,7 @@ function toggleTheme() {
 
 onMounted(() => {
   const saved = localStorage.getItem('mesh-theme')
-  applyTheme(saved === 'dark')
+  applyTheme(saved !== 'light')
 })
 
 const userInitial = computed(() => authStore.user?.username?.[0]?.toUpperCase() || 'A')

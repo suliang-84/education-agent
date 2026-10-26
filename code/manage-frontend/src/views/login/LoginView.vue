@@ -52,7 +52,7 @@
               </div>
             </div>
             <button type="submit" class="submit-btn" :class="{ loading }">
-              <span v-if="!loading">登录</span>
+              <span v-if="!loading">登&nbsp;&nbsp;录</span>
               <span v-else class="spinner" />
             </button>
           </form>
@@ -247,13 +247,18 @@ async function handleLogin() {
 }
 
 .brand-sys-name {
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 20px;
+  font-weight: 900;
+  font-family: 'Arial Rounded MT Bold', 'Nunito', 'Arial Black', system-ui, sans-serif;
   color: #ffffff;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  letter-spacing: 0.04em;
   margin-bottom: 14px;
-  opacity: 0.70;
+  // 白色粗体 + 蓝色外发光
+  text-shadow:
+    0 0 4px rgba(255, 255, 255, 0.85),
+    0 0 10px rgba(110, 150, 255, 0.95),
+    0 0 20px rgba(70, 110, 255, 0.80),
+    0 0 34px rgba(50, 90, 255, 0.60);
 }
 
 .brand-headline {
@@ -319,7 +324,7 @@ async function handleLogin() {
 .field-label {
   font-size: 11px;
   font-weight: 600;
-  color: var(--text-2);
+  color: #aabffe;
   letter-spacing: 0.07em;
   text-transform: uppercase;
 }
@@ -400,15 +405,15 @@ async function handleLogin() {
   width: 100%;
   height: 48px;
   margin-top: 4px;
-  // 背景宽度 200%：左半为白→蓝，右半为纯蓝
+  // 背景宽度 200%：左半为白→#a9beff，右半为纯 #a9beff
   // 默认显示左半（position 0%），hover 显示右半（position 100%）
-  background: linear-gradient(to right, #cadbf3 0%, #698cbc 50%, #698cbc 100%);
+  background: linear-gradient(to right, #cadbf3 0%, #a9beff 50%, #a9beff 100%);
   background-size: 200% 100%;
   background-position: 0% 0%;
   color: #1a2a3a;
   border: none;
   border-radius: 9999px;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
