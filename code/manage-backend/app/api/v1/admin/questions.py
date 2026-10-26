@@ -10,7 +10,7 @@ from app.core.response import ok_response
 from app.core.llm import chat_vision
 from app.dependencies import get_current_admin, get_db
 from app.models.admin import AdminUser
-from app.schemas.questions import QuestionCreateReq, PublishPayload, RejectReq, SetActiveReq
+from app.schemas.questions import QuestionCreateReq, PublishPayload, RejectReq, SetActiveReq, ContentUpdateReq
 from app.services import audit_service, questions_service
 
 router = APIRouter()
@@ -110,9 +110,12 @@ async def get_question(
     data = await questions_service.get_one(db, question_id)
     q = data['question']
     ana = data['latest_analysis']
+    ana_dict = _analysis_to_dict(ana) if ana else None
+    if ana_dict:
+        ana_dict.update(await _resolve_ai_nodes(db, ana))
     return ok_response({
         **_question_to_dict(q),
-        'latest_analysis': _analysis_to_dict(ana) if ana else None,
+        'latest_analysis': ana_dict,
     })
 
 
@@ -209,6 +212,21 @@ async def set_question_active(
     return ok_response({"question_id": q.id, "is_active": q.is_active}, msg)
 
 
+@router.patch("/questions/{question_id}/content", summary="修改已发布/已停用题目内容")
+async def update_question_content(
+    question_id: int,
+    body: ContentUpdateReq,
+    db: AsyncSession = Depends(get_db),
+    current_admin: AdminUser = Depends(get_current_admin),
+):
+    q = await questions_service.update_content(db, question_id, body)
+    qid = q.id
+    await audit_service.log(db, current_admin.id, "UPDATE_QUESTION_CONTENT",
+                            target_type="questions", target_id=str(qid))
+    await db.commit()
+    return ok_response({"question_id": qid}, "题目内容已保存")
+
+
 @router.delete("/questions/{question_id}", summary="软删除草稿题目")
 async def delete_question(
     question_id: int,
@@ -250,6 +268,34 @@ def _question_to_dict(q) -> dict:
         "created_by": q.created_by,
         "created_at": q.created_at,
         "updated_at": q.updated_at,
+    }
+
+
+async def _resolve_ai_nodes(db: AsyncSession, a) -> dict:
+    """把分析记录里的 ai_*_id 解析为 {id, name} 嵌套对象，供审核页回显"""
+    from app.models.knowledge import Subject, Grade, Semester, Chapter, KnowledgePoint
+
+    async def one(model, pk):
+        if not pk:
+            return None
+        row = (await db.execute(select(model).where(model.id == pk))).scalar_one_or_none()
+        return {"id": row.id, "name": row.name} if row else None
+
+    kp_ids = [int(i) for i in (a.ai_knowledge_point_ids or []) if str(i).isdigit()]
+    kps = []
+    if kp_ids:
+        rows = (await db.execute(
+            select(KnowledgePoint).where(KnowledgePoint.id.in_(kp_ids))
+        )).scalars().all()
+        by_id = {r.id: r for r in rows}
+        kps = [{"id": i, "name": by_id[i].name} for i in kp_ids if i in by_id]
+
+    return {
+        "ai_subject":  await one(Subject,  a.ai_subject_id),
+        "ai_grade":    await one(Grade,    a.ai_grade_id),
+        "ai_semester": await one(Semester, a.ai_semester_id),
+        "ai_chapter":  await one(Chapter,  a.ai_chapter_id),
+        "ai_knowledge_points": kps,
     }
 
 

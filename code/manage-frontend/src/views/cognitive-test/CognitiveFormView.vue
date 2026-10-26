@@ -51,14 +51,11 @@
     </div>
 
     <!-- ── 新增 / 草稿状态提示 ── -->
-    <div v-else-if="!isEdit || currentStatus === 'draft'" class="publish-tip" :class="publishedCount >= 10 ? 'publish-tip--normal' : 'publish-tip--warn'">
+    <div v-else-if="(!isEdit || currentStatus === 'draft') && publishedCount < 10" class="publish-tip publish-tip--warn">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0">
         <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"/>
       </svg>
-      <span v-if="publishedCount >= 10">
-        当前已发布 <strong class="num">{{ publishedCount }}</strong> 道，测试功能已就绪。题目数量无上限，可继续新增发布。
-      </span>
-      <span v-else>
+      <span>
         当前已发布 <strong class="num">{{ publishedCount }}</strong> 道，还需发布 <strong class="num">{{ 10 - publishedCount }}</strong> 道，测试功能方可对学生开放。
       </span>
     </div>
@@ -509,12 +506,6 @@ async function handleSave(action: 'draft' | 'publish' | 'save' | 'republish') {
   border-radius: var(--r-xl);
   border: 1.5px solid;
   font-size: 13.5px;
-
-  &--normal {
-    background: var(--indigo-light);
-    border-color: var(--indigo-border);
-    color: var(--indigo);
-  }
 
   &--warn {
     background: var(--amber-dim);

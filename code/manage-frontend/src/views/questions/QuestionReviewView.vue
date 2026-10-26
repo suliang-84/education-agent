@@ -393,7 +393,7 @@ const knowledgePointOptions = computed(() => {
     const treeKPs = (ch?.children ?? []).map(n => ({ id: n.id, name: n.name }))
     if (treeKPs.length > 0) return treeKPs
   }
-  // 兜底：树中无对应章节（该章节已发布题数为0，未含在树内），使用 AI 返回的知识点列表
+  // 兜底：树中取不到该章节下的知识点时，使用 AI 返回的知识点列表
   return aiKnowledgePoints.value
 })
 
@@ -581,10 +581,10 @@ onMounted(async () => {
 
     // 优先使用 latest_analysis 的 ai_* 字段，回退到题目已确认字段
     // 注意：接口返回的是嵌套对象（ai_subject.id），而非平铺 ID 字段
-    form.subject_id          = ana?.ai_subject?.id  ?? (raw as any).subject_id  ?? null
-    form.grade_id            = ana?.ai_grade?.id    ?? (raw as any).grade_id    ?? null
-    form.semester_id         = ana?.ai_semester?.id ?? (raw as any).semester_id ?? null
-    form.chapter_id          = ana?.ai_chapter?.id  ?? (raw as any).chapter_id  ?? null
+    form.subject_id          = ana?.ai_subject?.id  ?? ana?.ai_subject_id  ?? (raw as any).subject_id  ?? null
+    form.grade_id            = ana?.ai_grade?.id    ?? ana?.ai_grade_id    ?? (raw as any).grade_id    ?? null
+    form.semester_id         = ana?.ai_semester?.id ?? ana?.ai_semester_id ?? (raw as any).semester_id ?? null
+    form.chapter_id          = ana?.ai_chapter?.id  ?? ana?.ai_chapter_id  ?? (raw as any).chapter_id  ?? null
     form.knowledge_point_ids = [...(ana?.ai_knowledge_point_ids ?? (raw as any).knowledge_point_ids ?? [])].map(Number).filter(Boolean)
     aiKnowledgePoints.value  = (ana?.ai_knowledge_points ?? []).map((kp: any) => ({ id: Number(kp.id), name: kp.name }))
     form.question_type       = (ana?.ai_question_type ?? (raw as any).question_type ?? 'APPLICATION') as QuestionType

@@ -84,7 +84,7 @@ $font-sans: 'Inter', 'PingFang SC', 'Hiragino Sans GB', system-ui, sans-serif;
 $font-mono: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
 
 // 布局
-$sidebar-w:           240px;
+$sidebar-w:           200px;
 $sidebar-w-collapsed: 64px;
 $header-h:            60px;
 
@@ -342,6 +342,35 @@ $t-slow:   350ms;
   --el-box-shadow-light:      0 1px 3px rgba(0,0,0,0.3);
   --el-overlay-color:         rgba(0, 0, 0, 0.7);
 
+}
+
+// 亮色主题下 Tooltip（is-dark / is-light 两种 effect 统一）：系统蓝底 + 白字
+[data-theme="light"] .el-popper.is-dark,
+[data-theme="light"] .el-popper.is-light {
+  --el-popper-bg-color-dark: var(--color-primary);
+  background: var(--color-primary);
+  color: #ffffff;
+  border: 1px solid var(--color-primary);
+
+  .el-popper__arrow::before {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+  }
+}
+
+// 深色主题下 Tooltip（含表格题干摘要的 effect="light" 提示）：背景与文字显式指定，避免深底深字看不清
+// popper 挂载在 body 下，需用全局选择器
+[data-theme="dark"] .el-popper.is-dark,
+[data-theme="dark"] .el-popper.is-light {
+  --el-popper-bg-color-dark: var(--indigo);
+  background: var(--indigo);
+  color: #1a1a1a;
+  border: 1px solid var(--indigo);
+
+  .el-popper__arrow::before {
+    background: var(--indigo);
+    border-color: var(--indigo);
+  }
 }
 
 // 深色主题下主题色统一改为 var(--indigo)

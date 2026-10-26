@@ -85,6 +85,47 @@ async def get_knowledge_tree(db: AsyncSession) -> list[dict]:
     return tree
 
 
+async def build_knowledge_catalog(db: AsyncSession) -> str:
+    """生成供 LLM 选择的知识体系清单（科目/年级/学期 → 章节 → 知识点，附 ID）"""
+    subjects  = (await db.execute(select(Subject).order_by(Subject.id))).scalars().all()
+    grades    = (await db.execute(select(Grade).order_by(Grade.id))).scalars().all()
+    semesters = (await db.execute(select(Semester).order_by(Semester.id))).scalars().all()
+    chapters  = (await db.execute(select(Chapter).order_by(Chapter.id))).scalars().all()
+    kps       = (await db.execute(select(KnowledgePoint).order_by(KnowledgePoint.id))).scalars().all()
+
+    sub_map   = {x.id: x for x in subjects}
+    grade_map = {x.id: x for x in grades}
+    kp_by_ch: dict[int, list] = {}
+    for kp in kps:
+        kp_by_ch.setdefault(kp.chapter_id, []).append(kp)
+    ch_by_sem: dict[int, list] = {}
+    for ch in chapters:
+        ch_by_sem.setdefault(ch.semester_id, []).append(ch)
+
+    lines: list[str] = []
+    for sem in semesters:
+        g = grade_map.get(sem.grade_id)
+        sub = sub_map.get(g.subject_id) if g else None
+        if not g or not sub or not ch_by_sem.get(sem.id):
+            continue
+        lines.append(f"## {sub.code} / {g.code} / {sem.code}")
+        for ch in ch_by_sem[sem.id]:
+            lines.append(f"[章节ID {ch.id}] {ch.name}")
+            for kp in kp_by_ch.get(ch.id, []):
+                lines.append(f"  - [知识点ID {kp.id}] {kp.name}")
+    return "\n".join(lines)
+
+
+_CATALOG_INSTRUCTION = (
+    "【知识体系清单】章节与知识点必须从下列清单中选择，不得自创名称：\n"
+    "{catalog}\n\n"
+    "【归类要求】在输出 JSON 中，subject/grade/semester 使用清单标题里的编码；"
+    "chapter 填清单中的章节名称原文，并额外输出 chapter_id（整数，取自清单）；"
+    "knowledge_points 填清单中的知识点名称原文，并额外输出 knowledge_point_ids（整数数组，取自清单，"
+    "只能选择所选章节下的知识点）。清单中确无合适项时，对应字段填 null / 空数组。\n\n"
+)
+
+
 # ── 题目列表 ──────────────────────────────────────────────────
 
 async def get_list(db: AsyncSession, params: dict) -> dict:
@@ -196,10 +237,12 @@ async def run_analysis(question_id: int, operator_id: int, analysis_round: int) 
 
             settings = get_settings()
             if settings.LLM_API_KEY:
+                catalog = await build_knowledge_catalog(db)
+                prefix = _CATALOG_INSTRUCTION.format(catalog=catalog) if catalog else ""
                 if q.rejection_reason:
-                    user_content = f"请重新分析以下题目（上次驳回意见：{q.rejection_reason}）：\n\n{q.stem}"
+                    user_content = f"{prefix}请重新分析以下题目（上次驳回意见：{q.rejection_reason}）：\n\n{q.stem}"
                 else:
-                    user_content = f"请分析以下题目：\n\n{q.stem}"
+                    user_content = f"{prefix}请分析以下题目：\n\n{q.stem}"
                 result = await chat_json(system_prompt, user_content)
                 analysis = _write_analysis(db, q, result, current_round)
                 q.difficulty = result.get('difficulty')
@@ -251,7 +294,7 @@ def _write_analysis(db, q: Question, result: dict, round_no: int) -> QuestionAna
         ai_transfer_directions=result.get('transfer_directions', []),
         ai_question_type=result.get('question_type'),
         ai_answer=result.get('answer'),
-        ai_knowledge_point_ids=result.get('knowledge_points', []),
+        ai_knowledge_point_ids=[],  # 由 _apply_knowledge_ids_from_codes 解析为 ID 后写入
         analysis_status='completed',
     )
     db.add(analysis)
@@ -330,6 +373,46 @@ async def publish(db: AsyncSession, question_id: int, data, operator_id: int) ->
     return q
 
 
+# ── 修改已发布题目内容（不改变状态/启用状态）──────────────────
+
+async def update_content(db: AsyncSession, question_id: int, data) -> Question:
+    q = (await db.execute(
+        select(Question).where(Question.id == question_id, Question.deleted_at.is_(None))
+    )).scalar_one_or_none()
+    if not q:
+        raise AppException('题目不存在', 404)
+    if q.status != 'published':
+        raise AppException('仅已发布题目可修改内容', 400)
+
+    weights = data.five_power_weights
+    if sum(weights.values()) != 10:
+        raise AppException('五力权重之和必须等于10', 400)
+
+    if data.stem is not None:
+        q.stem = data.stem
+    q.subject_id = data.subject_id
+    q.grade_id = data.grade_id
+    q.semester_id = data.semester_id
+    q.chapter_id = data.chapter_id
+    q.knowledge_point_ids = data.knowledge_point_ids
+    q.difficulty = data.difficulty
+    q.solution = data.solution
+    q.common_error = data.common_error
+    q.power_solutions = data.power_solutions
+    q.five_power_weights = weights
+    q.primary_power = max(weights, key=weights.get)
+    q.transfer_direction = data.transfer_directions
+    if data.question_type is not None:
+        q.question_type = data.question_type
+    if data.answer is not None:
+        q.answer = data.answer
+    q.embedding_status = 'pending'  # 内容变更，需重新向量化
+    flag_modified(q, 'knowledge_point_ids')
+    flag_modified(q, 'five_power_weights')
+    await db.flush()
+    return q
+
+
 # ── 驳回题目 ──────────────────────────────────────────────────
 
 async def reject(db: AsyncSession, question_id: int, reason: str, operator_id: int) -> Question:
@@ -381,13 +464,31 @@ async def set_active(db: AsyncSession, question_id: int, is_active: bool) -> Que
 async def _apply_knowledge_ids_from_codes(
     db: AsyncSession, q: Question, result: dict, analysis: 'QuestionAnalysis | None' = None
 ):
-    """将 AI 返回的科目/年级/学期/单元/知识点解析为数据库 ID，写入题目和分析记录"""
+    """将 AI 返回的科目/年级/学期/单元/知识点解析为数据库 ID，写入题目和分析记录。
+
+    匹配优先级：LLM 返回的 ID（需校验归属）→ 名称模糊匹配 → 由知识点反推章节。
+    章节与知识点相互独立：章节未匹配时，仍在整个学期范围内按名称匹配知识点。
+    """
     from sqlalchemy import or_
+
+    def _to_int(v):
+        try:
+            return int(v)
+        except (TypeError, ValueError):
+            return None
+
     subject_code  = result.get('subject')
     grade_code    = result.get('grade')
     semester_code = result.get('semester')
-    chapter_name  = result.get('chapter', '')
-    kp_names      = result.get('knowledge_points', [])
+    chapter_name  = (result.get('chapter') or '').strip()
+    kp_names      = [str(n).strip() for n in (result.get('knowledge_points') or []) if str(n).strip()]
+    ai_chapter_id = _to_int(result.get('chapter_id'))
+    ai_kp_ids     = [i for i in (_to_int(x) for x in (result.get('knowledge_point_ids') or [])) if i]
+
+    # 重新分析时清掉上一轮遗留的章节/知识点，避免脏数据
+    q.chapter_id = None
+    q.knowledge_point_ids = []
+    flag_modified(q, 'knowledge_point_ids')
 
     if not subject_code:
         return
@@ -414,44 +515,72 @@ async def _apply_knowledge_ids_from_codes(
         sem = (await db.execute(
             select(Semester).where(Semester.code == semester_code, Semester.grade_id == grade.id)
         )).scalar_one_or_none()
-        if sem:
-            q.semester_id = sem.id
-            if analysis: analysis.ai_semester_id = sem.id
+    if not sem:
+        return
+    q.semester_id = sem.id
+    if analysis: analysis.ai_semester_id = sem.id
 
-    # 单元：按名称模糊匹配
-    if chapter_name and sem:
-        chapter_key = chapter_name.split('：')[-1].split(':')[-1].strip() if '：' in chapter_name or ':' in chapter_name else chapter_name
-        chapters = (await db.execute(
-            select(Chapter).where(
-                Chapter.semester_id == sem.id,
-                or_(
-                    Chapter.name.ilike(f'%{chapter_key}%'),
-                    Chapter.name.ilike(f'%{chapter_name}%'),
-                )
-            )
+    # 本学期下全部章节与知识点（数据量小，直接取出在内存中匹配）
+    chapters = (await db.execute(
+        select(Chapter).where(Chapter.semester_id == sem.id).order_by(Chapter.id)
+    )).scalars().all()
+    ch_by_id = {c.id: c for c in chapters}
+    kps = []
+    if ch_by_id:
+        kps = (await db.execute(
+            select(KnowledgePoint)
+            .where(KnowledgePoint.chapter_id.in_(list(ch_by_id)))
+            .order_by(KnowledgePoint.id)
         )).scalars().all()
-        if chapters:
-            q.chapter_id = chapters[0].id
-            if analysis: analysis.ai_chapter_id = chapters[0].id
+    kp_by_id = {k.id: k for k in kps}
 
-            # 知识点：在匹配章节下按名称查找
-            if kp_names:
-                matched_kp_ids = []
-                for kp_name in kp_names:
-                    kp = (await db.execute(
-                        select(KnowledgePoint).where(
-                            KnowledgePoint.chapter_id == chapters[0].id,
-                            KnowledgePoint.name.ilike(f'%{kp_name}%'),
-                        )
-                    )).scalar_one_or_none()
-                    if kp:
-                        matched_kp_ids.append(kp.id)
-                if matched_kp_ids:
-                    q.knowledge_point_ids = matched_kp_ids
-                    flag_modified(q, 'knowledge_point_ids')
-                    if analysis:
-                        analysis.ai_knowledge_point_ids = matched_kp_ids
-                        flag_modified(analysis, 'ai_knowledge_point_ids')
+    def _match_kp_by_name(name: str, pool) -> 'KnowledgePoint | None':
+        exact = [k for k in pool if k.name == name]
+        if exact:
+            return exact[0]
+        # 双向包含：库中名称含 AI 名称，或 AI 名称含库中名称
+        fuzzy = [k for k in pool if name in k.name or k.name in name]
+        return fuzzy[0] if fuzzy else None
+
+    # ── 1. 章节：ID → 名称 ──
+    chapter = ch_by_id.get(ai_chapter_id) if ai_chapter_id else None
+    if not chapter and chapter_name:
+        key = chapter_name.replace(':', '：').split('：')[-1].strip() or chapter_name
+        chapter = next((c for c in chapters if c.name == chapter_name), None) \
+            or next((c for c in chapters if key in c.name or c.name in chapter_name), None)
+
+    # ── 2. 知识点：ID → 名称（优先章节内，其次整个学期）──
+    matched: list[KnowledgePoint] = []
+    for kid in ai_kp_ids:
+        kp = kp_by_id.get(kid)
+        if kp and kp not in matched:
+            matched.append(kp)
+    if not matched:
+        in_chapter = [k for k in kps if chapter and k.chapter_id == chapter.id]
+        for name in kp_names:
+            kp = _match_kp_by_name(name, in_chapter) or _match_kp_by_name(name, kps)
+            if kp and kp not in matched:
+                matched.append(kp)
+
+    # ── 3. 章节仍未匹配：由知识点反推（取命中最多的章节）──
+    if not chapter and matched:
+        counts: dict[int, int] = {}
+        for k in matched:
+            counts[k.chapter_id] = counts.get(k.chapter_id, 0) + 1
+        chapter = ch_by_id.get(max(counts, key=counts.get))
+
+    # 知识点必须隶属所选章节，避免跨章节脏数据
+    if chapter:
+        matched = [k for k in matched if k.chapter_id == chapter.id]
+        q.chapter_id = chapter.id
+        if analysis: analysis.ai_chapter_id = chapter.id
+
+    ids = [k.id for k in matched]
+    q.knowledge_point_ids = ids
+    flag_modified(q, 'knowledge_point_ids')
+    if analysis:
+        analysis.ai_knowledge_point_ids = ids
+        flag_modified(analysis, 'ai_knowledge_point_ids')
 
 
 # ── 软删除 ────────────────────────────────────────────────────
