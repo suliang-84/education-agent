@@ -535,6 +535,15 @@ async def get_ai_prompt_summary(db: AsyncSession, student_id: int):
     )
     insights = insights_res.scalars().all()
 
+    learning_text = summary.learning_summary if summary and summary.learning_summary else ''
+    insight_text = summary.personal_insight if summary and summary.personal_insight else ''
+    prompt_preview = (
+        f'你是一位专属于{student.nickname or "该"}同学的AI学习助教。\n\n'
+        f'【学生学习档案】\n{learning_text or "暂无"}\n\n'
+        f'【学生个人档案】\n{insight_text or "暂无"}\n\n'
+        '请根据以上信息，以贴合该学生特点的方式提供学习辅导。'
+    )
+
     return {
         'student_id': student_id,
         'nickname': student.nickname,
@@ -549,7 +558,19 @@ async def get_ai_prompt_summary(db: AsyncSession, student_id: int):
             'updated_at': summary.personal_insight_updated_at if summary else None,
             'updated_by': summary.insight_updated_by if summary else None,
         },
-        'insights': insights,
+        'prompt_preview': prompt_preview,
+        'insights': [
+            {
+                'id': e.id,
+                'content': e.content,
+                'insight_type': e.insight_type,
+                'source': e.source,
+                'is_sensitive': e.is_sensitive,
+                'weight': float(e.weight),
+                'created_at': e.created_at,
+            }
+            for e in insights
+        ],
     }
 
 

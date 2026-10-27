@@ -95,11 +95,11 @@
               <el-button text size="small" style="color:var(--color-primary)" @click="$router.push(`/students/${row.id}`)">
                 <SvgIcon name="profile" :size="18" color="var(--color-primary)" title="画像" />
               </el-button>
-              <el-button text size="small" style="color:var(--indigo)" @click="$router.push(`/students/${row.id}/ai-prompt`)">
-                <SvgIcon name="summary" :size="18" color="var(--indigo)" title="摘要" />
+              <el-button text size="small" style="color:var(--green)" @click="$router.push(`/students/${row.id}/ai-prompt`)">
+                <SvgIcon name="summary" :size="18" color="var(--green)" title="摘要" />
               </el-button>
-              <el-button text size="small" style="color:var(--color-primary)" @click="openBindParent(row)">
-                <SvgIcon name="bind" :size="18" color="var(--color-primary)" title="绑定家长" />
+              <el-button text size="small" style="color:#f3c601" @click="openBindParent(row)">
+                <SvgIcon name="bind" :size="18" color="#f3c601" title="绑定家长" />
               </el-button>
             </template>
           </el-table-column>

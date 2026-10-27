@@ -80,7 +80,18 @@ export const studentApi = {
    * 接口文档：§9.8.11
    */
   getAiPromptSummary: (studentId: number) =>
-    request.get<unknown, StudentAiPromptSummary>(`/students/${studentId}/ai-prompt-summary`),
+    request.get<unknown, {
+      student_id: number
+      learning_summary?: { content: string | null; updated_at: string | null }
+      personal_insight?: { content: string | null }
+      prompt_preview?: string
+    }>(`/students/${studentId}/ai-prompt-summary`).then((d): StudentAiPromptSummary => ({
+      student_id: d.student_id,
+      learning_summary: d.learning_summary?.content ?? '',
+      personal_insight: d.personal_insight?.content ?? '',
+      full_prompt_preview: d.prompt_preview ?? '',
+      updated_at: d.learning_summary?.updated_at ?? '',
+    })),
 
   /**
    * 管理员手动编辑个人洞察摘要
@@ -103,7 +114,7 @@ export const studentApi = {
     insight_type?: 'interest' | 'mood' | 'life_event' | 'analogy_pref' | 'family' | 'learning_attitude' | 'other'
     is_sensitive?: boolean
   }) =>
-    request.post<unknown, PromptInsightEntry>(`/students/${studentId}/prompt-insights`, data),
+    request.post<unknown, { insight_id: number; created_at: string }>(`/students/${studentId}/prompt-insights`, data),
 
   /**
    * 获取洞察条目历史记录
@@ -120,7 +131,7 @@ export const studentApi = {
    */
   // 别名保持与视图层一致
   regenerateLearningsummary: (studentId: number) =>
-    request.post<unknown, { task_id: string }>(
+    request.post<unknown, { learning_summary: string; version: number; updated_at: string }>(
       `/students/${studentId}/ai-prompt-summary/regenerate`
     ),
 

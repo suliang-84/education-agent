@@ -180,8 +180,8 @@
             <!-- 操作 -->
             <el-table-column label="操作" width="110" fixed="right">
               <template #default="{ row }">
-                <el-button text size="small" style="color:var(--color-primary)" @click="$router.push(`/questions/${row.id}/review`)">
-                  <SvgIcon name="detail" :size="18" color="var(--color-primary)" title="查看" />
+                <el-button text size="small" style="color:#f3c601" @click="$router.push(`/questions/${row.id}/review`)">
+                  <SvgIcon name="detail" :size="18" color="#f3c601" title="查看" />
                 </el-button>
                 <el-button v-if="row.is_active !== false" text size="small" class="btn-no-hover" style="color:var(--red)" @click="handleDeactivate(row)">
                   <SvgIcon name="pause" :size="18" color="var(--red)" title="停用" />

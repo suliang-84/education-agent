@@ -91,8 +91,8 @@
                 <el-button text size="small" style="color:var(--color-primary)" @click="$router.push(`/questions/${row.id}/edit`)">
                   <SvgIcon name="edit" :size="18" color="var(--color-primary)" title="编辑" />
                 </el-button>
-                <el-button text size="small" style="color:var(--amber)" @click="handleAnalyze(row)">
-                  <SvgIcon name="analyse" :size="18" color="var(--amber)" title="模型分析" />
+                <el-button text size="small" style="color:#f3c601" @click="handleAnalyze(row)">
+                  <SvgIcon name="analyse" :size="18" color="#f3c601" title="模型分析" />
                 </el-button>
                 <el-button text size="small" style="color:var(--red)" @click="handleDelete(row)">
                   <SvgIcon name="delete" :size="18" color="var(--red)" title="删除" />

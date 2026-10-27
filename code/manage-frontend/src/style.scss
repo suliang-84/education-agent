@@ -1698,3 +1698,200 @@ $form-height:       30px;
 
   &:hover { background: var(--scrollbar-thumb-hover); }
 }
+
+
+// ═══════════════════════════════════════════════════════════════
+// 弹窗（el-dialog / el-message-box）统一风格
+//   · 暗色：沿用登录框的玻璃质感（深色半透明、蓝色光晕、高光描边、胶囊主按钮）
+//   · 亮色：白底卡片 + 淡蓝描边 + 柔和投影；标题左侧主色竖条，与详情页分区风格呼应
+// ═══════════════════════════════════════════════════════════════
+
+// ── 亮色主题 ─────────────────────────────────────────────────
+[data-theme="light"] {
+  .el-overlay {
+    background: rgba(15, 23, 42, 0.32);
+    backdrop-filter: blur(3px);
+  }
+
+  .el-dialog,
+  .el-message-box {
+    background: #ffffff;
+    border: 1px solid rgba(96, 141, 248, 0.16);
+    border-radius: 16px !important;
+    box-shadow:
+      0 24px 56px rgba(30, 41, 59, 0.14),
+      0 4px 14px rgba(94, 141, 249, 0.08) !important;
+    overflow: hidden;
+  }
+
+  .el-dialog {
+    padding: 0;
+
+    &__header {
+      padding: 20px 56px 14px 24px;
+      margin: 0;
+      border-bottom: none;
+    }
+    &__title {
+      display: inline-flex;
+      align-items: center;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-1);
+
+      &::before {
+        content: '';
+        width: 3px;
+        height: 15px;
+        margin-right: 9px;
+        border-radius: 2px;
+        background: var(--color-primary);
+      }
+    }
+    &__body   { padding: 6px 24px 22px; }
+    &__footer {
+      padding: 14px 24px;
+      border-top: 1px solid var(--border);
+      background: #f8f9fc;
+    }
+    &__headerbtn {
+      top: 14px;
+      right: 16px;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      transition: background 0.15s;
+      &:hover { background: var(--bg-muted); }
+    }
+  }
+
+  .el-message-box {
+    padding: 0;
+    &__header  { padding: 20px 24px 8px; }
+    &__title   { font-size: 16px; font-weight: 700; }
+    &__content { padding: 6px 24px 18px; }
+    &__btns    { padding: 14px 24px; border-top: 1px solid var(--border); background: #f8f9fc; }
+  }
+}
+
+// ── 暗色主题（参考登录框）─────────────────────────────────────
+[data-theme="dark"] {
+  .el-overlay {
+    background: rgba(0, 0, 0, 0.58);
+    backdrop-filter: blur(6px);
+  }
+
+  .el-overlay .el-dialog,
+  .el-message-box {
+    position: relative;
+    border-radius: 24px !important;
+    overflow: hidden;
+    background:
+      radial-gradient(
+        420px circle at 50% -10%,
+        rgba(94, 141, 249, 0.18),
+        rgba(94, 141, 249, 0.04) 40%,
+        transparent 65%
+      ),
+      rgba(12, 14, 18, 0.92) !important;
+    border: 1px solid rgba(12, 14, 18, 0.75) !important;
+    box-shadow:
+      0 32px 72px rgba(0, 0, 0, 0.60),
+      0 8px 28px rgba(0, 0, 0, 0.40),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+
+    // 顶部高亮描边
+    &::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 24px;
+      padding: 1px;
+      background: radial-gradient(
+        320px circle at 50% 0%,
+        rgba(94, 141, 249, 0.85),
+        rgba(255, 255, 255, 0.20) 40%,
+        rgba(255, 255, 255, 0.05) 70%
+      );
+      -webkit-mask:
+        linear-gradient(#fff 0 0) content-box,
+        linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      pointer-events: none;
+      z-index: 2;
+    }
+  }
+
+  .el-overlay .el-dialog {
+    padding: 0;
+    &__header  { padding: 26px 56px 12px 28px; margin: 0; border-bottom: none !important; }
+    &__title   { font-size: 17px; font-weight: 700; color: #ffffff; letter-spacing: 0.02em; }
+    &__body    { padding: 8px 28px 24px; color: var(--text-2); }
+    &__footer  { padding: 6px 28px 26px; border-top: none !important; }
+    &__headerbtn { top: 20px; right: 20px; width: 32px; height: 32px; border-radius: 50%; &:hover { background: rgba(255,255,255,0.08); } }
+  }
+
+  .el-message-box {
+    padding: 0;
+    &__header  { padding: 26px 28px 10px; }
+    &__title   { font-size: 17px; color: #ffffff; }
+    &__content { padding: 6px 28px 20px; }
+    &__btns    { padding: 6px 28px 26px; }
+  }
+
+  // 弹窗内输入控件：与登录框 field-wrap 一致（半透明描边 + 蓝色聚焦光圈）
+  .el-dialog,
+  .el-message-box {
+    .el-input__wrapper,
+    .el-select__wrapper,
+    .el-textarea__inner {
+      background: rgba(255, 255, 255, 0.06) !important;
+      border: 1px solid rgba(255, 255, 255, 0.12) !important;
+      border-radius: 10px !important;
+      box-shadow: none !important;
+      transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+
+      &.is-focus,
+      &.is-focused,
+      &:focus {
+        background: rgba(255, 255, 255, 0.10) !important;
+        border-color: rgba(94, 141, 249, 0.50) !important;
+        box-shadow: 0 0 0 3px rgba(94, 141, 249, 0.08) !important;
+      }
+    }
+    .el-form-item__label { color: #aabffe !important; }
+
+    // 主按钮：登录框同款白→蓝渐变胶囊
+    .el-button--primary {
+      border: none;
+      border-radius: 9999px;
+      padding: 0 22px;
+      color: #1a2a3a;
+      font-weight: 600;
+      background: linear-gradient(to right, #cadbf3 0%, #a9beff 50%, #a9beff 100%);
+      background-size: 200% 100%;
+      background-position: 0% 0%;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.30);
+      transition: background-position 0.6s ease, color 0.3s ease, box-shadow 0.3s ease;
+
+      &:hover:not(.is-disabled) {
+        background-position: 100% 0%;
+        color: #ffffff;
+        box-shadow: 0 4px 20px rgba(105, 140, 188, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.20);
+      }
+      &.is-disabled { opacity: 0.45; }
+    }
+
+    // 次按钮：透明描边胶囊
+    .el-button:not(.el-button--primary):not(.el-button--danger):not(.is-text) {
+      border-radius: 9999px;
+      padding: 0 20px;
+      background: rgba(255, 255, 255, 0.06);
+      border-color: rgba(255, 255, 255, 0.12);
+      color: rgba(255, 255, 255, 0.85);
+      &:hover { background: rgba(255, 255, 255, 0.10); border-color: rgba(255, 255, 255, 0.22); }
+    }
+    .el-button--danger { border-radius: 9999px; padding: 0 20px; }
+  }
+}
