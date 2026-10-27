@@ -40,7 +40,7 @@
             <span class="tree-toggle" @click="subject.open = !subject.open" :title="subject.open ? '折叠' : '展开'">
               {{ subject.open ? '▼' : '▶' }}
             </span>
-            <SvgIcon v-if="subjectIcon(subject.name)" :name="subjectIcon(subject.name)" :size="20" style="flex-shrink:0;margin-right:2px;vertical-align:middle" />
+            <SvgIcon v-if="subjectIcon(subject.name)" :name="subjectIcon(subject.name)" :size="20" color="var(--color-primary)" style="flex-shrink:0;margin-right:2px;vertical-align:middle" />
             <span class="tree-node__label" @click="selectSubject(subject)">{{ subject.name }}</span>
             <span v-if="subject.published_count > 0" class="tree-node__count">{{ subject.published_count }}</span>
           </div>
@@ -187,8 +187,8 @@
                   <SvgIcon name="pause" :size="18" color="var(--red)" title="停用" />
                 </el-button>
                 <template v-else>
-                  <el-button text size="small" style="color:var(--amber)" @click="$router.push(`/questions/${row.id}/archived-edit`)">
-                    <SvgIcon name="edit" :size="18" color="var(--amber)" title="编辑" />
+                  <el-button text size="small" style="color:var(--color-primary)" @click="$router.push(`/questions/${row.id}/archived-edit`)">
+                    <SvgIcon name="edit" :size="18" color="var(--color-primary)" title="编辑" />
                   </el-button>
                   <el-button text size="small" class="btn-no-hover" style="color:var(--green)" @click="handleActivate(row)">
                     <SvgIcon name="play" :size="18" color="var(--green)" title="启用" />

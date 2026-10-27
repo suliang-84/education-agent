@@ -113,8 +113,8 @@
           <template #default="{ row }">
             <!-- 草稿 -->
             <template v-if="row.status === 'draft'">
-              <el-button text size="small" style="color:var(--indigo)" @click="router.push(`/cognitive-test/${row.id}/edit`)">
-                <SvgIcon name="edit" :size="18" color="var(--indigo)" title="编辑" />
+              <el-button text size="small" style="color:var(--color-primary)" @click="router.push(`/cognitive-test/${row.id}/edit`)">
+                <SvgIcon name="edit" :size="18" color="var(--color-primary)" title="编辑" />
               </el-button>
               <el-button text size="small" style="color:var(--green)" @click="confirmPublish(row)">发布</el-button>
               <el-button text size="small" style="color:var(--red)" @click="confirmDelete(row)">
@@ -129,8 +129,8 @@
             </template>
             <!-- 已停用 -->
             <template v-else>
-              <el-button text size="small" style="color:var(--indigo)" @click="router.push(`/cognitive-test/${row.id}/edit`)">
-                <SvgIcon name="edit" :size="18" color="var(--indigo)" title="编辑" />
+              <el-button text size="small" style="color:var(--color-primary)" @click="router.push(`/cognitive-test/${row.id}/edit`)">
+                <SvgIcon name="edit" :size="18" color="var(--color-primary)" title="编辑" />
               </el-button>
               <el-button text size="small" style="color:var(--green)" @click="confirmRepublish(row)">
                 <SvgIcon name="play" :size="18" color="var(--green)" title="启用" />

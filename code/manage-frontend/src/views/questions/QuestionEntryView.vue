@@ -88,8 +88,8 @@
           <el-table-column label="操作" width="120" fixed="right">
             <template #default="{ row }">
               <template v-if="row.status === 'draft'">
-                <el-button text size="small" style="color:var(--indigo)" @click="$router.push(`/questions/${row.id}/edit`)">
-                  <SvgIcon name="edit" :size="18" color="var(--indigo)" title="编辑" />
+                <el-button text size="small" style="color:var(--color-primary)" @click="$router.push(`/questions/${row.id}/edit`)">
+                  <SvgIcon name="edit" :size="18" color="var(--color-primary)" title="编辑" />
                 </el-button>
                 <el-button text size="small" style="color:var(--amber)" @click="handleAnalyze(row)">
                   <SvgIcon name="analyse" :size="18" color="var(--amber)" title="模型分析" />
