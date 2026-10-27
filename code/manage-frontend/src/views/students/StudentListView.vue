@@ -177,7 +177,7 @@
           <el-table-column label="操作" width="120" align="center" fixed="right">
             <template #default="{ row }">
               <el-button text size="small" style="color:var(--red)" @click="confirmUnbindParent(row)">
-                解绑学生
+                <SvgIcon name="unbind" :size="18" color="var(--red)" title="解绑学生" />
               </el-button>
             </template>
           </el-table-column>

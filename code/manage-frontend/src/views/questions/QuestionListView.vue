@@ -571,6 +571,10 @@ onMounted(() => { loadData(); loadKnowledgeTree(); loadTotalAll() })
   width: 18px;
   text-align: center;
   flex-shrink: 0;
+  transition: color 0.12s;
+
+  .tree-node.active &,
+  .tree-node:hover & { color: var(--indigo); }
 }
 
 // ── 右侧表格区 ───────────────────────────────────────────────

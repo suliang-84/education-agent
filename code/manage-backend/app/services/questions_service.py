@@ -38,8 +38,14 @@ async def get_knowledge_tree(db: AsyncSession) -> list[dict]:
         if row.chapter_id:
             pub_by_ch[row.chapter_id] = pub_by_ch.get(row.chapter_id, 0) + row.cnt
 
-    # KP 维度的已发布题目数（knowledge_point_ids 是 JSONB 数组）
-    # 简化：不单独统计 KP，KP 节点 published_count = 0（章节已覆盖）
+    # KP 维度的已发布题目数（knowledge_point_ids 是 JSONB 数组，一题可挂多个知识点）
+    kp_rows = (await db.execute(
+        select(Question.knowledge_point_ids)
+        .where(Question.status == 'published', Question.deleted_at.is_(None))
+    )).scalars().all()
+    for kp_ids in kp_rows:
+        for kp_id in set(kp_ids or []):
+            pub_by_kp[kp_id] = pub_by_kp.get(kp_id, 0) + 1
 
     # 组装树
     kp_map: dict[int, list] = {}

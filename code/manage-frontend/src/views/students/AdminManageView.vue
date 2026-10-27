@@ -37,7 +37,7 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="操作" width="110" align="center" fixed="right">
+        <el-table-column label="操作" width="110" align="left" fixed="right" class-name="action-col">
           <template #default="{ row }">
             <el-button v-if="row.is_active === 1" text size="small" style="color:var(--amber)" @click="toggleAdmin(row, 0)">
               <SvgIcon name="pause" :size="18" color="var(--amber)" title="停用" />
@@ -197,5 +197,8 @@ onMounted(loadData)
   &--ok  { background: #E8F5D0; color: #4A7C10; }
   &--off { background: #FFE0E0; color: #DC2626; }
 }
+
+// 操作列：图标左对齐，首个按钮去掉左内边距使其与表头文字对齐
+:deep(.action-col .cell .el-button:first-child) { padding-left: 0; }
 </style>
 

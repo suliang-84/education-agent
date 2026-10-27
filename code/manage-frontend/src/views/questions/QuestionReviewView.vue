@@ -1,5 +1,5 @@
 <template>
-  <div class="page-root" v-loading="loading">
+  <div class="page-root" :class="{ 'is-detail': question && !isEditable }" v-loading="loading">
 
     <!-- ── 顶部操作栏 ── -->
     <div class="form-topbar">
@@ -27,7 +27,8 @@
         <div class="section-hd">
           <span class="section-title"><SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />题干内容</span>
         </div>
-        <el-input v-model="question.stem" type="textarea" :rows="7" :disabled="!isEditable" />
+        <div v-if="!isEditable" class="stem-display">{{ question.stem }}</div>
+        <el-input v-else v-model="question.stem" type="textarea" :rows="7" />
       </div>
 
       <!-- ── 分析结果（可修改，仅 pending_review 状态）── -->
@@ -263,18 +264,15 @@
           <!-- 五力权重 -->
           <div class="sub-section-title">五力训练权重</div>
           <div class="section-content">
-            <el-form-item label=" ">
+            <div v-if="!isEditable" ref="radarRef" class="weights-radar" />
+            <el-form-item v-else label=" ">
               <div class="power-weights-grid">
                 <div v-for="p in powers" :key="p" class="power-weight-item">
                   <div class="power-weight-item__label">
                     <span class="power-dot" :class="`power-dot--${p}`" />
                     {{ FivePowerLabels[p as FivePower] }}
                   </div>
-                  <span v-if="!isEditable" class="plain-value power-weight-val">
-                    {{ form.five_power_weights[p as FivePower] }}
-                  </span>
                   <el-input-number
-                    v-else
                     v-model="form.five_power_weights[p as FivePower]"
                     :min="0" :max="10" :step="1"
                     controls-position="right"
@@ -334,7 +332,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
+import * as echarts from 'echarts'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { questionApi, knowledgeTreeApi, type KnowledgeTreeNode } from '@/api/questions'
@@ -566,6 +565,59 @@ function addMigrationDir() {
 }
 
 // ── 初始化 ───────────────────────────────────────────────────
+// ── 详情态：五力权重雷达图 ──────────────────────────────────
+const radarRef = ref<HTMLElement>()
+let radarChart: echarts.ECharts | undefined
+
+function renderRadar() {
+  if (!radarRef.value) { radarChart?.dispose(); radarChart = undefined; return }
+  if (radarChart && radarChart.getDom() !== radarRef.value) { radarChart.dispose(); radarChart = undefined }
+  if (!radarChart) radarChart = echarts.init(radarRef.value)
+  const values = powers.map(p => form.five_power_weights[p as FivePower] ?? 0)
+  const css = getComputedStyle(radarRef.value)
+  const primary = css.getPropertyValue('--color-primary').trim() || '#608df8'
+  const textColor = css.getPropertyValue('--text-2').trim() || '#6b7280'
+  const alpha = (hex: string, a: number) => {
+    const m = /^#([0-9a-f]{6})$/i.exec(hex)
+    if (!m) return hex
+    const n = parseInt(m[1], 16)
+    return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`
+  }
+  const dotRich = Object.fromEntries(powers.map(p => [
+    `dot_${p}`, { width: 6, height: 6, borderRadius: 3, backgroundColor: css.getPropertyValue(`--power-${p.toLowerCase()}`).trim() || '#608df8' },
+  ]))
+  radarChart.setOption({
+    backgroundColor: 'transparent',
+    radar: {
+      indicator: powers.map((p, i) => ({ name: `${FivePowerLabels[p as FivePower]}  ${values[i]}`, max: 10, key: p })),
+      radius: '68%',
+      splitNumber: 5,
+      axisName: {
+        color: textColor,
+        fontSize: 13,
+        formatter: (name: string, indicator: any) => `{dot_${indicator.key}|}  ${name}`,
+        rich: dotRich,
+      },
+      splitLine: { lineStyle: { color: alpha(primary, 0.22) } },
+      splitArea: { areaStyle: { color: [alpha(primary, 0.02), alpha(primary, 0.06)] } },
+      axisLine: { lineStyle: { color: alpha(primary, 0.3) } },
+    },
+    series: [{
+      type: 'radar',
+      symbolSize: 6,
+      data: [{ value: values, name: '五力训练权重', itemStyle: { color: primary }, lineStyle: { color: primary, width: 2 }, areaStyle: { color: alpha(primary, 0.25) } }],
+    }],
+  })
+}
+
+watch([radarRef, () => form.five_power_weights], () => nextTick(renderRadar), { deep: true, flush: 'post' })
+const onResize = () => radarChart?.resize()
+window.addEventListener('resize', onResize)
+// 切换亮/暗主题时按新的主题色重绘
+const themeObserver = new MutationObserver(() => renderRadar())
+themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+onBeforeUnmount(() => { window.removeEventListener('resize', onResize); themeObserver.disconnect(); radarChart?.dispose() })
+
 onMounted(async () => {
   loading.value = true
   try {
@@ -1077,5 +1129,56 @@ async function handleReject() {
   line-height: 22px !important;
   .el-tag__content { color: var(--text-1) !important; }
   .el-tag__close { display: none !important; }
+}
+
+// ── 详情（只读）模式：文档式排版，与编辑态的输入框外观明确区分 ──
+.is-detail {
+  .section-block {
+    position: relative;
+    border-left: 3px solid var(--color-primary) !important;
+    padding-left: 18px;
+  }
+
+  .stem-display {
+    font-size: 15px;
+    line-height: 1.85;
+    background: transparent;
+    padding: 4px 0 10px;
+    [data-theme="dark"] & { background: transparent; }
+  }
+
+  .sub-section-title {
+    margin-top: 6px;
+  }
+
+  // 虚线置于每个子模块内容的底部（最后一个子模块除外）
+  .section-content,
+  .answer-block {
+    background: transparent;
+    padding: 6px 0 14px;
+    margin-bottom: 8px;
+    border-bottom: 1px dashed var(--border);
+
+    &:last-child { border-bottom: none; padding-bottom: 4px; }
+  }
+
+  // 去掉输入框外观，只保留文字
+  .plain-value,
+  .plain-value-area {
+    height: auto;
+    min-height: 0;
+    line-height: 1.7;
+    padding: 0;
+    background: transparent;
+    border: none;
+    font-weight: 500;
+    white-space: normal;
+    overflow: visible;
+    [data-theme="dark"] & { background: transparent; border: none; }
+  }
+
+  :deep(.el-form-item__label) { color: var(--text-3); font-weight: 400; }
+  .weights-radar { width: 420px; max-width: 100%; height: 300px; margin-right: auto; }
+  .belongs-row .el-form-item { margin-bottom: 4px; }
 }
 </style>

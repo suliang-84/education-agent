@@ -38,7 +38,9 @@
 
         <el-table-column label="操作" width="120" align="center" fixed="right">
           <template #default="{ row }">
-            <el-button text size="small" style="color:var(--red)" @click="openUnbind(row)">解绑学生</el-button>
+            <el-button text size="small" style="color:var(--red)" @click="openUnbind(row)">
+              <SvgIcon name="unbind" :size="18" color="var(--red)" title="解绑学生" />
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
