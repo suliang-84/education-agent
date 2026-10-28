@@ -2342,3 +2342,39 @@ html[data-theme="light"] .admin-shell .sidebar {
   .theme-btn, .collapse-btn { background: #f5f6f9; }
   .sidebar-user { border-top: 1px solid #eef0f5; }
 }
+
+
+// ═══════════════════════════════════════════════════════════════
+// 暗色表格行悬停：同侧栏选中项的玻璃胶囊
+//   渐变画在整行 tr 上：底色与上下描边均为「左右暗、中间亮」的横向渐变，整行连续
+//   单元格自身透明（含固定的操作列），避免各画各的而断开
+// ═══════════════════════════════════════════════════════════════
+html[data-theme="dark"] .el-table {
+  --el-table-row-hover-bg-color: transparent;
+
+  .el-table__body-wrapper tr:hover,
+  .el-table__body-wrapper tr.hover-row {
+    background-image:
+      linear-gradient(90deg, rgba(169, 190, 255, 0.06), rgba(169, 190, 255, 0.55) 50%, rgba(169, 190, 255, 0.06)),
+      linear-gradient(90deg, rgba(169, 190, 255, 0.06), rgba(169, 190, 255, 0.55) 50%, rgba(169, 190, 255, 0.06)),
+      linear-gradient(90deg, rgba(94, 141, 249, 0.03), rgba(94, 141, 249, 0.20) 50%, rgba(94, 141, 249, 0.03));
+    background-size: 100% 1px, 100% 1px, 100% 100%;
+    background-position: 0 0, 0 100%, 0 0;
+    background-repeat: no-repeat;
+  }
+
+  .el-table__body-wrapper tr:hover > td.el-table__cell,
+  .el-table__body-wrapper tr.hover-row > td.el-table__cell {
+    background-image: none !important;
+    box-shadow: none;
+    border-bottom-color: transparent !important;
+  }
+
+  // 无横向滚动时，固定列保持透明，透出整行渐变
+  &.is-scrolling-none .el-table__body-wrapper tr:hover > td.el-table-fixed-column--left,
+  &.is-scrolling-none .el-table__body-wrapper tr:hover > td.el-table-fixed-column--right,
+  &.is-scrolling-none .el-table__body-wrapper tr.hover-row > td.el-table-fixed-column--left,
+  &.is-scrolling-none .el-table__body-wrapper tr.hover-row > td.el-table-fixed-column--right {
+    background-color: transparent !important;
+  }
+}
