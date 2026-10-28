@@ -2378,3 +2378,37 @@ html[data-theme="dark"] .el-table {
     background-color: transparent !important;
   }
 }
+
+
+// ═══════════════════════════════════════════════════════════════
+// 亮色表格行悬停：与暗色同结构（整行 tr 上的横向渐变，最亮处跟随鼠标）
+//   用主色蓝画「上下细线 + 淡底色」，两端保留淡淡的一层；在白底上以细线为主、底色很淡，避免发灰发脏
+// ═══════════════════════════════════════════════════════════════
+html[data-theme="light"] .el-table {
+  --el-table-row-hover-bg-color: transparent;
+
+  .el-table__body-wrapper tr:hover,
+  .el-table__body-wrapper tr.hover-row {
+    background-image:
+      linear-gradient(90deg, rgba(94, 141, 249, 0.12), rgba(94, 141, 249, 0.12) calc(var(--mx, 50%) - 300px), rgba(94, 141, 249, 0.65) var(--mx, 50%), rgba(94, 141, 249, 0.12) calc(var(--mx, 50%) + 300px), rgba(94, 141, 249, 0.12)),
+      linear-gradient(90deg, rgba(94, 141, 249, 0.12), rgba(94, 141, 249, 0.12) calc(var(--mx, 50%) - 300px), rgba(94, 141, 249, 0.65) var(--mx, 50%), rgba(94, 141, 249, 0.12) calc(var(--mx, 50%) + 300px), rgba(94, 141, 249, 0.12)),
+      linear-gradient(90deg, rgba(94, 141, 249, 0.025), rgba(94, 141, 249, 0.025) calc(var(--mx, 50%) - 360px), rgba(94, 141, 249, 0.11) var(--mx, 50%), rgba(94, 141, 249, 0.025) calc(var(--mx, 50%) + 360px), rgba(94, 141, 249, 0.025));
+    background-size: 100% 1px, 100% 1px, 100% 100%;
+    background-position: 0 0, 0 100%, 0 0;
+    background-repeat: no-repeat;
+  }
+
+  .el-table__body-wrapper tr:hover > td.el-table__cell,
+  .el-table__body-wrapper tr.hover-row > td.el-table__cell {
+    background-image: none !important;
+    box-shadow: none;
+    border-bottom-color: transparent !important;
+  }
+
+  &.is-scrolling-none .el-table__body-wrapper tr:hover > td.el-table-fixed-column--left,
+  &.is-scrolling-none .el-table__body-wrapper tr:hover > td.el-table-fixed-column--right,
+  &.is-scrolling-none .el-table__body-wrapper tr.hover-row > td.el-table-fixed-column--left,
+  &.is-scrolling-none .el-table__body-wrapper tr.hover-row > td.el-table-fixed-column--right {
+    background-color: transparent !important;
+  }
+}
