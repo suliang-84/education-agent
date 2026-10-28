@@ -426,6 +426,6 @@ async function handleCommand(cmd: string) {
 
 // 深色主题：indigo 为亮黄绿，user-avatar 文字改为深色
 :global([data-theme="dark"]) .user-avatar {
-  color: #0D0D0D;
+  color: #1a2a3a;
 }
 </style>
