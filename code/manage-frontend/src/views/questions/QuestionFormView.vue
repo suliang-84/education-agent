@@ -409,7 +409,11 @@ async function handleSave(mode: 'draft' | 'analyze') {
   border-top-color: #3a3a3a !important;
 }
 
+[data-theme="light"] .preview-item {
+  background: #f0f2f6 !important;
+}
+
 [data-theme="dark"] .preview-item {
-  background: #2a2a2a !important;
+  background: #1b1e23 !important;
 }
 </style>

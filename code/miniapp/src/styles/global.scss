@@ -50,6 +50,22 @@ view, text, input, button, image {
   box-sizing: border-box;
 }
 
+// 原生 button 重置：微信默认 line-height≈2.56、display:block，固定高度下文字会偏上/偏下。
+// 元素选择器优先级低于各页 class，页面仍可覆盖 padding/height/background 等。
+button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  line-height: 1;
+  font-size: inherit;
+  text-align: center;
+  background-color: transparent;
+
+  &::after { border: none; }
+}
+
 // ── 通用工具类 ────────────────────────────────────────────────────────────
 
 // 文字

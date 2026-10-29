@@ -1857,7 +1857,7 @@ $form-height:       30px;
       &:focus {
         background: rgba(255, 255, 255, 0.10) !important;
         border-color: rgba(94, 141, 249, 0.50) !important;
-        box-shadow: 0 0 0 3px rgba(94, 141, 249, 0.08) !important;
+        box-shadow: none !important;
       }
     }
     .el-form-item__label { color: #aabffe !important; }
@@ -1943,7 +1943,7 @@ html[data-theme="dark"] {
     box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.02) !important;
   }
   .admin-shell .nav-item {
-    border-radius: 14px;
+    border-radius: 6px;
     &:hover  { background: rgba(255, 255, 255, 0.05); }
     &.active {
       background: rgba(169, 190, 255, 0.10);
@@ -1994,7 +1994,7 @@ html[data-theme="dark"] {
       &.is-focus, &.is-focused, &:focus {
         background: rgba(255, 255, 255, 0.10) !important;
         border-color: rgba(94, 141, 249, 0.50) !important;
-        box-shadow: 0 0 0 3px rgba(94, 141, 249, 0.08) !important;
+        box-shadow: none !important;
       }
     }
     .el-input.is-disabled .el-input__wrapper,
@@ -2049,7 +2049,7 @@ html[data-theme="light"] {
     box-shadow: 4px 0 24px rgba(94, 141, 249, 0.06) !important;
   }
   .admin-shell .nav-item {
-    border-radius: 14px;
+    border-radius: 6px;
     &.active {
       background: rgba(94, 141, 249, 0.10);
       color: var(--color-primary);
@@ -2081,7 +2081,7 @@ html[data-theme="light"] {
     .el-input-number .el-input__wrapper { border-radius: 4px !important; }
     .el-input__wrapper.is-focus,
     .el-select__wrapper.is-focused,
-    .el-textarea__inner:focus { box-shadow: 0 0 0 3px rgba(94, 141, 249, 0.12) !important; }
+    .el-textarea__inner:focus { box-shadow: none !important; }
   }
 
   .content-area .el-button:not(.is-text):not(.is-link):not(.is-circle) { border-radius: 4px !important; }
@@ -2108,6 +2108,15 @@ html[data-theme="light"] {
   5%   { opacity: 1; }
   70%  { transform: translate(120%, 120%); opacity: 1; }
   78%  { opacity: 0; }
+  100% { transform: translate(120%, 120%); opacity: 0; }
+}
+
+// 表格专用：15s 一周期，扫光速度与 panel-shine（9s）一致，其余时间停顿
+@keyframes panel-shine-slow {
+  0%   { transform: translate(-120%, -120%); opacity: 0; }
+  3%   { opacity: 1; }
+  42%  { transform: translate(120%, 120%); opacity: 1; }
+  47%  { opacity: 0; }
   100% { transform: translate(120%, 120%); opacity: 0; }
 }
 
@@ -2189,6 +2198,8 @@ html[data-theme="dark"] {
     border-radius: 4px !important;
     @include glass-fx(4px, rgba(94, 141, 249, 0.75), 0.08);
   }
+  // 表格：反光间隔 15s
+  .surface--table::after { animation: panel-shine-slow 15s ease-in-out infinite; }
 }
 
 html[data-theme="light"] {
@@ -2220,6 +2231,8 @@ html[data-theme="light"] {
     border-radius: 4px !important;
     @include glass-fx(4px, rgba(94, 141, 249, 0.45), 0.5);
   }
+  // 表格：无反光
+  .surface--table::after { display: none; }
 }
 
 
@@ -2253,6 +2266,40 @@ html[data-theme] .el-table:not(.is-scrolling-none) .el-table__body-wrapper tr:ho
 }
 
 
+// 侧边栏鼠标交互（同登录框）：云晕在 .sidebar 背景里，这里是跟随鼠标渐变的高亮边框
+//   --sa 为 0~1 的可过渡数值：鼠标进入 → 1，移出 → 0（渐隐）
+@property --sa {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
+@mixin sidebar-fx($edge, $edge-mid) {
+  transition: width var(--t-slow) var(--ease-out), --sa 0.4s ease;
+
+  // 高亮边框：鼠标附近最亮，向外逐渐变淡
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    padding: 1px;
+    background: radial-gradient(
+      220px circle at var(--sx, 50%) var(--sy, 50%),
+      $edge,
+      $edge-mid 42%,
+      transparent 72%
+    );
+    opacity: var(--sa);
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+    z-index: 2;
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════
 // 侧边导航栏
 //   暗色：石墨灰底（比近黑的页面底明显提亮一档，与页面分层），右缘渐变高光线；
@@ -2263,27 +2310,22 @@ html[data-theme] .el-table:not(.is-scrolling-none) .el-table__body-wrapper tr:ho
 // ── 暗色 ─────────────────────────────────────────────────────
 html[data-theme="dark"] .admin-shell .sidebar {
   position: relative;
-  background: linear-gradient(180deg, #181c23 0%, #13161c 100%) !important;
+  // 鼠标云晕（--sx/--sy/--sa 由 AdminLayout 写入，同登录框的内部光晕）
+  background:
+    radial-gradient(
+      260px circle at var(--sx, 50%) var(--sy, 50%),
+      rgba(94, 141, 249, calc(0.20 * var(--sa))),
+      rgba(94, 141, 249, calc(0.05 * var(--sa))) 45%,
+      transparent 70%
+    ),
+    linear-gradient(180deg, #181c23 0%, #13161c 100%) !important;
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
   border-right: none !important;
-  box-shadow: 8px 0 32px rgba(0, 0, 0, 0.45) !important;
-
-  // 右缘渐变高光线（同弹窗顶部高亮的处理）
-  &::after {
-    content: '';
-    position: absolute;
-    top: 0; right: 0; bottom: 0;
-    width: 1px;
-    background: linear-gradient(
-      180deg,
-      rgba(94, 141, 249, 0.55),
-      rgba(255, 255, 255, 0.12) 35%,
-      rgba(255, 255, 255, 0.04) 75%,
-      rgba(94, 141, 249, 0.22)
-    );
-    pointer-events: none;
-  }
+  box-shadow:
+    8px 0 32px rgba(0, 0, 0, 0.45),
+    inset -1px 0 0 rgba(255, 255, 255, 0.05) !important;
+  @include sidebar-fx(rgba(94, 141, 249, 0.90), rgba(169, 190, 255, 0.28));
 
   .sidebar-logo { border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
   .sidebar-logo__name {
@@ -2313,11 +2355,19 @@ html[data-theme="dark"] .admin-shell .sidebar {
 // ── 亮色 ─────────────────────────────────────────────────────
 html[data-theme="light"] .admin-shell .sidebar {
   position: relative;
-  background: #ffffff !important;
+  background:
+    radial-gradient(
+      260px circle at var(--sx, 50%) var(--sy, 50%),
+      rgba(94, 141, 249, calc(0.13 * var(--sa))),
+      rgba(94, 141, 249, calc(0.04 * var(--sa))) 45%,
+      transparent 70%
+    ),
+    #ffffff !important;
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
   border-right: 1px solid #e8ebf1 !important;
   box-shadow: 6px 0 24px rgba(30, 41, 59, 0.05) !important;
+  @include sidebar-fx(rgba(94, 141, 249, 0.80), rgba(94, 141, 249, 0.22));
 
   .sidebar-logo { border-bottom: 1px solid #eef0f5; }
   .sidebar-logo__name {
@@ -2341,6 +2391,42 @@ html[data-theme="light"] .admin-shell .sidebar {
   .sidebar-user { border-top: 1px solid #eef0f5; }
 }
 
+
+// ═══════════════════════════════════════════════════════════════
+// 普通按钮（含弹窗/抽屉内，不含返回按钮 .btn-back、主按钮、危险按钮、文字/链接按钮）：
+// 同侧栏选中项（.nav-item.active）
+//   暗色：蓝色渐变玻璃 + 淡蓝内描边 + 外发光，白字（常规字重），图标 #a9beff
+//   亮色：浅灰底 + 深色文字（常规字重），无阴影
+// ═══════════════════════════════════════════════════════════════
+
+html[data-theme="dark"] .el-button:not(.is-text):not(.is-link):not(.is-circle):not(.is-disabled):not(.btn-back):not(.el-button--primary):not(.el-button--danger):not(.el-button--success):not(.el-button--warning):not(.el-button--info) {
+  background: linear-gradient(90deg, rgba(94, 141, 249, 0.24), rgba(94, 141, 249, 0.07)) !important;
+  border: none !important;
+  border-radius: 6px !important;
+  color: #ffffff !important;
+  font-weight: 400;
+  box-shadow:
+    inset 0 0 0 1px rgba(169, 190, 255, 0.24),
+    0 0 18px rgba(94, 141, 249, 0.14) !important;
+  .svg-icon, svg { color: #a9beff; }
+  &:hover, &:focus {
+    background: linear-gradient(90deg, rgba(94, 141, 249, 0.32), rgba(94, 141, 249, 0.12)) !important;
+    color: #ffffff !important;
+  }
+}
+
+html[data-theme="light"] .el-button:not(.is-text):not(.is-link):not(.is-circle):not(.is-disabled):not(.btn-back):not(.el-button--primary):not(.el-button--danger):not(.el-button--success):not(.el-button--warning):not(.el-button--info) {
+  background: #f0f2f6 !important;
+  border: none !important;
+  border-radius: 6px !important;
+  color: #111827 !important;
+  font-weight: 400;
+  box-shadow: none !important;
+  &:hover, &:focus {
+    background: #e8ebf1 !important;
+    color: #111827 !important;
+  }
+}
 
 // ═══════════════════════════════════════════════════════════════
 // 暗色表格行悬停：同侧栏选中项的玻璃胶囊

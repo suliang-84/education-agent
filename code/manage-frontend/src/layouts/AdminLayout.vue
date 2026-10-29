@@ -2,7 +2,11 @@
   <div class="admin-shell" :class="{ collapsed: isCollapsed }">
 
     <!-- ── Sidebar ── -->
-    <aside class="sidebar">
+    <aside
+      class="sidebar"
+      @mousemove="onSidebarMove"
+      @mouseleave="onSidebarLeave"
+    >
       <!-- Logo -->
       <div class="sidebar-logo">
         <span class="sidebar-logo__name">MESH Admin</span>
@@ -134,6 +138,26 @@ const router = useRouter()
 const authStore = useAuthStore()
 const isCollapsed = ref(false)
 
+// ── 侧边栏鼠标云晕 / 高亮边框：写入 --sx --sy --sa，样式见 style.scss「侧边导航栏」──
+let sidebarRaf = 0
+function onSidebarMove(e: MouseEvent) {
+  const el = e.currentTarget as HTMLElement
+  const { clientX, clientY } = e
+  if (sidebarRaf) return
+  sidebarRaf = requestAnimationFrame(() => {
+    sidebarRaf = 0
+    const r = el.getBoundingClientRect()
+    el.style.setProperty('--sx', `${clientX - r.left}px`)
+    el.style.setProperty('--sy', `${clientY - r.top}px`)
+    el.style.setProperty('--sa', '1')
+  })
+}
+function onSidebarLeave(e: MouseEvent) {
+  cancelAnimationFrame(sidebarRaf)
+  sidebarRaf = 0
+  ;(e.currentTarget as HTMLElement).style.setProperty('--sa', '0')
+}
+
 // ── 主题切换 ─────────────────────────────────────────────────
 const isDark = ref(false)
 
@@ -253,7 +277,7 @@ async function handleCommand(cmd: string) {
   align-items: center;
   gap: 10px;
   padding: 9px 10px;
-  border-radius: 12px;
+  border-radius: 6px;
   color: var(--text-2);
   text-decoration: none;
   font-size: 13.5px;
