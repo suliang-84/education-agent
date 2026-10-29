@@ -2304,7 +2304,7 @@ html[data-theme] .el-table:not(.is-scrolling-none) .el-table__body-wrapper tr:ho
 // 侧边导航栏
 //   暗色：石墨灰底（比近黑的页面底明显提亮一档，与页面分层），右缘渐变高光线；
 //         选中项为淡蓝玻璃胶囊
-//   亮色：纯白底 + 细灰边 + 轻投影，不带蓝色；选中项为浅灰胶囊 + 深色文字
+//   亮色：纯白底 + 细灰边 + 轻投影；鼠标云晕 / 渐变高亮边框 / 选中项与暗色同构，主色为亮主题蓝
 // ═══════════════════════════════════════════════════════════════
 
 // ── 暗色 ─────────────────────────────────────────────────────
@@ -2367,7 +2367,7 @@ html[data-theme="light"] .admin-shell .sidebar {
   backdrop-filter: none;
   border-right: 1px solid #e8ebf1 !important;
   box-shadow: 6px 0 24px rgba(30, 41, 59, 0.05) !important;
-  @include sidebar-fx(rgba(94, 141, 249, 0.80), rgba(94, 141, 249, 0.22));
+  @include sidebar-fx(#739dfd, rgba(115, 157, 253, 0.30));
 
   .sidebar-logo { border-bottom: 1px solid #eef0f5; }
   .sidebar-logo__name {
@@ -2379,12 +2379,15 @@ html[data-theme="light"] .admin-shell .sidebar {
 
   .nav-section__label { color: #9aa1b0; }
   .nav-item { color: #5b6270; }
-  .nav-item:hover { background: #f5f6f9; color: #1f2937; }
+  .nav-item:hover { background: rgba(94, 141, 249, 0.07); color: #1f2937; }
   .nav-item.active {
-    background: #f0f2f6;
-    color: #111827;
+    background: linear-gradient(90deg, rgba(94, 141, 249, 0.20), rgba(94, 141, 249, 0.05));
+    color: #2f5fd6;
     font-weight: 600;
-    box-shadow: none;
+    box-shadow:
+      inset 0 0 0 1px #739dfd,
+      0 0 18px rgba(94, 141, 249, 0.14);
+    .nav-item__icon { color: #5e8df9; }
   }
 
   .theme-btn, .collapse-btn { background: #f5f6f9; }
@@ -2396,7 +2399,7 @@ html[data-theme="light"] .admin-shell .sidebar {
 // 普通按钮（含弹窗/抽屉内，不含返回按钮 .btn-back、主按钮、危险按钮、文字/链接按钮）：
 // 同侧栏选中项（.nav-item.active）
 //   暗色：蓝色渐变玻璃 + 淡蓝内描边 + 外发光，白字（常规字重），图标 #a9beff
-//   亮色：浅灰底 + 深色文字（常规字重），无阴影
+//   亮色：同暗色结构，主色换为亮主题蓝：蓝色渐变底 + 蓝色内描边 + 外发光，蓝色文字
 // ═══════════════════════════════════════════════════════════════
 
 html[data-theme="dark"] .el-button:not(.is-text):not(.is-link):not(.is-circle):not(.is-disabled):not(.btn-back):not(.el-button--primary):not(.el-button--danger):not(.el-button--success):not(.el-button--warning):not(.el-button--info) {
@@ -2416,15 +2419,19 @@ html[data-theme="dark"] .el-button:not(.is-text):not(.is-link):not(.is-circle):n
 }
 
 html[data-theme="light"] .el-button:not(.is-text):not(.is-link):not(.is-circle):not(.is-disabled):not(.btn-back):not(.el-button--primary):not(.el-button--danger):not(.el-button--success):not(.el-button--warning):not(.el-button--info) {
-  background: #f0f2f6 !important;
+  // 渐变下垫白底，与侧栏（白底）选中项在任何卡片背景上都呈现同样的颜色
+  background: linear-gradient(90deg, rgba(94, 141, 249, 0.20), rgba(94, 141, 249, 0.05)), #ffffff !important;
   border: none !important;
   border-radius: 6px !important;
-  color: #111827 !important;
+  color: #2f5fd6 !important;
   font-weight: 400;
-  box-shadow: none !important;
+  box-shadow:
+    inset 0 0 0 1px #739dfd,
+    0 0 18px rgba(94, 141, 249, 0.14) !important;
+  .svg-icon, svg { color: #5e8df9; }
   &:hover, &:focus {
-    background: #e8ebf1 !important;
-    color: #111827 !important;
+    background: linear-gradient(90deg, rgba(94, 141, 249, 0.28), rgba(94, 141, 249, 0.09)), #ffffff !important;
+    color: #2f5fd6 !important;
   }
 }
 

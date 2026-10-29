@@ -1,5 +1,5 @@
 /**
- * 主题 Store：跟随系统 / 手动浅色 / 手动深色
+ * 主题 Store：跟随系统 / 手动浅色 / 手动深色（未设置时默认深色）
  */
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
@@ -19,9 +19,9 @@ function readSystemTheme(): 'light' | 'dark' {
 function readMode(): ThemeMode {
   try {
     const v = uni.getStorageSync(STORAGE_KEY)
-    return v === 'light' || v === 'dark' ? v : 'system'
+    return v === 'light' || v === 'system' ? v : 'dark'
   } catch {
-    return 'system'
+    return 'dark'
   }
 }
 
