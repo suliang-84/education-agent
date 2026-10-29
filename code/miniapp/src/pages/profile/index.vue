@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useTheme } from '@/hooks/useTheme'
 import { ref, computed, onMounted } from 'vue'
 import { profileApi } from '@/api'
 import { useAuthStore } from '@/store'
@@ -6,7 +7,16 @@ import { PAGES, FIVE_POWERS, FIVE_POWER_LABELS, FIVE_POWER_COLORS } from '@/cons
 import { getPowerLevel, formatDate } from '@/utils'
 import type { FivePowerProfile } from '@/api/profile'
 import RadarChart from '@/components/charts/RadarChart.vue'
+import SvgIcon from '@/components/SvgIcon.vue'
 
+
+const { pageStyle, theme } = useTheme()
+
+const themeOptions = [
+  { value: 'system', label: '跟随系统' },
+  { value: 'light', label: '浅色' },
+  { value: 'dark', label: '深色' },
+] as const
 const authStore = useAuthStore()
 
 // ── 数据状态 ──────────────────────────────────────────────────────────────
@@ -72,12 +82,13 @@ function goToTraining() {
 </script>
 
 <template>
+  <page-meta :page-style="pageStyle" />
   <view class="profile-page">
     <!-- ── 顶部用户信息 + 重测按钮 ─────────────────────────── -->
     <view class="user-header">
       <view class="user-info">
         <view class="avatar">
-          <text class="avatar__icon">🧑‍🎓</text>
+          <SvgIcon name="brain" :size="52" />
         </view>
         <view class="user-detail">
           <text class="user-name">{{ authStore.userInfo?.nickname || '同学' }}</text>
@@ -102,7 +113,7 @@ function goToTraining() {
 
     <!-- ── 无画像空态 ──────────────────────────────────────── -->
     <view v-else-if="!fivePower?.has_profile" class="no-profile-card">
-      <text class="no-profile-icon">🧬</text>
+      <view class="no-profile-icon"><SvgIcon name="atom" :size="64" /></view>
       <text class="no-profile-title">尚未完成五力测试</text>
       <text class="no-profile-desc">完成测试后，这里将展示你的五力认知画像</text>
       <button class="go-test-btn" @tap="goToTest">立即测试</button>
@@ -178,7 +189,7 @@ function goToTraining() {
         <view v-if="showGrowthTrend" class="trend-content">
           <!-- 折线图占位 —— 实际可使用 echarts 或 canvas -->
           <view class="trend-placeholder">
-            <text class="trend-placeholder__icon">📈</text>
+            <view class="trend-placeholder__icon"><SvgIcon name="branch" :size="48" /></view>
             <text class="trend-placeholder__text">连续训练后，成长曲线将在此展示</text>
           </view>
         </view>
@@ -187,21 +198,37 @@ function goToTraining() {
       <!-- ── AI 分析文本 ──────────────────────────────────── -->
       <view v-if="fivePower?.profile?.ai_analysis_text" class="ai-analysis-card">
         <view class="ai-analysis-header">
-          <text class="ai-icon">🤖</text>
+          <view class="ai-icon"><SvgIcon name="sparkles" :size="32" /></view>
           <text class="card-title">AI 画像分析</text>
         </view>
         <text class="ai-analysis-text">{{ fivePower.profile.ai_analysis_text }}</text>
       </view>
     </template>
 
+    <!-- ── 外观主题 ──────────────────────────────────────── -->
+    <view class="theme-card">
+      <text class="card-title">外观</text>
+      <view class="theme-seg">
+        <view
+          v-for="o in themeOptions"
+          :key="o.value"
+          class="theme-seg__item"
+          :class="{ 'theme-seg__item--active': theme.mode === o.value }"
+          @tap="theme.setMode(o.value)"
+        >
+          <text class="theme-seg__text">{{ o.label }}</text>
+        </view>
+      </view>
+    </view>
+
     <!-- ── 底部导航按钮 ──────────────────────────────────── -->
     <view class="nav-btns">
       <view class="nav-btn" @tap="goToWrongAnswers">
-        <text class="nav-btn__icon">📋</text>
+        <view class="nav-btn__icon"><SvgIcon name="book" :size="36" /></view>
         <text class="nav-btn__text">错题集</text>
       </view>
       <view class="nav-btn nav-btn--primary" @tap="goToTraining">
-        <text class="nav-btn__icon">🚀</text>
+        <view class="nav-btn__icon"><SvgIcon name="rocket" :size="36" color="on-primary" /></view>
         <text class="nav-btn__text">开始训练</text>
       </view>
     </view>
@@ -217,12 +244,17 @@ function goToTraining() {
   padding-bottom: 160rpx;
 }
 
-// 用户头部
+// 用户头部卡
 .user-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: $space-4;
+  padding: $space-4;
+  background: $bg-surface;
+  border: 1rpx solid $border;
+  border-radius: $r-xl;
+  box-shadow: $shadow-sm;
 }
 
 .user-info {
@@ -232,15 +264,15 @@ function goToTraining() {
 }
 
 .avatar {
-  width: 88rpx;
-  height: 88rpx;
+  width: 96rpx;
+  height: 96rpx;
   border-radius: 50%;
   background: $primary-light;
+  border: 4rpx solid $bg-surface;
+  box-shadow: 0 0 0 4rpx $primary-border, $shadow-sm;
   display: flex;
   align-items: center;
   justify-content: center;
-
-  &__icon { font-size: 52rpx; }
 }
 
 .user-detail {
@@ -261,10 +293,10 @@ function goToTraining() {
 }
 
 .retest-btn {
-  height: 68rpx;
+  height: 64rpx;
   padding: 0 $space-3;
   background: $primary-light;
-  border: 2rpx solid $primary;
+  border: 1rpx solid $primary-border;
   border-radius: $r-pill;
 
   &::after { border: none; }
@@ -279,6 +311,7 @@ function goToTraining() {
 // 骨架屏
 .skeleton-card {
   background: $bg-surface;
+  border: 1rpx solid $border;
   border-radius: $r-xl;
   padding: $space-4;
   margin-bottom: $space-4;
@@ -306,13 +339,14 @@ function goToTraining() {
 .skel-line {
   height: 48rpx;
   background: $bg-muted;
-  border-radius: $r-md;
+  border-radius: $r-pill;
   animation: shimmer 1.2s ease-in-out infinite;
 }
 
 // 无画像
 .no-profile-card {
   background: $bg-surface;
+  border: 1rpx solid $border;
   border-radius: $r-xl;
   padding: $space-6;
   box-shadow: $shadow-sm;
@@ -323,7 +357,15 @@ function goToTraining() {
   margin-bottom: $space-4;
 }
 
-.no-profile-icon { font-size: 80rpx; }
+.no-profile-icon {
+  width: 128rpx;
+  height: 128rpx;
+  border-radius: $r-xl;
+  background: $primary-light;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
 .no-profile-title {
   font-size: $font-size-lg;
@@ -340,12 +382,14 @@ function goToTraining() {
 
 .go-test-btn {
   height: 88rpx;
-  padding: 0 $space-5;
-  background: $pink;
+  line-height: 88rpx;
+  padding: 0 $space-6;
+  background: $cta-gradient;
+  box-shadow: $shadow-cta;
   border-radius: $r-pill;
   border: none;
   font-size: $font-size-base;
-  color: #fff;
+  color: $on-primary;
   font-weight: 700;
 
   &::after { border: none; }
@@ -353,14 +397,14 @@ function goToTraining() {
 
 // 综合分卡
 .overall-card {
-  background: linear-gradient(135deg, $primary 0%, #7C3AED 100%);
+  background: $cta-gradient;
   border-radius: $r-xl;
-  padding: $space-4;
+  padding: $space-4 $space-5;
   display: flex;
   align-items: center;
   gap: $space-4;
   margin-bottom: $space-4;
-  box-shadow: $shadow-md;
+  box-shadow: $shadow-cta;
 }
 
 .overall-score-wrap {
@@ -371,14 +415,14 @@ function goToTraining() {
 
 .overall-score {
   font-size: 80rpx;
-  color: #fff;
+  color: $on-primary;
   font-weight: 800;
   line-height: 1;
 }
 
 .overall-unit {
   font-size: $font-size-sm;
-  color: rgba(255,255,255,0.7);
+  color: $on-primary-dim;
 }
 
 .overall-info {
@@ -389,7 +433,7 @@ function goToTraining() {
 
 .overall-label {
   font-size: $font-size-sm;
-  color: rgba(255,255,255,0.85);
+  color: $on-primary-dim;
 }
 
 .overall-level {
@@ -397,6 +441,7 @@ function goToTraining() {
   padding: 4rpx 20rpx;
   border-radius: $r-pill;
   align-self: flex-start;
+  background: $mask-surface;
 
   &__text {
     font-size: $font-size-xs;
@@ -410,6 +455,7 @@ function goToTraining() {
 .trend-card,
 .ai-analysis-card {
   background: $bg-surface;
+  border: 1rpx solid $border;
   border-radius: $r-xl;
   padding: $space-4;
   margin-bottom: $space-4;
@@ -422,16 +468,16 @@ function goToTraining() {
   font-weight: 700;
   display: block;
   margin-bottom: $space-3;
+  padding-left: $space-2;
+  border-left: 8rpx solid $primary;
+  line-height: 1.2;
 }
 
-// 雷达图
 .radar-wrap {
   display: flex;
   justify-content: center;
 }
 
-
-// 维度列表
 .dimension-list {
   display: flex;
   flex-direction: column;
@@ -496,7 +542,7 @@ function goToTraining() {
 }
 
 .dim-level {
-  padding: 4rpx 12rpx;
+  padding: 4rpx 14rpx;
   border-radius: $r-pill;
 
   &__text {
@@ -510,11 +556,16 @@ function goToTraining() {
   display: flex;
   align-items: center;
   justify-content: space-between;
+
+  .card-title { margin-bottom: 0; }
 }
 
 .trend-toggle {
   font-size: $font-size-xs;
   color: $primary;
+  padding: 6rpx $space-2;
+  background: $primary-light;
+  border-radius: $r-pill;
 }
 
 .trend-content {
@@ -524,6 +575,7 @@ function goToTraining() {
 .trend-placeholder {
   height: 200rpx;
   background: $bg-muted;
+  border: 1rpx dashed $border-hover;
   border-radius: $r-lg;
   display: flex;
   flex-direction: column;
@@ -532,7 +584,10 @@ function goToTraining() {
   gap: $space-2;
 }
 
-.trend-placeholder__icon { font-size: 48rpx; }
+.trend-placeholder__icon {
+  display: flex;
+  align-items: center;
+}
 
 .trend-placeholder__text {
   font-size: $font-size-xs;
@@ -545,9 +600,19 @@ function goToTraining() {
   align-items: center;
   gap: $space-2;
   margin-bottom: $space-3;
+
+  .card-title { margin-bottom: 0; }
 }
 
-.ai-icon { font-size: 36rpx; }
+.ai-icon {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: $r-md;
+  background: $primary-light;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
 .ai-analysis-text {
   font-size: $font-size-base;
@@ -561,12 +626,54 @@ function goToTraining() {
   gap: $space-3;
 }
 
+.theme-card {
+  background: $bg-surface;
+  border: 1rpx solid $border;
+  border-radius: $r-xl;
+  box-shadow: $shadow-sm;
+  padding: $space-4;
+  margin-bottom: $space-4;
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+}
+
+.theme-seg {
+  display: flex;
+  background: $bg-muted;
+  border-radius: $r-pill;
+  padding: 6rpx;
+
+  &__item {
+    flex: 1;
+    height: 72rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: $r-pill;
+    transition: $transition-fast;
+
+    &--active {
+      background: $primary-light;
+      box-shadow: inset 0 0 0 1rpx $primary-border;
+    }
+  }
+
+  &__text {
+    font-size: $font-size-sm;
+    color: $text-2;
+    font-weight: 500;
+
+    .theme-seg__item--active & { color: $primary; font-weight: 700; }
+  }
+}
+
 .nav-btn {
   flex: 1;
   height: 88rpx;
   background: $bg-surface;
-  border: 2rpx solid $border;
-  border-radius: $r-lg;
+  border: 1rpx solid $border;
+  border-radius: $r-pill;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -574,13 +681,17 @@ function goToTraining() {
   box-shadow: $shadow-sm;
 
   &--primary {
-    background: $primary;
-    border-color: $primary;
+    background: $cta-gradient;
+    border-color: transparent;
+    box-shadow: $shadow-cta;
 
-    .nav-btn__text { color: #fff; }
+    .nav-btn__text { color: $on-primary; }
   }
 
-  &__icon { font-size: 36rpx; }
+  &__icon {
+    display: flex;
+    align-items: center;
+  }
 
   &__text {
     font-size: $font-size-base;

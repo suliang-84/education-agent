@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useTheme } from '@/hooks/useTheme'
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { testApi } from '@/api'
 import { useAuthStore } from '@/store'
@@ -6,7 +7,10 @@ import { PAGES, FIVE_POWER_LABELS, FIVE_POWER_COLORS, FIVE_POWERS } from '@/cons
 import { getPowerLevel } from '@/utils'
 import type { TestProfile } from '@/api/test'
 import RadarChart from '@/components/charts/RadarChart.vue'
+import SvgIcon from '@/components/SvgIcon.vue'
 
+
+const { pageStyle } = useTheme()
 const authStore = useAuthStore()
 
 // ── 数据状态 ──────────────────────────────────────────────────────────────
@@ -65,10 +69,11 @@ function goToAssistant() { uni.switchTab({ url: PAGES.ASSISTANT_HOME }) }
 </script>
 
 <template>
+  <page-meta :page-style="pageStyle" />
   <view class="result-page">
     <!-- 顶部庆祝标题 -->
     <view class="result-header">
-      <text class="result-title">测试完成！🎉</text>
+      <text class="result-title">测试完成！</text>
       <text class="result-sub">你的五力认知画像已生成</text>
     </view>
 
@@ -118,7 +123,7 @@ function goToAssistant() { uni.switchTab({ url: PAGES.ASSISTANT_HOME }) }
     <!-- ── Section 2: AI 分析卡 ──────────────────────────── -->
     <view class="ai-card">
       <view class="ai-card__header">
-        <text class="ai-card__icon">🤖</text>
+        <view class="ai-card__icon"><SvgIcon name="brain" :size="32" /></view>
         <text class="card-title">AI 个性化分析</text>
       </view>
 
@@ -142,11 +147,11 @@ function goToAssistant() { uni.switchTab({ url: PAGES.ASSISTANT_HOME }) }
     <!-- ── Section 3: CTA 按钮 ────────────────────────────── -->
     <view class="cta-area">
       <button class="cta-btn cta-btn--primary" @tap="goToTraining">
-        <text class="cta-btn__icon">🚀</text>
+        <view class="cta-btn__icon"><SvgIcon name="rocket" :size="36" color="on-primary" /></view>
         <text class="cta-btn__text">开始个性化训练</text>
       </button>
       <button class="cta-btn cta-btn--secondary" @tap="goToAssistant">
-        <text class="cta-btn__icon">💬</text>
+        <view class="cta-btn__icon"><SvgIcon name="sparkles" :size="36" /></view>
         <text class="cta-btn__text">先和 AI 聊聊</text>
       </button>
     </view>
@@ -186,6 +191,7 @@ function goToAssistant() { uni.switchTab({ url: PAGES.ASSISTANT_HOME }) }
   border-radius: $r-xl;
   padding: $space-4;
   margin-bottom: $space-4;
+  border: 1rpx solid $border;
   box-shadow: $shadow-sm;
 }
 
@@ -195,6 +201,9 @@ function goToAssistant() { uni.switchTab({ url: PAGES.ASSISTANT_HOME }) }
   font-weight: 700;
   display: block;
   margin-bottom: $space-3;
+  padding-left: $space-2;
+  border-left: 8rpx solid $primary;
+  line-height: 1.2;
 }
 
 // 雷达图
@@ -217,8 +226,9 @@ function goToAssistant() { uni.switchTab({ url: PAGES.ASSISTANT_HOME }) }
   align-items: center;
   justify-content: space-between;
   padding: $space-2 $space-3;
-  border-radius: $r-md;
+  border-radius: $r-lg;
   background: $bg-muted;
+  border: 1rpx solid $border;
 
   &__left {
     display: flex;
@@ -281,7 +291,13 @@ function goToAssistant() { uni.switchTab({ url: PAGES.ASSISTANT_HOME }) }
 }
 
 .ai-card__icon {
-  font-size: 36rpx;
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: $r-md;
+  background: $primary-light;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .ai-skeleton {
@@ -356,20 +372,21 @@ function goToAssistant() { uni.switchTab({ url: PAGES.ASSISTANT_HOME }) }
   &::after { border: none; }
 
   &--primary {
-    background: $pink;
+    background: $cta-gradient;
+    box-shadow: $shadow-cta;
   }
 
   &--secondary {
     background: $primary-light;
-    border: 2rpx solid $primary;
+    border: 1rpx solid $primary-border;
   }
 
-  &__icon { font-size: 36rpx; }
+  &__icon { display: flex; align-items: center; }
 
   &__text {
     font-size: $font-size-lg;
     font-weight: 700;
-    color: #fff;
+    color: $on-primary;
 
     .cta-btn--secondary & { color: $primary; }
   }

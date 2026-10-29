@@ -1,8 +1,12 @@
 <script setup lang="ts">
+import { useTheme } from '@/hooks/useTheme'
 import { ref, onMounted } from 'vue'
 import { testApi } from '@/api'
 import { PAGES } from '@/constants'
+import SvgIcon from '@/components/SvgIcon.vue'
 
+
+const { pageStyle } = useTheme()
 // ── 检查是否有未完成的测试（本地存储） ───────────────────────────────────
 const hasInProgress = ref(false)
 const inProgressSessionId = ref<number | null>(null)
@@ -74,10 +78,11 @@ function clearAndStart() {
 </script>
 
 <template>
+  <page-meta :page-style="pageStyle" />
   <view class="test-index-page">
     <!-- 顶部装饰 -->
     <view class="hero-deco">
-      <view class="brain-emoji">🧠</view>
+      <view class="brain-emoji"><SvgIcon name="brain" :size="72" /></view>
     </view>
 
     <!-- 标题区 -->
@@ -89,7 +94,7 @@ function clearAndStart() {
     <!-- 说明卡 -->
     <view class="info-card">
       <view class="info-row">
-        <text class="info-icon">⏱️</text>
+        <view class="info-icon"><SvgIcon name="calendar" :size="36" /></view>
         <view class="info-text-wrap">
           <text class="info-label">预计用时</text>
           <text class="info-value">15-20 分钟</text>
@@ -97,7 +102,7 @@ function clearAndStart() {
       </view>
       <view class="divider" />
       <view class="info-row">
-        <text class="info-icon">📋</text>
+        <view class="info-icon"><SvgIcon name="book" :size="36" /></view>
         <view class="info-text-wrap">
           <text class="info-label">题目数量</text>
           <text class="info-value">共 20 道选择题</text>
@@ -105,7 +110,7 @@ function clearAndStart() {
       </view>
       <view class="divider" />
       <view class="info-row">
-        <text class="info-icon">🎯</text>
+        <view class="info-icon"><SvgIcon name="target" :size="36" /></view>
         <view class="info-text-wrap">
           <text class="info-label">测试维度</text>
           <text class="info-value">洞察·建构·推演·调适·迁移</text>
@@ -119,16 +124,16 @@ function clearAndStart() {
       <view class="powers-list">
         <view
           v-for="(item, idx) in [
-            { name: '洞察力', color: '#0D9488', icon: '👁️', desc: '感知题目关键信息' },
-            { name: '建构力', color: '#E11D48', icon: '🏗️', desc: '搭建解题框架' },
-            { name: '推演力', color: '#4F46E5', icon: '⚙️', desc: '逻辑推导能力' },
-            { name: '调适力', color: '#D97706', icon: '🔄', desc: '灵活调整策略' },
-            { name: '迁移力', color: '#7C3AED', icon: '🚀', desc: '跨情境应用' },
+            { name: '洞察力', color: '#0D9488', icon: 'target', desc: '感知题目关键信息' },
+            { name: '建构力', color: '#E11D48', icon: 'ruler', desc: '搭建解题框架' },
+            { name: '推演力', color: '#5E8DF9', icon: 'branch', desc: '逻辑推导能力' },
+            { name: '调适力', color: '#D97706', icon: 'repeat', desc: '灵活调整策略' },
+            { name: '迁移力', color: '#7C3AED', icon: 'rocket', desc: '跨情境应用' },
           ]"
           :key="idx"
           class="power-preview-item"
         >
-          <text class="power-preview-icon">{{ item.icon }}</text>
+          <view class="power-preview-icon" :style="{ background: item.color + '1A' }"><SvgIcon :name="item.icon" :size="32" :color="item.color" /></view>
           <view class="power-preview-info">
             <text class="power-preview-name" :style="{ color: item.color }">{{ item.name }}</text>
             <text class="power-preview-desc">{{ item.desc }}</text>
@@ -139,7 +144,7 @@ function clearAndStart() {
 
     <!-- 中断恢复提示 -->
     <view v-if="hasInProgress" class="resume-card">
-      <text class="resume-icon">⚡</text>
+      <view class="resume-icon"><SvgIcon name="sparkles" :size="36" color="#F59E0B" /></view>
       <view class="resume-info">
         <text class="resume-title">发现未完成的测试</text>
         <text class="resume-desc">是否继续上次的测试进度？</text>
@@ -183,8 +188,15 @@ function clearAndStart() {
 }
 
 .brain-emoji {
-  font-size: 120rpx;
-  filter: drop-shadow(0 8rpx 24rpx rgba(79,70,229,0.2));
+  width: 144rpx;
+  height: 144rpx;
+  border-radius: $r-xl;
+  background: $primary-light;
+  border: 1rpx solid $primary-border;
+  box-shadow: $shadow-md;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .hero-content {
@@ -211,6 +223,7 @@ function clearAndStart() {
   border-radius: $r-xl;
   padding: $space-4;
   margin-bottom: $space-4;
+  border: 1rpx solid $border;
   box-shadow: $shadow-sm;
 }
 
@@ -222,7 +235,13 @@ function clearAndStart() {
 }
 
 .info-icon {
-  font-size: 40rpx;
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: $r-md;
+  background: $primary-light;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
 }
 
@@ -256,6 +275,7 @@ function clearAndStart() {
   border-radius: $r-xl;
   padding: $space-4;
   margin-bottom: $space-4;
+  border: 1rpx solid $border;
   box-shadow: $shadow-sm;
 }
 
@@ -280,7 +300,12 @@ function clearAndStart() {
 }
 
 .power-preview-icon {
-  font-size: 36rpx;
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: $r-md;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
 }
 
@@ -303,8 +328,9 @@ function clearAndStart() {
 // 中断恢复卡
 .resume-card {
   background: $warning-light;
-  border: 2rpx solid $warning;
+  border: 1rpx solid rgba(245, 158, 11, 0.35);
   border-radius: $r-lg;
+  box-shadow: $shadow-sm;
   padding: $space-3 $space-4;
   display: flex;
   align-items: center;
@@ -313,7 +339,8 @@ function clearAndStart() {
 }
 
 .resume-icon {
-  font-size: 36rpx;
+  display: flex;
+  align-items: center;
   flex-shrink: 0;
 }
 
@@ -342,7 +369,7 @@ function clearAndStart() {
   border: none;
   border-radius: $r-pill;
   font-size: $font-size-xs;
-  color: #fff;
+  color: $on-primary;
   font-weight: 600;
 
   &::after { border: none; }
@@ -360,7 +387,8 @@ function clearAndStart() {
   width: 100%;
   height: 100rpx;
   border-radius: $r-pill;
-  background: $pink;
+  background: $cta-gradient;
+  box-shadow: $shadow-cta;
   border: none;
   display: flex;
   align-items: center;
@@ -375,7 +403,7 @@ function clearAndStart() {
 
   &__text {
     font-size: $font-size-lg;
-    color: #fff;
+    color: $on-primary;
     font-weight: 700;
   }
 }
@@ -390,8 +418,8 @@ function clearAndStart() {
   width: 36rpx;
   height: 36rpx;
   border-radius: 50%;
-  border: 4rpx solid rgba(255,255,255,0.3);
-  border-top-color: #fff;
+  border: 4rpx solid $on-primary-line;
+  border-top-color: $on-primary;
   animation: spin 0.7s linear infinite;
 }
 

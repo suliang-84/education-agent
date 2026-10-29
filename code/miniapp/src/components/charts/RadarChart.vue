@@ -7,6 +7,7 @@
 
 <script setup lang="ts">
 import { getCurrentInstance, onMounted, watch } from 'vue'
+import { useThemeStore } from '@/store/theme'
 // @ts-ignore
 import uCharts from '@qiun/ucharts/u-charts.js'
 
@@ -18,7 +19,7 @@ const props = withDefaults(defineProps<{
   size?: number
 }>(), {
   canvasId: 'radarChart',
-  colors: () => ['#4F46E5', '#7C3AED', '#0EA5E9', '#10B981', '#F59E0B'],
+  colors: () => ['#5E8DF9', '#7C3AED', '#0EA5E9', '#10B981', '#F59E0B'],
   size: 300,
 })
 
@@ -27,6 +28,7 @@ const props = withDefaults(defineProps<{
 // component instance as the second argument, WeChat miniprogram cannot find
 // the canvas and the context is invalid (silently fails to draw).
 const instance = getCurrentInstance()
+const theme = useThemeStore()
 
 function draw() {
   // uCharts v2.0+ requires context to be passed explicitly.
@@ -43,23 +45,23 @@ function draw() {
     width: props.size,
     height: props.size,
     pixelRatio: 1,
-    background: '#FFFFFF',
+    background: theme.isDark ? '#0E1116' : '#FFFFFF',
     categories: props.labels,
     series: [{
       name: '五力',
       data: props.scores,
-      color: '#4F46E5',
+      color: theme.isDark ? '#A9BEFF' : '#5E8DF9',
     }],
     extra: {
       radar: {
-        gridColor: '#E2E8F0',
+        gridColor: theme.isDark ? '#2A3140' : '#E2E8F0',
         gridCount: 3,
-        labelColor: '#64748B',
+        labelColor: theme.isDark ? '#9CA3AF' : '#64748B',
         opacity: 0.15,
         max: 100,
         labelPointShow: true,
         labelPointRadius: 3,
-        labelPointColor: '#4F46E5',
+        labelPointColor: theme.isDark ? '#A9BEFF' : '#5E8DF9',
       },
     },
     legend: { show: false },
@@ -73,7 +75,7 @@ onMounted(() => {
 })
 
 watch(
-  () => props.scores,
+  () => [props.scores, theme.isDark],
   () => {
     setTimeout(draw, 50)
   },

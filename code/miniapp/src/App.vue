@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import { onLaunch, onShow } from '@dcloudio/uni-app'
 import { useAuthStore } from '@/store/auth'
+import { useThemeStore } from '@/store/theme'
 
 onLaunch(() => {
   console.log('MESH App Launch')
+  // 跟随系统深浅色
+  const themeStore = useThemeStore()
+  uni.onThemeChange?.((res: { theme: string }) => themeStore.setSystemTheme(res.theme))
 })
 
 onShow(() => {

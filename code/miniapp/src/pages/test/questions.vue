@@ -1,10 +1,14 @@
 <script setup lang="ts">
+import { useTheme } from '@/hooks/useTheme'
+import SvgIcon from '@/components/SvgIcon.vue'
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { testApi } from '@/api'
 import { PAGES } from '@/constants'
 import { formatSeconds } from '@/utils'
 import type { CogQuestion } from '@/api/test'
 
+
+const { pageStyle } = useTheme()
 // ── 页面参数（session_id, resume标志） ───────────────────────────────────
 const sessionId = ref<number>(0)
 const questions = ref<CogQuestion[]>([])
@@ -185,6 +189,7 @@ onUnmounted(() => {
 </script>
 
 <template>
+  <page-meta :page-style="pageStyle" />
   <view class="questions-page">
     <!-- ── 自定义导航栏 ──────────────────────────────────────── -->
     <view class="nav-bar">
@@ -226,7 +231,7 @@ onUnmounted(() => {
       <view class="question-wrap">
         <!-- 参考用时 -->
         <view class="time-hint">
-          <text class="time-hint__icon">⏱</text>
+          <view class="time-hint__icon"><SvgIcon name="calendar" :size="28" /></view>
           <text class="time-hint__text">参考用时：{{ currentQuestion.reference_time_sec }}秒</text>
           <text class="time-hint__elapsed">已用：{{ formatSeconds(elapsed) }}</text>
         </view>
@@ -298,6 +303,7 @@ onUnmounted(() => {
   padding: 0 $space-4;
   padding-top: env(safe-area-inset-top);
   background: $bg-surface;
+  border-bottom: 1rpx solid $border;
   box-shadow: $shadow-sm;
 }
 
@@ -400,6 +406,7 @@ onUnmounted(() => {
   background: $bg-surface;
   border-radius: $r-xl;
   padding: $space-4;
+  border: 1rpx solid $border;
   box-shadow: $shadow-sm;
 }
 
@@ -414,7 +421,8 @@ onUnmounted(() => {
 }
 
 .time-hint__icon {
-  font-size: 28rpx;
+  display: flex;
+  align-items: center;
 }
 
 .time-hint__text {
@@ -457,7 +465,7 @@ onUnmounted(() => {
   align-items: center;
   gap: $space-3;
   box-shadow: $shadow-sm;
-  border: 2rpx solid transparent;
+  border: 1rpx solid $border;
   transition: $transition-base;
 
   &--selected {
@@ -493,7 +501,7 @@ onUnmounted(() => {
   font-weight: 700;
 
   .option-key-badge--selected & {
-    color: #fff;
+    color: $on-primary;
   }
 }
 
@@ -526,7 +534,8 @@ onUnmounted(() => {
   padding: $space-3 $space-4;
   padding-bottom: calc($space-3 + env(safe-area-inset-bottom));
   background: $bg-surface;
-  box-shadow: 0 -4rpx 24rpx rgba(0,0,0,0.06);
+  border-top: 1rpx solid $border;
+  box-shadow: 0 -8rpx 30rpx rgba(94,141,249,0.10);
 }
 
 .answered-count {
@@ -538,7 +547,8 @@ onUnmounted(() => {
 .next-btn {
   flex: 1;
   height: 88rpx;
-  background: $primary;
+  background: $cta-gradient;
+  box-shadow: $shadow-cta;
   border-radius: $r-pill;
   border: none;
   display: flex;
@@ -550,11 +560,12 @@ onUnmounted(() => {
 
   &--disabled {
     background: $bg-muted;
+    box-shadow: none;
   }
 
   &__text {
     font-size: $font-size-lg;
-    color: #fff;
+    color: $on-primary;
     font-weight: 700;
 
     .next-btn--disabled & { color: $text-3; }
@@ -565,8 +576,8 @@ onUnmounted(() => {
   width: 36rpx;
   height: 36rpx;
   border-radius: 50%;
-  border: 4rpx solid rgba(255,255,255,0.3);
-  border-top-color: #fff;
+  border: 4rpx solid $on-primary-line;
+  border-top-color: $on-primary;
   animation: spin 0.7s linear infinite;
 }
 

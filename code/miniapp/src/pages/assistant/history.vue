@@ -1,15 +1,19 @@
 <script setup lang="ts">
+import { useTheme } from '@/hooks/useTheme'
 import { ref, onMounted } from 'vue'
+import SvgIcon from '@/components/SvgIcon.vue'
 import { assistantApi } from '@/api'
 import { SESSION_MODE_LABELS } from '@/constants'
 import { fromNow } from '@/utils'
 import type { ChatSession } from '@/api/assistant'
 
+
+const { pageStyle } = useTheme()
 const sessions = ref<ChatSession[]>([])
 const loading = ref(true)
 
 const modeColors: Record<string, string> = {
-  free_chat: '#4F46E5',
+  free_chat: '#5E8DF9',
   wrong_review: '#E11D48',
   training_error_guidance: '#D97706',
 }
@@ -36,13 +40,14 @@ function enterSession(s: ChatSession) {
 </script>
 
 <template>
+  <page-meta :page-style="pageStyle" />
   <view class="history-page">
     <view v-if="loading" class="skeleton-list">
       <view v-for="i in 5" :key="i" class="skel-card" />
     </view>
 
     <view v-else-if="sessions.length === 0" class="empty-state">
-      <text class="empty-icon">🗨️</text>
+      <view class="empty-icon"><SvgIcon name="sparkles" :size="64" /></view>
       <text class="empty-title">暂无历史对话</text>
     </view>
 
@@ -66,7 +71,10 @@ function enterSession(s: ChatSession) {
               <text class="meta-time">{{ fromNow(s.started_at) }}</text>
               <template v-if="s.aha_count > 0">
                 <text class="meta-sep">·</text>
-                <text class="meta-aha">💡 {{ s.aha_count }}</text>
+                <view class="meta-aha-wrap">
+                  <SvgIcon name="bulb" :size="22" color="#D97706" />
+                  <text class="meta-aha">{{ s.aha_count }}</text>
+                </view>
               </template>
             </view>
           </view>
@@ -97,7 +105,8 @@ function enterSession(s: ChatSession) {
 .skel-card {
   height: 120rpx;
   background: $bg-surface;
-  border-radius: $r-lg;
+  border: 1rpx solid $border;
+  border-radius: $r-xl;
   animation: shimmer 1.2s ease-in-out infinite;
 }
 
@@ -109,7 +118,16 @@ function enterSession(s: ChatSession) {
   gap: $space-3;
 }
 
-.empty-icon { font-size: 100rpx; }
+.empty-icon {
+  width: 144rpx;
+  height: 144rpx;
+  border-radius: $r-xl;
+  background: $primary-light;
+  border: 1rpx solid $primary-border;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
 .empty-title {
   font-size: $font-size-lg;
@@ -126,12 +144,14 @@ function enterSession(s: ChatSession) {
   align-items: center;
   justify-content: space-between;
   background: $bg-surface;
-  border-radius: $r-lg;
+  border: 1rpx solid $border;
+  border-radius: $r-xl;
   padding: $space-3 $space-4;
-  margin-bottom: $space-2;
+  margin-bottom: $space-3;
   box-shadow: $shadow-sm;
+  transition: $transition-fast;
 
-  &:active { opacity: 0.85; }
+  &:active { opacity: 0.85; border-color: $border-hover; }
 }
 
 .session-left {
@@ -173,7 +193,21 @@ function enterSession(s: ChatSession) {
   gap: $space-1;
 }
 
-.meta-tag, .meta-sep, .meta-time, .meta-aha {
+.meta-tag {
+  background: $primary-light;
+  color: $primary;
+  border-radius: $r-pill;
+  padding: 2rpx 14rpx;
+  font-size: $font-size-xs;
+}
+
+.meta-aha-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+}
+
+.meta-sep, .meta-time, .meta-aha {
   font-size: $font-size-xs;
   color: $text-3;
 }

@@ -1,11 +1,15 @@
 <script setup lang="ts">
+import { useTheme } from '@/hooks/useTheme'
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useTrainingStore } from '@/store'
 import { trainingApi } from '@/api'
 import { useRagPoller } from '@/hooks/useRagPoller'
 import { FIVE_POWER_LABELS, FIVE_POWER_COLORS, PAGES } from '@/constants'
 import { formatSeconds } from '@/utils'
+import SvgIcon from '@/components/SvgIcon.vue'
 
+
+const { pageStyle } = useTheme()
 const trainingStore = useTrainingStore()
 const { ragContent, staticSolution, status: ragStatus, canRetry, startPolling, retry, stop: stopRag } = useRagPoller()
 
@@ -216,6 +220,7 @@ onUnmounted(() => {
 </script>
 
 <template>
+  <page-meta :page-style="pageStyle" />
   <view class="session-page">
     <!-- ── 自定义导航栏 ──────────────────────────────────────── -->
     <view class="nav-bar">
@@ -249,7 +254,7 @@ onUnmounted(() => {
     <template v-else>
       <!-- ── 借强补弱提示横幅（仅首题且有 tips 时展示） ──────── -->
       <view v-if="currentIndex === 0 && trainingStore.tipsHint" class="tips-banner">
-        <text class="tips-banner__icon">✨</text>
+        <view class="tips-banner__icon"><SvgIcon name="sparkles" :size="28" /></view>
         <text class="tips-banner__text">{{ trainingStore.tipsHint }}</text>
       </view>
 
@@ -294,7 +299,7 @@ onUnmounted(() => {
 
       <!-- ── 提示内容 ────────────────────────────────────────────── -->
       <view v-if="showHint" class="hint-card">
-        <text class="hint-icon">💡</text>
+        <view class="hint-icon"><SvgIcon name="bulb" :size="32" color="#D97706" /></view>
         <text class="hint-text">{{ hintContent }}</text>
       </view>
 
@@ -341,7 +346,7 @@ onUnmounted(() => {
         <!-- 未提交状态 -->
         <template v-if="!submitted">
           <button class="hint-btn" @tap="useHint">
-            <text class="hint-btn__icon">💡</text>
+            <view class="hint-btn__icon"><SvgIcon name="bulb" :size="32" color="#D97706" /></view>
             <text class="hint-btn__text">提示{{ hintsUsed > 0 ? `(${hintsUsed})` : '' }}</text>
           </button>
           <button
@@ -449,7 +454,7 @@ onUnmounted(() => {
   height: 100rpx;
   padding: 0 $space-4;
   background: $bg-surface;
-  box-shadow: $shadow-sm;
+  border-bottom: 1rpx solid $border;
   padding-top: env(safe-area-inset-top);
 }
 
@@ -467,7 +472,7 @@ onUnmounted(() => {
   height: 16rpx;
   border-radius: 50%;
   background: $bg-muted;
-  border: 2rpx solid $border;
+  border: 1rpx solid $border;
   transition: $transition-fast;
 
   &--done {
@@ -500,7 +505,7 @@ onUnmounted(() => {
   height: 64rpx;
   padding: 0 $space-3;
   background: transparent;
-  border: 2rpx solid $border;
+  border: 1rpx solid $border;
   border-radius: $r-pill;
   display: flex;
   align-items: center;
@@ -547,7 +552,7 @@ onUnmounted(() => {
 }
 
 .power-badge {
-  padding: 6rpx 20rpx;
+  padding: 6rpx 24rpx;
   border-radius: $r-pill;
 
   &__text {
@@ -567,6 +572,7 @@ onUnmounted(() => {
   background: $bg-surface;
   border-radius: $r-xl;
   padding: $space-4;
+  border: 1rpx solid $border;
   box-shadow: $shadow-sm;
 }
 
@@ -590,15 +596,15 @@ onUnmounted(() => {
   border-radius: $r-xl;
   padding: $space-3;
   box-shadow: $shadow-sm;
-  border: 2rpx solid transparent;
+  border: 1rpx solid $border;
   transition: $transition-base;
 
   &:focus-within {
-    border-color: $primary;
+    border-color: $primary-border;
   }
 
   &--submitted {
-    border-color: transparent;
+    border-color: $border;
     background: $bg-muted;
   }
 }
@@ -628,6 +634,7 @@ onUnmounted(() => {
 .hint-card {
   margin: 0 $space-4 $space-3;
   background: $warning-light;
+  border: 1rpx solid rgba(245, 158, 11, 0.2);
   border-radius: $r-lg;
   padding: $space-3;
   display: flex;
@@ -636,7 +643,8 @@ onUnmounted(() => {
 }
 
 .hint-icon {
-  font-size: 32rpx;
+  display: flex;
+  align-items: center;
   flex-shrink: 0;
 }
 
@@ -657,10 +665,12 @@ onUnmounted(() => {
 
   &--correct {
     background: $success-light;
+    border: 1rpx solid rgba(16, 185, 129, 0.2);
   }
 
   &--wrong {
     background: $danger-light;
+    border: 1rpx solid rgba(239, 68, 68, 0.2);
   }
 }
 
@@ -683,6 +693,7 @@ onUnmounted(() => {
   background: $bg-surface;
   border-radius: $r-xl;
   padding: $space-4;
+  border: 1rpx solid $border;
   box-shadow: $shadow-sm;
 }
 
@@ -709,10 +720,11 @@ onUnmounted(() => {
 }
 
 .rag-card {
-  background: linear-gradient(135deg, #f0f2ff 0%, #fdf2f8 100%);
+  background: $bg-surface;
   border-radius: $r-xl;
   padding: $space-4;
-  border: 2rpx solid $border;
+  border: 1rpx solid $border;
+  box-shadow: $shadow-sm;
 
   &--static {
     background: $bg-surface;
@@ -747,7 +759,7 @@ onUnmounted(() => {
   margin-top: $space-3;
   height: 72rpx;
   background: $primary-light;
-  border: 2rpx solid $primary;
+  border: 1rpx solid $primary-border;
   border-radius: $r-pill;
   font-size: $font-size-sm;
   color: $primary;
@@ -765,7 +777,7 @@ onUnmounted(() => {
   padding: $space-3 $space-4;
   padding-bottom: calc($space-3 + env(safe-area-inset-bottom));
   background: $bg-surface;
-  box-shadow: 0 -4rpx 24rpx rgba(0,0,0,0.06);
+  border-top: 1rpx solid $border;
   display: flex;
   gap: $space-3;
   align-items: center;
@@ -776,23 +788,24 @@ onUnmounted(() => {
   height: 88rpx;
   padding: 0 $space-3;
   background: $warning-light;
-  border: 2rpx solid $warning;
-  border-radius: $r-lg;
+  border: 1rpx solid rgba(245, 158, 11, 0.3);
+  border-radius: $r-pill;
   display: flex;
   align-items: center;
   gap: $space-1;
 
   &::after { border: none; }
 
-  &__icon { font-size: 32rpx; }
-  &__text { font-size: $font-size-sm; color: $warning; font-weight: 600; }
+  &__icon { display: flex; align-items: center; }
+  &__text { font-size: $font-size-sm; color: #D97706; font-weight: 600; }
 }
 
 .submit-btn {
   flex: 1;
   height: 88rpx;
-  background: $primary;
-  border-radius: $r-lg;
+  background: $cta-gradient;
+  box-shadow: $shadow-cta;
+  border-radius: $r-pill;
   border: none;
   display: flex;
   align-items: center;
@@ -803,11 +816,12 @@ onUnmounted(() => {
 
   &--disabled {
     background: $bg-muted;
+    box-shadow: none;
   }
 
   &__text {
     font-size: $font-size-lg;
-    color: #fff;
+    color: $on-primary;
     font-weight: 700;
 
     .submit-btn--disabled & { color: $text-3; }
@@ -817,15 +831,16 @@ onUnmounted(() => {
 .next-btn {
   flex: 1;
   height: 88rpx;
-  background: $pink;
-  border-radius: $r-lg;
+  background: $cta-gradient;
+  box-shadow: $shadow-cta;
+  border-radius: $r-pill;
   border: none;
 
   &::after { border: none; }
 
   &__text {
     font-size: $font-size-lg;
-    color: #fff;
+    color: $on-primary;
     font-weight: 700;
   }
 }
@@ -836,27 +851,27 @@ onUnmounted(() => {
   bottom: 180rpx;
   left: $space-4;
   right: $space-4;
-  background: linear-gradient(135deg, $primary 0%, #7C3AED 100%);
+  background: $cta-gradient;
   border-radius: $r-xl;
   padding: $space-3 $space-4;
   display: flex;
   align-items: center;
   gap: $space-2;
-  box-shadow: $shadow-md;
+  box-shadow: $shadow-cta;
   z-index: 100;
   animation: slideUp 0.3s ease;
 
   &__icon { font-size: 36rpx; flex-shrink: 0; }
-  &__text { flex: 1; font-size: $font-size-sm; color: #fff; }
+  &__text { flex: 1; font-size: $font-size-sm; color: $on-primary; }
   &__btn {
     flex-shrink: 0;
     height: 56rpx;
     padding: 0 $space-3;
-    background: rgba(255,255,255,0.2);
-    border: 2rpx solid rgba(255,255,255,0.4);
+    background: $on-primary-line;
+    border: 2rpx solid $on-primary-line;
     border-radius: $r-pill;
     font-size: $font-size-xs;
-    color: #fff;
+    color: $on-primary;
     font-weight: 600;
 
     &::after { border: none; }
@@ -864,7 +879,7 @@ onUnmounted(() => {
 
   &__close {
     font-size: 28rpx;
-    color: rgba(255,255,255,0.7);
+    color: $on-primary-dim;
     padding: $space-1;
     flex-shrink: 0;
   }
@@ -879,8 +894,8 @@ onUnmounted(() => {
   width: 36rpx;
   height: 36rpx;
   border-radius: 50%;
-  border: 4rpx solid rgba(255,255,255,0.3);
-  border-top-color: #fff;
+  border: 4rpx solid $on-primary-line;
+  border-top-color: $on-primary;
   animation: spin 0.7s linear infinite;
 }
 
@@ -897,15 +912,16 @@ onUnmounted(() => {
 .tips-banner {
   margin: $space-3 $space-4 0;
   padding: $space-3 $space-4;
-  background: linear-gradient(135deg, $primary-light 0%, rgba(244, 63, 126, 0.06) 100%);
+  background: $primary-light;
+  border: 1rpx solid $primary-border;
   border-radius: $r-lg;
-  border-left: 6rpx solid $primary;
   display: flex;
   align-items: flex-start;
   gap: $space-2;
 
   &__icon {
-    font-size: 28rpx;
+    display: flex;
+    align-items: center;
     flex-shrink: 0;
     margin-top: 4rpx;
   }
@@ -922,7 +938,8 @@ onUnmounted(() => {
 .dialog-mask {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: $mask;
+  backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -935,6 +952,8 @@ onUnmounted(() => {
   border-radius: $r-xl;
   padding: $space-5;
   width: 100%;
+  border: 1rpx solid $border;
+  box-shadow: $shadow-md;
   display: flex;
   flex-direction: column;
   gap: $space-3;
@@ -962,7 +981,7 @@ onUnmounted(() => {
 .dialog-btn {
   flex: 1;
   height: 88rpx;
-  border-radius: $r-lg;
+  border-radius: $r-pill;
   font-size: $font-size-base;
   font-weight: 600;
   border: none;
@@ -970,13 +989,15 @@ onUnmounted(() => {
   &::after { border: none; }
 
   &--cancel {
-    background: $bg-muted;
+    background: $bg-surface;
+    border: 1rpx solid $border;
     color: $text-2;
   }
 
   &--confirm {
-    background: $pink;
-    color: #fff;
+    background: $cta-gradient;
+    box-shadow: $shadow-cta;
+    color: $on-primary;
 
     &[disabled] {
       opacity: 0.7;
@@ -988,7 +1009,8 @@ onUnmounted(() => {
 .card-mask {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: $mask;
+  backdrop-filter: blur(6px);
   display: flex;
   align-items: flex-end;
   z-index: 200;
@@ -998,6 +1020,8 @@ onUnmounted(() => {
   width: 100%;
   background: $bg-surface;
   border-radius: $r-xl $r-xl 0 0;
+  border-top: 1rpx solid $border;
+  box-shadow: $shadow-md;
   padding: $space-4;
   padding-bottom: calc($space-4 + env(safe-area-inset-bottom));
   max-height: 65vh;
@@ -1045,7 +1069,7 @@ onUnmounted(() => {
   width: 100rpx;
   height: 100rpx;
   border-radius: $r-md;
-  border: 2rpx solid $border;
+  border: 1rpx solid $border;
   background: $bg-surface;
   display: flex;
   flex-direction: column;
@@ -1062,7 +1086,8 @@ onUnmounted(() => {
 
   &--current {
     border-color: $primary;
-    border-width: 4rpx;
+    background: $primary-light;
+    border-width: 2rpx;
   }
 
   &__num {
@@ -1095,7 +1120,7 @@ onUnmounted(() => {
   width: 24rpx;
   height: 24rpx;
   border-radius: $r-sm;
-  border: 2rpx solid $border;
+  border: 1rpx solid $border;
   background: $bg-surface;
 
   &--done {

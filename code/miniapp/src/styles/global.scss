@@ -2,7 +2,44 @@
 
 // ── 全局基础样式 ──────────────────────────────────────────────────────────
 page {
+  --primary: #5E8DF9;
+  --primary-hover: #4A77F0;
+  --primary-border: rgba(96, 141, 249, 0.25);
+  --cta-gradient: linear-gradient(135deg, #7AA2FF, #5E8DF9);
+  --primary-light: #EEF3FF;
+  --success: #10B981;
+  --warning: #F59E0B;
+  --danger: #EF4444;
+  --success-light: #ECFDF5;
+  --warning-light: #FFFBEB;
+  --danger-light: #FEF2F2;
+  --text-1: #000011;
+  --text-2: #64748B;
+  --text-3: #94A3B8;
+  --text-disabled: #CBD5E1;
+  --bg-page: #F3F5FB;
+  --bg-surface: #FFFFFF;
+  --bg-muted: #F5F6FA;
+  --border: rgba(96, 141, 249, 0.14);
+  --border-hover: rgba(96, 141, 249, 0.28);
+  --shadow-sm: 0 10rpx 30rpx rgba(30,41,59,0.06), 0 2rpx 8rpx rgba(94,141,249,0.05);
+  --shadow-md: 0 12rpx 40rpx rgba(94,141,249,0.14), 0 4rpx 16rpx rgba(30,41,59,0.05);
+  --shadow-cta: 0 8rpx 28rpx rgba(94,141,249,0.32);
+  --on-primary: #FFFFFF;
+  --on-primary-dim: rgba(255,255,255,0.75);
+  --on-primary-line: rgba(255,255,255,0.30);
+  --mask: rgba(30,41,59,0.40);
+  --mask-surface: rgba(255,255,255,0.92);
+  --glass-bg: rgba(255,255,255,0.72);
+  --glass-border: rgba(255,255,255,0.85);
+  --glass-edge: rgba(255,255,255,0.9);
+  --glow-1: rgba(94,141,249,0.10);
+  --glow-2: rgba(94,141,249,0.06);
   background-color: $bg-page;
+  background-image:
+    radial-gradient(900rpx circle at 100% 0%, var(--glow-1), transparent 60%),
+    radial-gradient(760rpx circle at 0% 100%, var(--glow-2), transparent 60%);
+  background-attachment: fixed;
   font-size: $font-size-base;
   color: $text-1;
   box-sizing: border-box;
@@ -43,41 +80,79 @@ view, text, input, button, image {
 .px-3 { padding-left: $space-3; padding-right: $space-3; }
 .py-2 { padding-top: $space-2; padding-bottom: $space-2; }
 
-// 卡片
+// 卡片：白底 + 淡蓝描边 + 柔和投影（同后台 .surface）
 .card {
   background: $bg-surface;
+  border: 1rpx solid $border;
   border-radius: $r-xl;
   box-shadow: $shadow-sm;
   padding: $space-4;
 }
 
-// CTA 按钮
+// 页面标题：左侧主色竖条（同后台弹窗标题）
+.page-title {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  font-size: $font-size-lg;
+  font-weight: 700;
+  color: $text-1;
+
+  &::before {
+    content: '';
+    width: 8rpx;
+    height: 32rpx;
+    border-radius: $r-pill;
+    background: $primary;
+  }
+}
+
+// 胶囊标签（同后台 status-pill）
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4rpx 18rpx;
+  border-radius: $r-pill;
+  font-size: $font-size-xs;
+  font-weight: 600;
+  color: $primary;
+  background: $primary-light;
+  border: 1rpx solid $primary-border;
+
+  &--success { color: $success; background: $success-light; border-color: currentColor; }
+  &--warning { color: $warning; background: $warning-light; border-color: currentColor; }
+  &--danger  { color: $danger;  background: $danger-light;  border-color: currentColor; }
+}
+
+// 主 CTA：胶囊 + 柔蓝渐变（同后台 .btn-pink 亮色版）
 .btn-primary {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: $pink;
-  color: #fff;
+  background: $cta-gradient;
+  color: $on-primary;
   border-radius: $r-pill;
-  height: 96rpx;
+  height: 92rpx;
   font-size: $font-size-lg;
   font-weight: 600;
-  box-shadow: 0 8rpx 28rpx rgba(244, 63, 126, 0.4);
+  box-shadow: $shadow-cta;
   transition: $transition-fast;
 
-  &:active { opacity: 0.85; transform: scale(0.98); }
+  &:active { opacity: 0.88; transform: scale(0.98); }
 }
 
 .btn-outline {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2rpx solid $border-hover;
+  border: 2rpx solid $primary-border;
   border-radius: $r-pill;
-  height: 96rpx;
+  height: 92rpx;
   font-size: $font-size-base;
-  color: $text-2;
-  background: transparent;
+  color: $primary;
+  background: $bg-surface;
+
+  &:active { background: $primary-light; }
 }
 
 // 分割线

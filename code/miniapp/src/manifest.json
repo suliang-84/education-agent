@@ -9,6 +9,8 @@
     "enable": false
   },
   "mp-weixin": {
+    "darkmode": true,
+    "themeLocation": "theme.json",
     "appid": "",
     "setting": {
       "urlCheck": false,

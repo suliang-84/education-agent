@@ -20,7 +20,7 @@ export const FIVE_POWER_LABELS: Record<FivePower, string> = {
 export const FIVE_POWER_COLORS: Record<FivePower, string> = {
   INSIGHT: '#0D9488',
   CONSTRUCT: '#E11D48',
-  DEDUCE: '#4F46E5',
+  DEDUCE: '#5E8DF9',
   ADAPT: '#D97706',
   MIGRATE: '#7C3AED',
 }
@@ -88,9 +88,9 @@ export const SUBJECT_LABELS: Record<string, string> = {
 }
 
 export const SUBJECT_ICONS: Record<string, string> = {
-  MATH: '📐',
-  PHYSICS: '⚗️',
-  CHEMISTRY: '🔬',
+  MATH: 'ruler',
+  PHYSICS: 'atom',
+  CHEMISTRY: 'flask',
 }
 
 // ── 学期 ─────────────────────────────────────────────────────────────────

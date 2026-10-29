@@ -1,10 +1,14 @@
 <script setup lang="ts">
+import { useTheme } from '@/hooks/useTheme'
 import { ref } from 'vue'
 import { authApi } from '@/api'
 import { useAuthStore } from '@/store'
 import { PAGES } from '@/constants'
 import { http } from '@/utils/request'
+import SvgIcon from '@/components/SvgIcon.vue'
 
+
+const { pageStyle } = useTheme()
 const authStore = useAuthStore()
 const loading = ref(false)
 
@@ -86,6 +90,7 @@ async function handleWxLogin() {
 </script>
 
 <template>
+  <page-meta :page-style="pageStyle" />
   <view class="login-page">
     <!-- 顶部装饰圆 -->
     <view class="deco-circle deco-circle--top" />
@@ -94,7 +99,7 @@ async function handleWxLogin() {
     <!-- 中央 Logo + Tagline -->
     <view class="hero">
       <view class="logo-wrap">
-        <text class="logo-icon">🧠</text>
+        <view class="logo-icon"><SvgIcon name="brain" :size="80" color="on-primary" /></view>
         <text class="logo-text">MESH</text>
       </view>
       <text class="tagline">AI 驱动的个性化认知训练</text>
@@ -110,7 +115,7 @@ async function handleWxLogin() {
         @tap="handleWxLogin"
       >
         <view class="btn-inner">
-          <text v-if="!loading" class="wx-icon">💬</text>
+          <view v-if="!loading" class="wx-icon"><SvgIcon name="sparkles" :size="36" color="on-primary" /></view>
           <view v-else class="spinner" />
           <text class="btn-label">{{ loading ? '登录中...' : '微信一键登录' }}</text>
         </view>
@@ -156,44 +161,55 @@ async function handleWxLogin() {
 .login-page {
   position: relative;
   min-height: 100vh;
-  background: linear-gradient(160deg, #f0f2ff 0%, #fff 50%, #fdf2f8 100%);
+  background:
+    radial-gradient(circle at 85% 8%, rgba(94, 141, 249, 0.22) 0%, transparent 45%),
+    radial-gradient(circle at 10% 92%, rgba(122, 162, 255, 0.20) 0%, transparent 45%),
+    $bg-page;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  padding: 0 $space-6;
+  padding: 0 $space-5;
 }
 
-// 装饰背景圆
 .deco-circle {
   position: absolute;
   border-radius: 50%;
   pointer-events: none;
 
   &--top {
-    width: 500rpx;
-    height: 500rpx;
-    top: -150rpx;
-    right: -100rpx;
-    background: radial-gradient(circle, rgba(79, 70, 229, 0.08) 0%, transparent 70%);
+    width: 520rpx;
+    height: 520rpx;
+    top: -160rpx;
+    right: -120rpx;
+    background: radial-gradient(circle, rgba(94, 141, 249, 0.16) 0%, transparent 70%);
   }
 
   &--bottom {
-    width: 400rpx;
-    height: 400rpx;
-    bottom: -100rpx;
-    left: -80rpx;
-    background: radial-gradient(circle, rgba(244, 63, 126, 0.08) 0%, transparent 70%);
+    width: 440rpx;
+    height: 440rpx;
+    bottom: -120rpx;
+    left: -100rpx;
+    background: radial-gradient(circle, rgba(122, 162, 255, 0.16) 0%, transparent 70%);
   }
 }
 
-// Hero 区域
+// 毛玻璃卡片区
 .hero {
+  position: relative;
+  width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: 100rpx;
+  padding: 64rpx $space-4 $space-5;
+  margin-bottom: $space-4;
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1rpx solid var(--glass-border);
+  border-radius: $r-2xl;
+  box-shadow: $shadow-md, inset 0 2rpx 0 var(--glass-edge);
 }
 
 .logo-wrap {
@@ -204,14 +220,21 @@ async function handleWxLogin() {
 }
 
 .logo-icon {
-  font-size: 120rpx;
-  margin-bottom: $space-2;
+  width: 144rpx;
+  height: 144rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: $r-xl;
+  background: $cta-gradient;
+  box-shadow: $shadow-cta;
+  margin-bottom: $space-3;
 }
 
 .logo-text {
-  font-size: 80rpx;
+  font-size: 64rpx;
   font-weight: 800;
-  color: $primary;
+  color: $text-1;
   letter-spacing: 12rpx;
 }
 
@@ -224,12 +247,17 @@ async function handleWxLogin() {
 
 .sub-tagline {
   font-size: $font-size-sm;
-  color: $text-3;
+  color: $primary;
   letter-spacing: 4rpx;
+  padding: 6rpx $space-3;
+  background: $primary-light;
+  border: 1rpx solid $primary-border;
+  border-radius: $r-pill;
 }
 
 // 按钮区
 .btn-area {
+  position: relative;
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -241,22 +269,22 @@ async function handleWxLogin() {
   width: 100%;
   height: 100rpx;
   border-radius: $r-pill;
-  background: $pink;
+  background: $cta-gradient;
+  box-shadow: $shadow-cta;
   border: none;
   padding: 0;
   transition: $transition-base;
 
   &::after {
-    border: none; // 移除 uni-app 默认边框
+    border: none;
   }
 
   &--loading {
-    background: $pink-hover;
     opacity: 0.85;
   }
 
   &[disabled] {
-    background: $pink-hover;
+    background: $primary-hover;
   }
 }
 
@@ -268,12 +296,13 @@ async function handleWxLogin() {
 }
 
 .wx-icon {
-  font-size: 36rpx;
+  display: flex;
+  align-items: center;
 }
 
 .btn-label {
   font-size: $font-size-lg;
-  color: #fff;
+  color: $on-primary;
   font-weight: 700;
 }
 
@@ -281,8 +310,8 @@ async function handleWxLogin() {
   width: 36rpx;
   height: 36rpx;
   border-radius: 50%;
-  border: 4rpx solid rgba(255, 255, 255, 0.3);
-  border-top-color: #fff;
+  border: 4rpx solid $on-primary-line;
+  border-top-color: $on-primary;
   animation: spin 0.7s linear infinite;
 }
 
@@ -296,7 +325,6 @@ async function handleWxLogin() {
   text-align: center;
 }
 
-// 底部说明
 .footer {
   position: absolute;
   bottom: 80rpx;
@@ -313,7 +341,7 @@ async function handleWxLogin() {
 
 // 开发模式快速登录
 .dev-login-wrap {
-  margin-top: $space-5;
+  margin-top: $space-4;
   width: 100%;
 }
 
@@ -331,11 +359,11 @@ async function handleWxLogin() {
 
   &-text {
     font-size: $font-size-xs;
-    color: $text-3;
-    padding: 0 $space-2;
-    background: rgba(244, 63, 126, 0.08);
-    border-radius: $r-sm;
-    color: $pink;
+    padding: 4rpx $space-2;
+    margin: 0 $space-2;
+    background: $primary-light;
+    border-radius: $r-pill;
+    color: $primary;
   }
 }
 
@@ -348,20 +376,26 @@ async function handleWxLogin() {
 .dev-input {
   flex: 1;
   height: 80rpx;
-  border: 2rpx solid $border-hover;
-  border-radius: $r-md;
+  border: 1rpx solid $border-hover;
+  border-radius: $r-pill;
   padding: 0 $space-3;
   font-size: $font-size-sm;
   color: $text-1;
-  background: #fff;
+  background: $bg-surface;
+
+  &:focus {
+    border-color: $primary;
+    box-shadow: 0 0 0 6rpx rgba(94, 141, 249, 0.18);
+  }
 }
 
 .dev-btn {
   height: 80rpx;
   padding: 0 $space-4;
-  background: $pink;
-  color: #fff;
-  border-radius: $r-md;
+  background: $cta-gradient;
+  box-shadow: $shadow-cta;
+  color: $on-primary;
+  border-radius: $r-pill;
   font-size: $font-size-sm;
   font-weight: 600;
   border: none;

@@ -1,9 +1,12 @@
 <script setup lang="ts">
+import { useTheme } from '@/hooks/useTheme'
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { authApi } from '@/api'
 import { useAuthStore } from '@/store'
 import { PAGES } from '@/constants'
 
+
+const { pageStyle } = useTheme()
 // ── 从页面参数获取 temp_token（getCurrentPages 兼容写法） ─────────────────
 const tempToken = ref('')
 
@@ -106,6 +109,7 @@ onUnmounted(() => {
 </script>
 
 <template>
+  <page-meta :page-style="pageStyle" />
   <view class="bind-phone-page">
     <!-- 页头说明 -->
     <view class="page-header">
@@ -211,7 +215,9 @@ onUnmounted(() => {
 
 .bind-phone-page {
   min-height: 100vh;
-  background: $bg-page;
+  background:
+    radial-gradient(circle at 90% 0%, rgba(94, 141, 249, 0.16) 0%, transparent 45%),
+    $bg-page;
   padding: $space-5 $space-4 120rpx;
 }
 
@@ -232,9 +238,9 @@ onUnmounted(() => {
   color: $text-2;
 }
 
-// 表单卡片
 .form-card {
   background: $bg-surface;
+  border: 1rpx solid $border;
   border-radius: $r-xl;
   padding: $space-4;
   box-shadow: $shadow-sm;
@@ -256,7 +262,6 @@ onUnmounted(() => {
   font-weight: 500;
 }
 
-// 年级选择
 .grade-scroll {
   white-space: nowrap;
 }
@@ -275,13 +280,13 @@ onUnmounted(() => {
   padding: 0 $space-3;
   border-radius: $r-pill;
   background: $bg-muted;
-  border: 2rpx solid transparent;
+  border: 1rpx solid transparent;
   transition: $transition-fast;
   flex-shrink: 0;
 
   &--active {
     background: $primary-light;
-    border-color: $primary;
+    border-color: $primary-border;
   }
 
   &__text {
@@ -296,7 +301,6 @@ onUnmounted(() => {
   }
 }
 
-// 学期选择
 .semester-row {
   display: flex;
   gap: $space-3;
@@ -308,14 +312,14 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: $r-lg;
+  border-radius: $r-pill;
   background: $bg-muted;
-  border: 2rpx solid transparent;
+  border: 1rpx solid transparent;
   transition: $transition-fast;
 
   &--active {
     background: $primary-light;
-    border-color: $primary;
+    border-color: $primary-border;
   }
 
   &__text {
@@ -330,20 +334,20 @@ onUnmounted(() => {
   }
 }
 
-// 输入框
 .input-wrap {
   display: flex;
   align-items: center;
   gap: $space-2;
   height: 88rpx;
-  background: $bg-muted;
-  border-radius: $r-md;
+  background: $bg-surface;
+  border-radius: $r-lg;
   padding: 0 $space-3;
-  border: 2rpx solid transparent;
+  border: 1rpx solid $border-hover;
+  transition: $transition-fast;
 
   &:focus-within {
     border-color: $primary;
-    background: $bg-surface;
+    box-shadow: 0 0 0 6rpx rgba(94, 141, 249, 0.18);
   }
 }
 
@@ -378,12 +382,12 @@ onUnmounted(() => {
 
 .send-code-btn {
   flex-shrink: 0;
-  height: 64rpx;
+  height: 60rpx;
   padding: 0 $space-3;
-  background: $primary;
-  border-radius: $r-md;
+  background: $cta-gradient;
+  border-radius: $r-pill;
   border: none;
-  line-height: 64rpx;
+  line-height: 60rpx;
 
   &::after { border: none; }
 
@@ -394,7 +398,7 @@ onUnmounted(() => {
   &-text,
   .send-code-text {
     font-size: $font-size-xs;
-    color: #fff;
+    color: $on-primary;
     font-weight: 500;
 
     .send-code-btn--disabled & {
@@ -409,12 +413,12 @@ onUnmounted(() => {
   margin-top: $space-1;
 }
 
-// 提交按钮
 .submit-btn {
   width: 100%;
   height: 100rpx;
   border-radius: $r-pill;
-  background: $pink;
+  background: $cta-gradient;
+  box-shadow: $shadow-cta;
   border: none;
   display: flex;
   align-items: center;
@@ -425,11 +429,12 @@ onUnmounted(() => {
 
   &--disabled {
     background: $bg-muted;
+    box-shadow: none;
   }
 
   &__text {
     font-size: $font-size-lg;
-    color: #fff;
+    color: $on-primary;
     font-weight: 700;
 
     .submit-btn--disabled & {
@@ -442,8 +447,8 @@ onUnmounted(() => {
   width: 36rpx;
   height: 36rpx;
   border-radius: 50%;
-  border: 4rpx solid rgba(255,255,255,0.3);
-  border-top-color: #fff;
+  border: 4rpx solid $on-primary-line;
+  border-top-color: $on-primary;
   animation: spin 0.7s linear infinite;
 }
 

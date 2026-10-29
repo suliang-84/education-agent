@@ -3,3 +3,4 @@
  */
 export { useAuthStore } from './auth'
 export { useTrainingStore } from './training'
+export { useThemeStore } from './theme'

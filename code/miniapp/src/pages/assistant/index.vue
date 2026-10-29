@@ -1,9 +1,13 @@
 <script setup lang="ts">
+import { useTheme } from '@/hooks/useTheme'
 import { ref, onMounted } from 'vue'
+import SvgIcon from '@/components/SvgIcon.vue'
 import { assistantApi } from '@/api'
 import { fromNow } from '@/utils'
 import type { ChatMessage } from '@/api/assistant'
 
+
+const { pageStyle } = useTheme()
 const sessionId = ref('')
 const messages = ref<ChatMessage[]>([])
 const loading = ref(true)
@@ -70,6 +74,7 @@ function scrollToBottom() {
 </script>
 
 <template>
+  <page-meta :page-style="pageStyle" />
   <view class="chat-page">
 
     <!-- ── 消息列表 ────────────────────────────────────────────── -->
@@ -85,7 +90,7 @@ function scrollToBottom() {
 
       <template v-else>
         <view v-if="messages.length === 0" class="empty-chat">
-          <text class="empty-chat__icon">🤖</text>
+          <view class="empty-chat__icon"><SvgIcon name="sparkles" :size="72" /></view>
           <text class="empty-chat__title">你好，我是 MESH</text>
           <text class="empty-chat__text">有什么数理化问题，尽管问我～</text>
         </view>
@@ -98,12 +103,13 @@ function scrollToBottom() {
           :class="msg.role === 'student' ? 'msg-row--right' : 'msg-row--left'"
         >
           <view v-if="msg.role === 'assistant'" class="ai-avatar">
-            <text class="ai-avatar__icon">🤖</text>
+            <SvgIcon name="sparkles" :size="36" color="on-primary" />
           </view>
 
           <view class="msg-bubble-wrap" :class="msg.role === 'student' ? 'msg-bubble-wrap--right' : ''">
             <view v-if="msg.is_aha_trigger" class="aha-tag">
-              <text class="aha-tag__text">💡 思维突破</text>
+              <SvgIcon name="bulb" :size="24" color="#D97706" />
+              <text class="aha-tag__text">思维突破</text>
             </view>
             <view class="msg-bubble" :class="msg.role === 'student' ? 'msg-bubble--student' : 'msg-bubble--ai'">
               <text class="msg-text" :class="msg.role === 'student' ? 'msg-text--student' : ''">{{ msg.content }}</text>
@@ -112,10 +118,10 @@ function scrollToBottom() {
               <text class="msg-time">{{ fromNow(msg.created_at) }}</text>
               <view class="rating-bar">
                 <view class="rating-btn" :class="{ 'rating-btn--active': ratings[msg.message_id] === 'like' }" @tap="rateMessage(msg, 'like')">
-                  <text class="rating-icon">👍</text>
+                  <text class="rating-icon">▲</text>
                 </view>
                 <view class="rating-btn" :class="{ 'rating-btn--active': ratings[msg.message_id] === 'dislike' }" @tap="rateMessage(msg, 'dislike')">
-                  <text class="rating-icon">👎</text>
+                  <text class="rating-icon">▼</text>
                 </view>
               </view>
             </view>
@@ -125,7 +131,7 @@ function scrollToBottom() {
 
         <view v-if="sending" class="msg-row msg-row--left">
           <view class="ai-avatar">
-            <text class="ai-avatar__icon">🤖</text>
+            <SvgIcon name="sparkles" :size="36" color="on-primary" />
           </view>
           <view class="typing-indicator">
             <view class="typing-dot" />
@@ -153,7 +159,7 @@ function scrollToBottom() {
         :disabled="!inputText.trim() || sending"
         @tap="sendMessage"
       >
-        <text class="send-btn__icon">{{ sending ? '⏳' : '▶' }}</text>
+        <text class="send-btn__icon">{{ sending ? '…' : '▶' }}</text>
       </button>
     </view>
 
@@ -196,7 +202,11 @@ function scrollToBottom() {
   padding-top: 160rpx;
   gap: $space-2;
 
-  &__icon { font-size: 120rpx; }
+  &__icon {
+    width: 160rpx; height: 160rpx; border-radius: $r-xl;
+    background: $primary-light; border: 1rpx solid $primary-border;
+    display: flex; align-items: center; justify-content: center;
+  }
   &__title { font-size: $font-size-xl; font-weight: 700; color: $text-1; margin-top: $space-2; }
   &__text { font-size: $font-size-sm; color: $text-3; }
 }
@@ -213,12 +223,12 @@ function scrollToBottom() {
   width: 72rpx;
   height: 72rpx;
   border-radius: 50%;
-  background: linear-gradient(135deg, #4F46E5, #7C3AED);
+  background: $cta-gradient;
+  box-shadow: $shadow-cta;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  &__icon { font-size: 36rpx; }
 }
 
 .msg-bubble-wrap {
@@ -230,33 +240,39 @@ function scrollToBottom() {
 }
 
 .aha-tag {
-  background: rgba(251, 191, 36, 0.15);
+  background: $warning-light;
+  border: 1rpx solid rgba(217, 119, 6, 0.2);
   border-radius: $r-pill;
   padding: 4rpx 20rpx;
   align-self: flex-start;
-  &__text { font-size: $font-size-xs; color: #D97706; font-weight: 600; }
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  &__text { font-size: $font-size-xs; color: $power-adapt; font-weight: 600; }
 }
 
 .msg-bubble {
   padding: $space-3 $space-4;
-  border-radius: 24rpx;
+  border-radius: $r-xl;
   line-height: 1.7;
 
   &--ai {
     background: $bg-surface;
-    border-bottom-left-radius: 8rpx;
+    border: 1rpx solid $border;
+    border-bottom-left-radius: $r-sm;
     box-shadow: $shadow-sm;
   }
   &--student {
-    background: $primary;
-    border-bottom-right-radius: 8rpx;
+    background: $cta-gradient;
+    border-bottom-right-radius: $r-sm;
+    box-shadow: $shadow-cta;
   }
 }
 
 .msg-text {
   font-size: $font-size-base;
   color: $text-1;
-  &--student { color: #fff; }
+  &--student { color: $on-primary; }
 }
 
 .msg-actions {
@@ -282,10 +298,10 @@ function scrollToBottom() {
   align-items: center;
   justify-content: center;
   background: $bg-muted;
-  &--active { background: rgba(79, 70, 229, 0.12); }
+  &--active { background: $primary-light; box-shadow: 0 0 0 2rpx $primary-border; .rating-icon { color: $primary; } }
 }
 
-.rating-icon { font-size: 24rpx; }
+.rating-icon { font-size: 20rpx; color: $text-3; }
 
 .typing-indicator {
   display: flex;
@@ -293,8 +309,9 @@ function scrollToBottom() {
   gap: 10rpx;
   padding: $space-3 $space-4;
   background: $bg-surface;
-  border-radius: 24rpx;
-  border-bottom-left-radius: 8rpx;
+  border: 1rpx solid $border;
+  border-radius: $r-xl;
+  border-bottom-left-radius: $r-sm;
   box-shadow: $shadow-sm;
 }
 
@@ -316,6 +333,7 @@ function scrollToBottom() {
   padding: $space-3 $space-4;
   padding-bottom: calc(#{$space-3} + env(safe-area-inset-bottom));
   background: $bg-surface;
+  box-shadow: $shadow-sm;
   border-top: 1rpx solid $border;
 }
 
@@ -324,7 +342,8 @@ function scrollToBottom() {
   min-height: 72rpx;
   max-height: 240rpx;
   padding: $space-2 $space-3;
-  background: $bg-page;
+  background: $bg-surface;
+  border: 1rpx solid $border;
   border-radius: $r-xl;
   font-size: $font-size-base;
   color: $text-1;
@@ -335,7 +354,8 @@ function scrollToBottom() {
   width: 72rpx;
   height: 72rpx;
   border-radius: 50%;
-  background: $primary;
+  background: $cta-gradient;
+  box-shadow: $shadow-cta;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -343,8 +363,8 @@ function scrollToBottom() {
   flex-shrink: 0;
 
   &::after { border: none; }
-  &--disabled { background: $bg-muted; }
-  &__icon { font-size: 28rpx; color: #fff; }
+  &--disabled { background: $bg-muted; box-shadow: none; }
+  &__icon { font-size: 28rpx; color: $on-primary; .send-btn--disabled & { color: $text-3; } }
 }
 
 @keyframes shimmer {

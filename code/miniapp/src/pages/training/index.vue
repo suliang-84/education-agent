@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { useTheme } from '@/hooks/useTheme'
 import { ref } from 'vue'
+import SvgIcon from '@/components/SvgIcon.vue'
 import { trainingApi } from '@/api'
 import { useTrainingStore } from '@/store'
 import {
@@ -8,6 +10,8 @@ import {
 import type { InterruptRecord } from '@/api/training'
 import type { TrainingDimension } from '@/constants'
 
+
+const { pageStyle } = useTheme()
 const trainingStore = useTrainingStore()
 
 // ── 选科 & 维度 ────────────────────────────────────────────────────────────
@@ -28,11 +32,11 @@ const dimensions: Array<{
   icon: string
   desc: string
 }> = [
-  { key: 'KNOWLEDGE_POINT', icon: '🎯', desc: '精准练习单个知识点，AI 从你擅长的角度引导入门' },
-  { key: 'UNIT',            icon: '📚', desc: '以单元为单位，系统贯通知识脉络' },
-  { key: 'SEMESTER',        icon: '🗓️', desc: '学期范围综合练习，查漏补缺' },
-  { key: 'ERROR_QUESTIONS', icon: '🔁', desc: '复盘错题，AI 借你的优势帮你攻克薄弱环节' },
-  { key: 'RANDOM',          icon: '🎲', desc: '随机出题，保持训练广度' },
+  { key: 'KNOWLEDGE_POINT', icon: 'target', desc: '精准练习单个知识点，AI 从你擅长的角度引导入门' },
+  { key: 'UNIT',            icon: 'book', desc: '以单元为单位，系统贯通知识脉络' },
+  { key: 'SEMESTER',        icon: 'calendar', desc: '学期范围综合练习，查漏补缺' },
+  { key: 'ERROR_QUESTIONS', icon: 'repeat', desc: '复盘错题，AI 借你的优势帮你攻克薄弱环节' },
+  { key: 'RANDOM',          icon: 'dice', desc: '随机出题，保持训练广度' },
 ]
 
 const subjects = Object.keys(SUBJECT_LABELS).map((k) => ({
@@ -119,6 +123,7 @@ async function handleStartNew() {
 </script>
 
 <template>
+  <page-meta :page-style="pageStyle" />
   <view class="training-page">
     <!-- ── Step 1: 选择科目 ──────────────────────────────────── -->
     <view class="section">
@@ -134,7 +139,7 @@ async function handleStartNew() {
           :class="{ 'subject-card--active': selectedSubject === s.code }"
           @tap="selectSubject(s.code)"
         >
-          <text class="subject-card__icon">{{ s.icon }}</text>
+          <view class="subject-card__icon"><SvgIcon :name="s.icon" :size="56" :color="selectedSubject === s.code ? 'primary' : 'muted'" /></view>
           <text class="subject-card__label">{{ s.label }}</text>
         </view>
       </view>
@@ -156,7 +161,7 @@ async function handleStartNew() {
           class="dim-card"
           @tap="startTraining(dim.key)"
         >
-          <text class="dim-card__icon">{{ dim.icon }}</text>
+          <view class="dim-card__icon"><SvgIcon :name="dim.icon" :size="40" /></view>
           <view class="dim-card__info">
             <view class="dim-card__name-row">
               <text class="dim-card__name">{{ TRAINING_DIMENSION_LABELS[dim.key] }}</text>
@@ -225,6 +230,17 @@ async function handleStartNew() {
   font-size: $font-size-lg;
   color: $text-1;
   font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+
+  &::before {
+    content: '';
+    width: 8rpx;
+    height: 32rpx;
+    border-radius: $r-pill;
+    background: $primary;
+  }
 }
 
 .section-step {
@@ -234,6 +250,7 @@ async function handleStartNew() {
   padding: 4rpx 16rpx;
   border-radius: $r-pill;
   font-weight: 600;
+  border: 1rpx solid $primary-border;
 }
 
 // ── 科目卡片 ────────────────────────────────────────────────────────────────
@@ -252,7 +269,7 @@ async function handleStartNew() {
   align-items: center;
   gap: $space-2;
   box-shadow: $shadow-sm;
-  border: 2rpx solid transparent;
+  border: 2rpx solid $border;
   transition: $transition-base;
 
   &--active {
@@ -262,7 +279,15 @@ async function handleStartNew() {
   }
 
   &__icon {
-    font-size: 64rpx;
+    width: 96rpx;
+    height: 96rpx;
+    border-radius: $r-lg;
+    background: $bg-muted;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    .subject-card--active & { background: $bg-surface; }
   }
 
   &__label {
@@ -306,6 +331,7 @@ async function handleStartNew() {
   align-items: center;
   gap: $space-3;
   box-shadow: $shadow-sm;
+  border: 1rpx solid $border;
   transition: $transition-fast;
 
   &:active {
@@ -314,7 +340,13 @@ async function handleStartNew() {
   }
 
   &__icon {
-    font-size: 44rpx;
+    width: 80rpx;
+    height: 80rpx;
+    border-radius: $r-md;
+    background: $primary-light;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     flex-shrink: 0;
   }
 
@@ -366,7 +398,8 @@ async function handleStartNew() {
 .creating-mask {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
+  background: $mask;
+  backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -405,7 +438,8 @@ async function handleStartNew() {
 .resume-mask {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: $mask;
+  backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -418,6 +452,8 @@ async function handleStartNew() {
   border-radius: $r-xl;
   padding: $space-5;
   width: 100%;
+  border: 1rpx solid $border;
+  box-shadow: $shadow-md;
   display: flex;
   flex-direction: column;
   gap: $space-3;
@@ -451,7 +487,7 @@ async function handleStartNew() {
 
 .resume-btn {
   height: 88rpx;
-  border-radius: $r-lg;
+  border-radius: $r-pill;
   font-size: $font-size-base;
   font-weight: 600;
   border: none;
@@ -464,8 +500,9 @@ async function handleStartNew() {
   }
 
   &--resume {
-    background: $primary;
-    color: #fff;
+    background: $cta-gradient;
+    color: $on-primary;
+    box-shadow: $shadow-cta;
   }
 }
 </style>

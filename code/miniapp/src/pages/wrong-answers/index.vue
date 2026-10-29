@@ -1,10 +1,14 @@
 <script setup lang="ts">
+import { useTheme } from '@/hooks/useTheme'
 import { ref, computed, onMounted } from 'vue'
+import SvgIcon from '@/components/SvgIcon.vue'
 import { wrongAnswerApi, assistantApi } from '@/api'
 import { PAGES, FIVE_POWER_COLORS, FIVE_POWER_LABELS, WRONG_STATUS_LABELS, DIFFICULTY_LABELS } from '@/constants'
 import { fromNow } from '@/utils'
 import type { WrongAnswer } from '@/api/profile'
 
+
+const { pageStyle } = useTheme()
 // ── 标签定义 ──────────────────────────────────────────────────────────────
 const tabs = [
   { key: '', label: '全部' },
@@ -79,10 +83,10 @@ const tabCounts = computed(() => {
 
 // ── 当前 tab 对应的空态文案 ────────────────────────────────────────────────
 const emptyMessages: Record<string, { icon: string; title: string; desc: string }> = {
-  '': { icon: '🎉', title: '暂无错题', desc: '坚持训练，保持零错题的好成绩！' },
-  unreview: { icon: '✅', title: '没有待复盘的错题', desc: '所有错题都已开始复盘，继续加油！' },
-  reviewing: { icon: '💪', title: '暂无复盘中的错题', desc: '开始 AI 复盘，突破你的薄弱点' },
-  aha_achieved: { icon: '🏆', title: '还没有突破记录', desc: '坚持复盘，等待 aha moment！' },
+  '': { icon: 'sparkles', title: '暂无错题', desc: '坚持训练，保持零错题的好成绩！' },
+  unreview: { icon: 'target', title: '没有待复盘的错题', desc: '所有错题都已开始复盘，继续加油！' },
+  reviewing: { icon: 'rocket', title: '暂无复盘中的错题', desc: '开始 AI 复盘，突破你的薄弱点' },
+  aha_achieved: { icon: 'trophy', title: '还没有突破记录', desc: '坚持复盘，等待 aha moment！' },
 }
 
 const emptyState = computed(() => emptyMessages[activeTab.value] || emptyMessages[''])
@@ -94,6 +98,7 @@ function truncate(text: string, len = 60): string {
 </script>
 
 <template>
+  <page-meta :page-style="pageStyle" />
   <view class="wrong-answers-page">
     <!-- ── 页面顶部 ──────────────────────────────────────── -->
     <view class="page-header">
@@ -133,7 +138,7 @@ function truncate(text: string, len = 60): string {
 
     <!-- ── 空状态 ────────────────────────────────────────── -->
     <view v-else-if="list.length === 0" class="empty-state">
-      <text class="empty-icon">{{ emptyState.icon }}</text>
+      <view class="empty-icon"><SvgIcon :name="emptyState.icon" :size="64" /></view>
       <text class="empty-title">{{ emptyState.title }}</text>
       <text class="empty-desc">{{ emptyState.desc }}</text>
     </view>
@@ -193,7 +198,8 @@ function truncate(text: string, len = 60): string {
           <view class="wrong-actions">
             <!-- 已突破状态：仅显示标记 -->
             <view v-if="item.review_status === 'aha_achieved'" class="aha-badge">
-              <text class="aha-badge__text">🏆 已突破</text>
+              <SvgIcon name="trophy" :size="24" color="#10B981" />
+              <text class="aha-badge__text">已突破</text>
             </view>
             <!-- 其他状态：显示复盘按钮 -->
             <button
@@ -266,7 +272,8 @@ function truncate(text: string, len = 60): string {
   padding: 0 $space-3;
   border-radius: $r-pill;
   background: $bg-surface;
-  border: 2rpx solid transparent;
+  border: 1rpx solid $border;
+  box-shadow: $shadow-sm;
   transition: $transition-fast;
   flex-shrink: 0;
 
@@ -299,7 +306,7 @@ function truncate(text: string, len = 60): string {
 
   &__text {
     font-size: $font-size-xs;
-    color: #fff;
+    color: $on-primary;
     font-weight: 700;
   }
 }
@@ -319,6 +326,7 @@ function truncate(text: string, len = 60): string {
   display: flex;
   align-items: center;
   gap: $space-3;
+  border: 1rpx solid $border;
   box-shadow: $shadow-sm;
 }
 
@@ -366,7 +374,16 @@ function truncate(text: string, len = 60): string {
   padding: 120rpx $space-4;
 }
 
-.empty-icon { font-size: 100rpx; }
+.empty-icon {
+  width: 144rpx;
+  height: 144rpx;
+  border-radius: $r-xl;
+  background: $primary-light;
+  border: 1rpx solid $primary-border;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 .empty-title {
   font-size: $font-size-lg;
   color: $text-2;
@@ -391,6 +408,7 @@ function truncate(text: string, len = 60): string {
   background: $bg-surface;
   border-radius: $r-lg;
   padding: $space-3 $space-4;
+  border: 1rpx solid $border;
   box-shadow: $shadow-sm;
   display: flex;
   flex-direction: column;
@@ -488,8 +506,11 @@ function truncate(text: string, len = 60): string {
 
 .aha-badge {
   padding: 6rpx 20rpx;
-  background: #ECFDF5;
+  background: $success-light;
   border-radius: $r-pill;
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
 
   &__text {
     font-size: $font-size-xs;
@@ -501,7 +522,8 @@ function truncate(text: string, len = 60): string {
 .review-btn {
   height: 64rpx;
   padding: 0 $space-3;
-  background: $primary;
+  background: $cta-gradient;
+  box-shadow: $shadow-cta;
   border-radius: $r-pill;
   border: none;
   display: flex;
@@ -511,13 +533,12 @@ function truncate(text: string, len = 60): string {
   &::after { border: none; }
 
   &--loading {
-    background: $primary;
     opacity: 0.75;
   }
 
   &__text {
     font-size: $font-size-xs;
-    color: #fff;
+    color: $on-primary;
     font-weight: 600;
   }
 }
@@ -526,8 +547,8 @@ function truncate(text: string, len = 60): string {
   width: 28rpx;
   height: 28rpx;
   border-radius: 50%;
-  border: 3rpx solid rgba(255,255,255,0.3);
-  border-top-color: #fff;
+  border: 3rpx solid $on-primary-line;
+  border-top-color: $on-primary;
   animation: spin 0.7s linear infinite;
   flex-shrink: 0;
 }

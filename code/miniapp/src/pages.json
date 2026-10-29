@@ -15,7 +15,7 @@
   ],
   "tabBar": {
     "color": "#94A3B8",
-    "selectedColor": "#4F46E5",
+    "selectedColor": "#5E8DF9",
     "backgroundColor": "#ffffff",
     "borderStyle": "white",
     "list": [
@@ -43,7 +43,7 @@
     "navigationBarTextStyle": "black",
     "navigationBarTitleText": "MESH",
     "navigationBarBackgroundColor": "#ffffff",
-    "backgroundColor": "#F4F6FA",
+    "backgroundColor": "#F3F5FB",
     "backgroundTextStyle": "light"
   }
 }

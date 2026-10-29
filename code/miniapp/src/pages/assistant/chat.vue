@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useTheme } from '@/hooks/useTheme'
+import SvgIcon from '@/components/SvgIcon.vue'
 import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { assistantApi, profileApi } from '@/api'
 import { PAGES, FIVE_POWER_LABELS, FIVE_POWER_COLORS, SESSION_MODE_LABELS } from '@/constants'
@@ -6,6 +8,8 @@ import { fromNow } from '@/utils'
 import type { ChatMessage } from '@/api/assistant'
 import type { FivePowerProfile } from '@/api/profile'
 
+
+const { pageStyle } = useTheme()
 // ── 页面参数 ──────────────────────────────────────────────────────────────
 const sessionId = ref('')
 const sessionMode = ref('')
@@ -137,6 +141,7 @@ const weakestPowers = computed(() => {
 </script>
 
 <template>
+  <page-meta :page-style="pageStyle" />
   <view class="chat-page">
     <!-- ── 自定义导航栏 ──────────────────────────────────────── -->
     <view class="nav-bar">
@@ -161,7 +166,10 @@ const weakestPowers = computed(() => {
     <!-- ── 五力状态折叠卡 ──────────────────────────────────── -->
     <view class="power-mini-card" @tap="showPowerCard = !showPowerCard">
       <view class="power-mini-header">
-        <text class="power-mini-title">🧠 五力状态</text>
+        <view class="power-mini-title-row">
+          <SvgIcon name="brain" :size="28" />
+          <text class="power-mini-title">五力状态</text>
+        </view>
         <text class="power-mini-toggle">{{ showPowerCard ? '收起 ▲' : '展开 ▼' }}</text>
       </view>
       <!-- 展开内容 -->
@@ -200,7 +208,7 @@ const weakestPowers = computed(() => {
       <template v-else>
         <!-- 空状态 -->
         <view v-if="messages.length === 0" class="empty-chat">
-          <text class="empty-chat__icon">🤖</text>
+          <view class="empty-chat__icon"><SvgIcon name="sparkles" :size="56" /></view>
           <text class="empty-chat__text">你好！我是你的 AI 助教 MESH，有什么可以帮你？</text>
         </view>
 
@@ -214,14 +222,15 @@ const weakestPowers = computed(() => {
         >
           <!-- AI 头像 -->
           <view v-if="msg.role === 'assistant'" class="ai-avatar">
-            <text class="ai-avatar__icon">🤖</text>
+            <SvgIcon name="sparkles" :size="36" color="on-primary" />
           </view>
 
           <!-- 消息体 -->
           <view class="msg-bubble-wrap" :class="msg.role === 'student' ? 'msg-bubble-wrap--right' : ''">
             <!-- aha 触发标记 -->
             <view v-if="msg.is_aha_trigger" class="aha-tag">
-              <text class="aha-tag__text">💡 思维突破</text>
+              <SvgIcon name="bulb" :size="24" color="#D97706" />
+              <text class="aha-tag__text">思维突破</text>
             </view>
 
             <view class="msg-bubble" :class="msg.role === 'student' ? 'msg-bubble--student' : 'msg-bubble--ai'">
@@ -237,14 +246,14 @@ const weakestPowers = computed(() => {
                   :class="{ 'rating-btn--active': ratings[msg.message_id] === 'like' }"
                   @tap="rateMessage(msg, 'like')"
                 >
-                  <text class="rating-icon">👍</text>
+                  <text class="rating-icon">▲</text>
                 </view>
                 <view
                   class="rating-btn"
                   :class="{ 'rating-btn--active': ratings[msg.message_id] === 'dislike' }"
                   @tap="rateMessage(msg, 'dislike')"
                 >
-                  <text class="rating-icon">👎</text>
+                  <text class="rating-icon">▼</text>
                 </view>
               </view>
             </view>
@@ -257,7 +266,7 @@ const weakestPowers = computed(() => {
         <!-- AI 正在输入提示 -->
         <view v-if="sending" class="msg-row msg-row--left">
           <view class="ai-avatar">
-            <text class="ai-avatar__icon">🤖</text>
+            <SvgIcon name="sparkles" :size="36" color="on-primary" />
           </view>
           <view class="typing-indicator">
             <view class="typing-dot" />
@@ -289,7 +298,7 @@ const weakestPowers = computed(() => {
           :disabled="!inputText.trim() || sending"
           @tap="sendMessage"
         >
-          <text class="send-btn__icon">{{ sending ? '⏳' : '▶' }}</text>
+          <text class="send-btn__icon">{{ sending ? '…' : '▶' }}</text>
         </button>
       </template>
     </view>
@@ -313,6 +322,7 @@ const weakestPowers = computed(() => {
   padding: 0 $space-4;
   padding-top: env(safe-area-inset-top);
   background: $bg-surface;
+  border-bottom: 1rpx solid $border;
   box-shadow: $shadow-sm;
   flex-shrink: 0;
   z-index: 10;
@@ -363,7 +373,8 @@ const weakestPowers = computed(() => {
   height: 60rpx;
   padding: 0 $space-3;
   background: $danger-light;
-  border: 2rpx solid $danger;
+  border: 1rpx solid rgba(239, 68, 68, 0.3);
+  line-height: 60rpx;
   border-radius: $r-pill;
 
   &::after { border: none; }
@@ -378,9 +389,11 @@ const weakestPowers = computed(() => {
 // 五力迷你卡
 .power-mini-card {
   background: $bg-surface;
-  margin: 0;
+  margin: $space-3 $space-4 0;
   padding: $space-3 $space-4;
-  border-bottom: 1rpx solid $border;
+  border: 1rpx solid $border;
+  border-radius: $r-xl;
+  box-shadow: $shadow-sm;
   flex-shrink: 0;
 }
 
@@ -388,6 +401,12 @@ const weakestPowers = computed(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.power-mini-title-row {
+  display: flex;
+  align-items: center;
+  gap: $space-1;
 }
 
 .power-mini-title {
@@ -399,6 +418,9 @@ const weakestPowers = computed(() => {
 .power-mini-toggle {
   font-size: $font-size-xs;
   color: $primary;
+  background: $primary-light;
+  border-radius: $r-pill;
+  padding: 2rpx 16rpx;
 }
 
 .power-mini-content {
@@ -476,7 +498,14 @@ const weakestPowers = computed(() => {
 }
 
 .empty-chat__icon {
-  font-size: 80rpx;
+  width: 128rpx;
+  height: 128rpx;
+  border-radius: $r-xl;
+  background: $primary-light;
+  border: 1rpx solid $primary-border;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .empty-chat__text {
@@ -502,15 +531,13 @@ const weakestPowers = computed(() => {
   width: 64rpx;
   height: 64rpx;
   border-radius: 50%;
-  background: linear-gradient(135deg, $primary, #7C3AED);
+  background: $cta-gradient;
+  box-shadow: $shadow-cta;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 
-  &__icon {
-    font-size: 36rpx;
-  }
 }
 
 .msg-bubble-wrap {
@@ -525,14 +552,18 @@ const weakestPowers = computed(() => {
 
 .aha-tag {
   background: $warning-light;
+  border: 1rpx solid rgba(217, 119, 6, 0.2);
   border-radius: $r-pill;
   padding: 4rpx 16rpx;
   margin-bottom: 8rpx;
   align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
 
   &__text {
     font-size: $font-size-xs;
-    color: $warning;
+    color: $power-adapt;
     font-weight: 600;
   }
 }
@@ -550,7 +581,8 @@ const weakestPowers = computed(() => {
   }
 
   &--student {
-    background: $primary;
+    background: $cta-gradient;
+    box-shadow: $shadow-cta;
     border-bottom-right-radius: $r-sm;
   }
 }
@@ -561,7 +593,7 @@ const weakestPowers = computed(() => {
   color: $text-1;
 
   .msg-bubble--student & {
-    color: #fff;
+    color: $on-primary;
   }
 }
 
@@ -601,12 +633,15 @@ const weakestPowers = computed(() => {
 
   &--active {
     background: $primary-light;
-    box-shadow: 0 0 0 2rpx $primary;
+    box-shadow: 0 0 0 2rpx $primary-border;
+
+    .rating-icon { color: $primary; }
   }
 }
 
 .rating-icon {
-  font-size: 24rpx;
+  font-size: 20rpx;
+  color: $text-3;
 }
 
 // 正在输入
@@ -624,7 +659,7 @@ const weakestPowers = computed(() => {
   width: 16rpx;
   height: 16rpx;
   border-radius: 50%;
-  background: $text-3;
+  background: $primary;
   animation: bounce 0.9s ease-in-out infinite;
 
   &:nth-child(2) { animation-delay: 0.2s; }
@@ -642,6 +677,7 @@ const weakestPowers = computed(() => {
   padding: $space-2 $space-4;
   padding-bottom: calc($space-2 + env(safe-area-inset-bottom));
   border-top: 1rpx solid $border;
+  box-shadow: $shadow-sm;
   display: flex;
   align-items: flex-end;
   gap: $space-2;
@@ -667,8 +703,9 @@ const weakestPowers = computed(() => {
   max-height: 200rpx;
   font-size: $font-size-base;
   color: $text-1;
-  background: $bg-muted;
-  border-radius: $r-lg;
+  background: $bg-surface;
+  border: 1rpx solid $border;
+  border-radius: $r-xl;
   padding: $space-2 $space-3;
   line-height: 1.5;
 }
@@ -678,7 +715,8 @@ const weakestPowers = computed(() => {
   width: 80rpx;
   height: 80rpx;
   border-radius: 50%;
-  background: $primary;
+  background: $cta-gradient;
+  box-shadow: $shadow-cta;
   border: none;
   display: flex;
   align-items: center;
@@ -688,11 +726,12 @@ const weakestPowers = computed(() => {
 
   &--disabled {
     background: $bg-muted;
+    box-shadow: none;
   }
 
   &__icon {
     font-size: 32rpx;
-    color: #fff;
+    color: $on-primary;
 
     .send-btn--disabled & { color: $text-3; }
   }
