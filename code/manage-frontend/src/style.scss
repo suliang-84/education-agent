@@ -865,6 +865,17 @@ $form-height:       30px;
   --el-checkbox-input-border: 1px solid rgba(255, 255, 255, 0.10);
 }
 
+// 选中 / 半选态：背景与边框用系统主色（暗色主题里表格复选框框体被统一压成 --bg-muted，
+// 这里需用更高优先级把选中态恢复为主色；暗色主色偏亮，勾 / 横线改深色以保证对比）
+.el-checkbox__input.is-checked .el-checkbox__inner,
+.el-checkbox__input.is-indeterminate .el-checkbox__inner {
+  background-color: var(--el-color-primary) !important;
+  border-color: var(--el-color-primary) !important;
+}
+
+[data-theme="dark"] .el-checkbox__input.is-checked .el-checkbox__inner::after { border-color: #1a2a3a !important; }
+[data-theme="dark"] .el-checkbox__input.is-indeterminate .el-checkbox__inner::before { background-color: #1a2a3a !important; }
+
 // Input
 .el-input {
   height: $form-height !important;
@@ -2002,7 +2013,7 @@ html[data-theme="dark"] {
   }
 
   // 按钮：胶囊
-  .content-area .el-button:not(.is-text):not(.is-link):not(.is-circle):not(.el-button--primary):not(.el-button--danger) {
+  .content-area .el-button:not(.is-text):not(.is-link):not(.is-circle):not(.btn-back):not(.el-button--primary):not(.el-button--danger) {
     background: rgba(255, 255, 255, 0.06) !important;
     border: 1px solid rgba(255, 255, 255, 0.12) !important;
     color: rgba(255, 255, 255, 0.85) !important;
@@ -2445,30 +2456,53 @@ html[data-theme="light"] .el-button:not(.is-text):not(.is-link):not(.is-circle):
 }
 
 // ═══════════════════════════════════════════════════════════════
-// 返回按钮 .btn-back：幽灵文字链（导航动作，弱化为无底无边框的灰色文字）
-//   悬停：主色文字 + 极淡主色底，箭头向左微移 2px
+// 返回按钮 .btn-back：玻璃框（半透明底 + 磨砂 + 1px 细描边；不加顶部内高光，否则紧贴描边会让上边框看起来是 2px）
+//   悬停：描边与文字变主色，箭头向左微移 2px
 // ═══════════════════════════════════════════════════════════════
 
 html .btn-back.el-button.el-button {
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
   border-radius: 4px !important;
   font-weight: 400;
-  padding: 0 10px !important;
+  padding: 0 12px !important;
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  backdrop-filter: blur(12px) saturate(150%);
   svg { transition: transform 0.15s; }
   &:hover, &:focus { svg { transform: translateX(-2px); } }
 }
 
 html[data-theme="light"] .btn-back.el-button.el-button {
+  background: rgba(255, 255, 255, 0.72) !important;
+  border: 1px solid rgba(96, 141, 249, 0.22) !important;
   color: #6b7280 !important;
-  &:hover, &:focus { color: #5e8df9 !important; background: rgba(94, 141, 249, 0.08) !important; }
+  box-shadow: 0 1px 3px rgba(30, 41, 59, 0.04) !important;
+  &:hover, &:focus {
+    background: rgba(255, 255, 255, 0.92) !important;
+    border-color: #739dfd !important;
+    color: #5e8df9 !important;
+  }
 }
 
 html[data-theme="dark"] .btn-back.el-button.el-button {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
   color: #9ca3af !important;
-  &:hover, &:focus { color: #a9beff !important; background: rgba(169, 190, 255, 0.08) !important; }
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16) !important;
+  &:hover, &:focus {
+    background: rgba(169, 190, 255, 0.08) !important;
+    border-color: rgba(169, 190, 255, 0.45) !important;
+    color: #a9beff !important;
+  }
 }
+
+// ═══════════════════════════════════════════════════════════════
+// 操作按钮间距统一 10px
+//   Element Plus 默认给相邻 .el-button 加 margin-left: 12px；顶部操作栏（.form-topbar）已用 gap: 10px，
+//   两者叠加会让「驳回」「保存」这类相邻 el-button 之间变成 22px → 在操作栏里清掉 margin，只留 gap
+//   弹窗底部按钮没有 gap，间距统一为 10px
+// ═══════════════════════════════════════════════════════════════
+
+.form-topbar .el-button + .el-button { margin-left: 0; }
+.el-dialog__footer .el-button + .el-button { margin-left: 10px; }
 
 // ═══════════════════════════════════════════════════════════════
 // 暗色表格行悬停：同侧栏选中项的玻璃胶囊

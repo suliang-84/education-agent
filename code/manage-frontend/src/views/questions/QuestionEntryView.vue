@@ -120,7 +120,7 @@
             background
             size="small"
             layout="total, ->, prev, pager, next, sizes"
-            @current-change="loadData"
+            @current-change="() => loadData()"
             @size-change="onSizeChange"
           />
         </div>
@@ -189,8 +189,9 @@ function formatDate(dt: string) {
 }
 
 // ── 数据加载 ─────────────────────────────────────────────────
-async function loadData() {
-  loading.value = true
+// silent=true：轮询刷新时不显示 v-loading 遮罩，避免列表每 5 秒闪一次
+async function loadData(silent = false) {
+  if (!silent) loading.value = true
   try {
     const params: Record<string, unknown> = { page: page.value, limit: pageSize.value, order_by: 'created_at_desc' }
     if (filters.status)     params.status     = filters.status
@@ -203,7 +204,7 @@ async function loadData() {
     total.value = res.total
     totalPages.value = res.total_pages ?? 1
     if (res.list.some((q: Question) => q.status === 'analyzing')) startPolling()
-  } finally { loading.value = false }
+  } finally { if (!silent) loading.value = false }
 }
 
 
@@ -342,7 +343,7 @@ function startPolling() {
   if (pollTimer) return
   pollTimer = setInterval(() => {
     const hasAnalyzing = questions.value.some(q => q.status === 'analyzing')
-    if (hasAnalyzing) { loadData() }
+    if (hasAnalyzing) { loadData(true) }
     else { stopPolling() }
   }, 5000)
 }

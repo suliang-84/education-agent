@@ -11,8 +11,14 @@
       </el-button>
       <div style="flex:1" />
       <template v-if="question?.status === 'pending_review'">
-        <el-button @click="openReject" :loading="saving">驳回</el-button>
-        <el-button @click="handleSaveReview" :loading="saving">保存</el-button>
+        <el-button @click="openReject" :loading="saving">
+          <SvgIcon v-if="!saving" name="reject_result" :size="14" style="margin-right:4px" />
+          驳回结果
+        </el-button>
+        <el-button @click="handleSaveReview" :loading="saving">
+          <SvgIcon v-if="!saving" name="save_result" :size="14" style="margin-right:4px" />
+          保存结果
+        </el-button>
         <button class="btn-pink" type="button" @click="handlePublish" :disabled="saving">
           <SvgIcon name="deploy" :size="13" style="margin-right:4px" />
           保存并发布上线
