@@ -203,19 +203,6 @@ async function handleSave(mode: 'draft' | 'analyze') {
 }
 
 // ── 返回按钮 ─────────────────────────────────────────────────
-[data-theme="light"] .btn-back.el-button {
-  background-color: #ffffff;
-  color: #9ca2af;
-  border-color: #ffffff;
-  &:hover { color: var(--color-primary); border-color: var(--color-primary); }
-}
-[data-theme="dark"] .btn-back.el-button {
-  background-color: #242424;
-  color: #9ca2af;
-  border-color: #242424;
-  &:hover { color: var(--color-primary); border-color: var(--color-primary); }
-}
-
 // ── 流程说明横幅 ─────────────────────────────────────────────
 .flow-banner {
   display: flex;
@@ -409,11 +396,16 @@ async function handleSave(mode: 'draft' | 'analyze') {
   border-top-color: #3a3a3a !important;
 }
 
+/* 背景同「保存草稿」按钮（无边框、无外发光）：渐变按按钮的宽度（约 90px）走完，其后保持末端色，不随盒子宽度拉伸 */
 [data-theme="light"] .preview-item {
-  background: #f0f2f6 !important;
+  background: linear-gradient(90deg, rgba(94, 141, 249, 0.20) 0, rgba(94, 141, 249, 0.05) 90px, rgba(94, 141, 249, 0.05)), #ffffff !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 [data-theme="dark"] .preview-item {
-  background: #1b1e23 !important;
+  background: linear-gradient(90deg, rgba(94, 141, 249, 0.24) 0, rgba(94, 141, 249, 0.07) 90px, rgba(94, 141, 249, 0.07)) !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 </style>

@@ -118,7 +118,7 @@
     <!-- ── Main ── -->
     <div class="main-wrap">
       <!-- Content -->
-      <main class="content-area">
+      <main class="content-area" :class="{ 'no-shine': isSubPage }">
         <router-view />
       </main>
     </div>
@@ -137,6 +137,15 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const isCollapsed = ref(false)
+
+// 二级页面（详情 / 编辑 / 审核 / 分析等）：面板不显示反光，见 style.scss「二级页面去反光」
+const SUB_PAGE_ROUTES = new Set([
+  'QuestionCreate', 'QuestionEdit', 'QuestionReview', 'QuestionArchivedEdit',
+  'CognitiveCreate', 'CognitiveEdit',
+  'StudentDetail', 'StudentKpStats', 'StudentAiPrompt',
+  'DashboardUserGrowth', 'DashboardFiveForce', 'DashboardAiTeaching', 'DashboardErrorQuestions',
+])
+const isSubPage = computed(() => SUB_PAGE_ROUTES.has(route.name as string))
 
 // ── 侧边栏鼠标云晕 / 高亮边框：写入 --sx --sy --sa，样式见 style.scss「侧边导航栏」──
 let sidebarRaf = 0

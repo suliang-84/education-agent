@@ -92,19 +92,25 @@ async function handleWxLogin() {
 <template>
   <page-meta :page-style="pageStyle" />
   <view class="login-page">
-    <!-- 顶部装饰圆 -->
-    <view class="deco-circle deco-circle--top" />
-    <view class="deco-circle deco-circle--bottom" />
-
-    <!-- 中央 Logo + Tagline -->
-    <view class="hero">
-      <view class="logo-wrap">
-        <view class="logo-icon"><SvgIcon name="brain" :size="80" color="on-primary" /></view>
-        <text class="logo-text">MESH</text>
-      </view>
-      <text class="tagline">AI 驱动的个性化认知训练</text>
-      <text class="sub-tagline">洞察 · 建构 · 推演 · 调适 · 迁移</text>
+    <!-- 全屏循环背景视频 + 压暗遮罩 -->
+    <view class="bg-stage">
+    <video
+      class="bg-video"
+      src="../../assets/login-background-h264.mp4"
+      autoplay
+      loop
+      muted
+      :controls="false"
+      :show-center-play-btn="false"
+      :show-play-btn="false"
+      :show-fullscreen-btn="false"
+      :show-progress="false"
+      :enable-progress-gesture="false"
+      :show-mute-btn="false"
+      object-fit="cover"
+    />
     </view>
+    <view class="bg-mask" />
 
     <!-- 登录按钮区 -->
     <view class="btn-area">
@@ -146,13 +152,6 @@ async function handleWxLogin() {
       </view>
     </view>
 
-    <!-- 底部产品说明 -->
-    <view class="footer">
-      <text class="footer-text">
-        MESH 基于认知科学五力模型，为每位学生量身定制学习路径，
-        让每一道题的练习都有意义。
-      </text>
-    </view>
   </view>
 </template>
 
@@ -161,103 +160,46 @@ async function handleWxLogin() {
 .login-page {
   position: relative;
   min-height: 100vh;
-  background:
-    radial-gradient(circle at 85% 8%, rgba(94, 141, 249, 0.22) 0%, transparent 45%),
-    radial-gradient(circle at 10% 92%, rgba(122, 162, 255, 0.20) 0%, transparent 45%),
-    $bg-page;
+  background: #000011;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
   overflow: hidden;
-  padding: 0 $space-5;
+  padding: 0 $space-5 120rpx;
 }
 
-.deco-circle {
-  position: absolute;
-  border-radius: 50%;
-  pointer-events: none;
-
-  &--top {
-    width: 520rpx;
-    height: 520rpx;
-    top: -160rpx;
-    right: -120rpx;
-    background: radial-gradient(circle, rgba(94, 141, 249, 0.16) 0%, transparent 70%);
-  }
-
-  &--bottom {
-    width: 440rpx;
-    height: 440rpx;
-    bottom: -120rpx;
-    left: -100rpx;
-    background: radial-gradient(circle, rgba(122, 162, 255, 0.16) 0%, transparent 70%);
-  }
+// 视频为 9:16 竖屏，机器人位于水平正中、垂直约 53% 处；
+// 铺满整屏（fixed + 显式宽高，避免 video 高度回落到默认 225px），cover 裁切后机器人仍居中
+.bg-stage {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 0;
 }
 
-// 毛玻璃卡片区
-.hero {
-  position: relative;
+.bg-video {
   width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 64rpx $space-4 $space-5;
-  margin-bottom: $space-4;
-  background: var(--glass-bg);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1rpx solid var(--glass-border);
-  border-radius: $r-2xl;
-  box-shadow: $shadow-md, inset 0 2rpx 0 var(--glass-edge);
+  height: 100%;
 }
 
-.logo-wrap {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-bottom: $space-4;
-}
-
-.logo-icon {
-  width: 144rpx;
-  height: 144rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: $r-xl;
-  background: $cta-gradient;
-  box-shadow: $shadow-cta;
-  margin-bottom: $space-3;
-}
-
-.logo-text {
-  font-size: 64rpx;
-  font-weight: 800;
-  color: $text-1;
-  letter-spacing: 12rpx;
-}
-
-.tagline {
-  font-size: $font-size-xl;
-  color: $text-1;
-  font-weight: 600;
-  margin-bottom: $space-2;
-}
-
-.sub-tagline {
-  font-size: $font-size-sm;
-  color: $primary;
-  letter-spacing: 4rpx;
-  padding: 6rpx $space-3;
-  background: $primary-light;
-  border: 1rpx solid $primary-border;
-  border-radius: $r-pill;
+.bg-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 1;
+  background: rgba(0, 0, 17, 0.2);
+  pointer-events: none;
 }
 
 // 按钮区
 .btn-area {
   position: relative;
+  z-index: 2;
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -321,22 +263,8 @@ async function handleWxLogin() {
 
 .hint-text {
   font-size: $font-size-xs;
-  color: $text-3;
+  color: rgba(255, 255, 255, 0.75);
   text-align: center;
-}
-
-.footer {
-  position: absolute;
-  bottom: 80rpx;
-  left: $space-6;
-  right: $space-6;
-}
-
-.footer-text {
-  font-size: $font-size-xs;
-  color: $text-3;
-  text-align: center;
-  line-height: 1.8;
 }
 
 // 开发模式快速登录
@@ -407,7 +335,7 @@ async function handleWxLogin() {
 .dev-hint {
   display: block;
   font-size: $font-size-xs;
-  color: $text-3;
+  color: rgba(255, 255, 255, 0.7);
   text-align: center;
   margin-top: $space-1;
 }

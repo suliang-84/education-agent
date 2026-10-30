@@ -418,19 +418,6 @@ async function handleSave(action: 'draft' | 'publish' | 'save' | 'republish') {
 }
 
 // ── 返回按钮 ─────────────────────────────────────────────────
-[data-theme="light"] .btn-back.el-button {
-  background-color: #ffffff;
-  color: #9ca2af;
-  border-color: #ffffff;
-  &:hover { color: var(--color-primary); border-color: var(--color-primary); }
-}
-[data-theme="dark"] .btn-back.el-button {
-  background-color: #242424;
-  color: #9ca2af;
-  border-color: #242424;
-  &:hover { color: var(--color-primary); border-color: var(--color-primary); }
-}
-
 // ── 表单分区 ─────────────────────────────────────────────────
 .form-section {
   padding: 5px 15px 15px;

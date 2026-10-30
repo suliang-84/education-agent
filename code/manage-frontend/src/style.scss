@@ -2027,7 +2027,6 @@ html[data-theme="dark"] {
     &:disabled, &.is-disabled { opacity: 0.45; }
   }
   .btn-pink .svg-icon { color: inherit; }
-  .btn-back.el-button { border-radius: 4px !important; background: rgba(255, 255, 255, 0.06) !important; border-color: rgba(255, 255, 255, 0.12) !important; }
 }
 
 // ── 亮色主题 ─────────────────────────────────────────────────
@@ -2184,9 +2183,9 @@ html[data-theme="dark"] {
     -webkit-backdrop-filter: blur(20px) saturate(150%);
     backdrop-filter: blur(20px) saturate(150%);
     border: 1px solid rgba(255, 255, 255, 0.06) !important;
+    // 阴影收紧：大范围投影会在相邻模块的窄缝里叠加，把缝隙压得发黑
     box-shadow:
-      0 18px 44px rgba(0, 0, 0, 0.38),
-      0 4px 14px rgba(0, 0, 0, 0.24),
+      0 2px 8px rgba(0, 0, 0, 0.16),
       inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
   }
   .surface, .surface-elevated, .filter-bar, .surface--table,
@@ -2217,9 +2216,10 @@ html[data-theme="light"] {
     -webkit-backdrop-filter: blur(16px) saturate(160%);
     backdrop-filter: blur(16px) saturate(160%);
     border: 1px solid rgba(96, 141, 249, 0.14) !important;
+    // 阴影收紧：大范围投影会在相邻模块的窄缝里叠加，把缝隙压得发灰
     box-shadow:
-      0 12px 32px rgba(30, 41, 59, 0.07),
-      0 2px 8px rgba(94, 141, 249, 0.06),
+      0 1px 3px rgba(30, 41, 59, 0.04),
+      0 2px 8px rgba(94, 141, 249, 0.05),
       inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
   }
   .surface, .surface-elevated, .filter-bar, .surface--table,
@@ -2297,6 +2297,15 @@ html[data-theme] .el-table:not(.is-scrolling-none) .el-table__body-wrapper tr:ho
     mask-composite: exclude;
     pointer-events: none;
     z-index: 2;
+  }
+}
+
+// 二级页面去反光（暗色）：详情 / 编辑 / 审核 / 分析等页面的面板不显示扫光
+//   由 AdminLayout 在这些路由下给 .content-area 加 .no-shine
+html[data-theme="dark"] .content-area.no-shine {
+  .surface, .surface-elevated, .filter-bar, .surface--table,
+  .info-block, .summary-block, .tree-panel, .section-block {
+    &::after { animation: none; opacity: 0; }
   }
 }
 
@@ -2405,7 +2414,7 @@ html[data-theme="light"] .admin-shell .sidebar {
 html[data-theme="dark"] .el-button:not(.is-text):not(.is-link):not(.is-circle):not(.is-disabled):not(.btn-back):not(.el-button--primary):not(.el-button--danger):not(.el-button--success):not(.el-button--warning):not(.el-button--info) {
   background: linear-gradient(90deg, rgba(94, 141, 249, 0.24), rgba(94, 141, 249, 0.07)) !important;
   border: none !important;
-  border-radius: 6px !important;
+  border-radius: 4px !important;
   color: #ffffff !important;
   font-weight: 400;
   box-shadow:
@@ -2422,7 +2431,7 @@ html[data-theme="light"] .el-button:not(.is-text):not(.is-link):not(.is-circle):
   // 渐变下垫白底，与侧栏（白底）选中项在任何卡片背景上都呈现同样的颜色
   background: linear-gradient(90deg, rgba(94, 141, 249, 0.20), rgba(94, 141, 249, 0.05)), #ffffff !important;
   border: none !important;
-  border-radius: 6px !important;
+  border-radius: 4px !important;
   color: #2f5fd6 !important;
   font-weight: 400;
   box-shadow:
@@ -2433,6 +2442,32 @@ html[data-theme="light"] .el-button:not(.is-text):not(.is-link):not(.is-circle):
     background: linear-gradient(90deg, rgba(94, 141, 249, 0.28), rgba(94, 141, 249, 0.09)), #ffffff !important;
     color: #2f5fd6 !important;
   }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 返回按钮 .btn-back：幽灵文字链（导航动作，弱化为无底无边框的灰色文字）
+//   悬停：主色文字 + 极淡主色底，箭头向左微移 2px
+// ═══════════════════════════════════════════════════════════════
+
+html .btn-back.el-button.el-button {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 4px !important;
+  font-weight: 400;
+  padding: 0 10px !important;
+  svg { transition: transform 0.15s; }
+  &:hover, &:focus { svg { transform: translateX(-2px); } }
+}
+
+html[data-theme="light"] .btn-back.el-button.el-button {
+  color: #6b7280 !important;
+  &:hover, &:focus { color: #5e8df9 !important; background: rgba(94, 141, 249, 0.08) !important; }
+}
+
+html[data-theme="dark"] .btn-back.el-button.el-button {
+  color: #9ca3af !important;
+  &:hover, &:focus { color: #a9beff !important; background: rgba(169, 190, 255, 0.08) !important; }
 }
 
 // ═══════════════════════════════════════════════════════════════
