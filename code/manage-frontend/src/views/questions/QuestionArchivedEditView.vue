@@ -226,7 +226,7 @@
 
           <!-- 五力权重 -->
           <div class="sub-section-title">五力训练权重</div>
-          <div class="section-content">
+          <div class="section-content weights-content">
             <el-form-item label=" ">
               <div class="power-weights-grid">
                 <div v-for="p in powers" :key="p" class="power-weight-item">
@@ -576,6 +576,15 @@ async function handleSaveAndActivate() {
   :deep(.el-form-item:last-child) {
     margin-bottom: 0;
   }
+}
+
+.section-content {
+  padding: 15px 15px 15px 0;
+}
+
+// 五力训练权重：上内边距为 8px
+.section-content.weights-content {
+  padding-top: 8px;
 }
 
 .answer-hint {

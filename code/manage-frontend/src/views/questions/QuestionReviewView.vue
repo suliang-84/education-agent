@@ -28,19 +28,13 @@
 
     <div v-if="question">
 
-      <!-- ── 题目内容（只读）── -->
-      <div class="surface section-block section-block--no-glow">
+      <!-- ── 题目内容（编辑态结构与训练题管理-编辑页一致）── -->
+      <div class="surface section-block stem-block" :class="{ 'section-block--no-glow': !isEditable }">
         <div class="section-hd">
           <span class="section-title"><SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />题目内容</span>
         </div>
-        <el-form label-width="0">
-          <div class="section-content">
-            <el-form-item>
-              <span v-if="!isEditable" class="plain-value-area">{{ question.stem }}</span>
-              <el-input v-else v-model="question.stem" type="textarea" :rows="7" />
-            </el-form-item>
-          </div>
-        </el-form>
+        <div v-if="!isEditable" class="stem-display">{{ question.stem }}</div>
+        <el-input v-else v-model="question.stem" class="stem-input" type="textarea" :rows="7" />
       </div>
 
       <!-- ── 分析结果（可修改，仅 pending_review 状态）── -->
@@ -276,7 +270,7 @@
 
           <!-- 五力权重 -->
           <div class="sub-section-title">五力训练权重</div>
-          <div class="section-content">
+          <div class="section-content weights-content">
             <div v-if="!isEditable" ref="radarRef" class="weights-radar" />
             <el-form-item v-else label=" ">
               <div class="power-weights-grid">
@@ -886,6 +880,15 @@ async function handleReject() {
   :deep(.el-form-item:last-child) {
     margin-bottom: 0;
   }
+}
+
+.section-content {
+  padding: 15px 15px 15px 0;
+}
+
+// 五力训练权重：上内边距为 8px
+.section-content.weights-content {
+  padding-top: 8px;
 }
 
 .answer-hint {
