@@ -2174,15 +2174,16 @@ html[data-theme="light"] {
   position: relative;
   overflow: hidden;
 
-  // 顶部高亮描边
+  // 高亮描边
   &::before {
     content: '';
     position: absolute;
     inset: 0;
     border-radius: $radius;
     padding: 1px;
+    // 固定在盒子左上角（px 圆形 + 0 0），不随盒子宽高变化，所有盒子的高亮位置一致
     background: radial-gradient(
-      420px circle at 50% 0%,
+      420px circle at 0 0,
       $edge,
       rgba(255, 255, 255, 0.10) 38%,
       rgba(255, 255, 255, 0.02) 70%

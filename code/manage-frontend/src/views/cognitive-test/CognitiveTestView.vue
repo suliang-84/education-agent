@@ -374,10 +374,6 @@ async function doDelete() {
 .expand-section {
   background: var(--bg-surface);
 
-  [data-theme="dark"] & {
-    background: #1a1a1a;
-  }
-
   &__title {
     display: flex;
     align-items: center;
@@ -409,21 +405,26 @@ async function doDelete() {
 }
 
 .expand-answer {
-  border: 1px solid rgba(96, 141, 248, 0.15);
-  border-radius: 4px;
+  border: none;
+  border-radius: var(--r-xs);
   overflow: hidden;
-
-  [data-theme="dark"] & { border-color: #202020; }
 
   &__header {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 8px 10px;
-    background: var(--bg-surface);
-
-    [data-theme="dark"] & { background: #2a2a2a; }
+    padding: 12px 14px 8px;
+    background: transparent;
   }
+}
+
+// 背景同 .preview-item（QuestionFormView）：蓝色渐变（按约 90px 走完后保持末端色），无边框、无外发光
+[data-theme="light"] .expand-answer {
+  background: linear-gradient(90deg, rgba(94, 141, 249, 0.20) 0, rgba(94, 141, 249, 0.05) 90px, rgba(94, 141, 249, 0.05)), #ffffff;
+}
+
+[data-theme="dark"] .expand-answer {
+  background: linear-gradient(90deg, rgba(94, 141, 249, 0.24) 0, rgba(94, 141, 249, 0.07) 90px, rgba(94, 141, 249, 0.07));
 }
 
 .expand-key {
@@ -454,9 +455,8 @@ async function doDelete() {
   flex-direction: row;
   gap: 40px;
   flex-wrap: wrap;
-  padding: 8px 10px;
-  background: var(--bg-muted);
-  border-top: 1px solid rgba(96, 141, 248, 0.10);
+  padding: 4px 14px 12px;
+  background: transparent;
 }
 
 .expand-weight-chip {
