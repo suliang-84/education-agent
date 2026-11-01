@@ -12,7 +12,7 @@
       <div style="flex:1" />
       <el-button @click="handleSave" :loading="saving">
         <SvgIcon v-if="!saving" name="save" :size="14" style="margin-right:4px" />
-        保存
+        保存题目
       </el-button>
       <button class="btn-pink" type="button" @click="handleSaveAndActivate" :disabled="saving">
         <SvgIcon name="play" :size="13" style="margin-right:4px" />

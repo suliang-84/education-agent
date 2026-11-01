@@ -2663,3 +2663,52 @@ html[data-theme="dark"] .content-area .section-block.section-block--no-glow {
 html[data-theme="light"] .content-area .section-block.section-block--no-glow {
   background: rgba(255, 255, 255, 0.74) !important;
 }
+
+// 数字输入框（el-input-number）的加减按钮：去掉 EP 默认的灰底与分隔边框，
+// 与系统风格一致——透明底、清晰图标色，悬停时仅图标变主色（同侧栏导航悬停）
+.el-input-number {
+  .el-input-number__increase,
+  .el-input-number__decrease {
+    background: transparent !important;
+    border: none !important;
+    color: var(--text-2);
+    font-size: 13px;
+    transition: color 0.15s;
+
+    // EP 箭头是细线条填充图标，加同色描边让线条更粗、更清晰
+    .el-icon { font-size: 13px; }
+    svg { stroke: currentColor; stroke-width: 60px; }
+
+    &:hover:not(.is-disabled) { color: var(--color-primary); }
+    &.is-disabled { opacity: 0.4; }
+  }
+}
+
+// 表格固定在右侧的操作列：表头 / 表体左侧不要边框 / 阴影线
+// EP 在固定列左侧用 ::before 画 inset 阴影（滚动时的分隔线），这里在表头、表体、表尾统一清掉
+html[data-theme] .el-table {
+  --el-table-fixed-left-column:  none;
+  --el-table-fixed-right-column: none;
+
+  .el-table-fixed-column--right.el-table__cell {
+    border-left: none !important;
+  }
+
+  .el-table-fixed-column--left::before,
+  .el-table-fixed-column--right::before,
+  .el-table-fixed-column--left.is-last-column::before,
+  .el-table-fixed-column--right.is-first-column::before {
+    border: none !important;
+    box-shadow: none !important;
+    background: none !important;
+  }
+}
+
+// 暗色：表头底色是半透明（rgba 白 3%）。固定列（sticky）会比左邻列多压住约 2px，
+// 重叠处两层半透明叠加变亮，看起来像操作列左侧的一条竖线。
+// 不滚动时固定列无需遮挡内容：单元格全部透明，底色只在表头行（tr）上画一次，就不会叠加；
+// 滚动时仍保持 EP 默认的实色底以遮住被滚到下面的内容。
+html[data-theme="dark"] .el-table.is-scrolling-none .el-table__header {
+  tr { background-color: var(--el-table-header-bg-color); }
+  th.el-table__cell { background-color: transparent !important; }
+}
