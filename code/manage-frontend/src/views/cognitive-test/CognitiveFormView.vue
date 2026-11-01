@@ -14,7 +14,7 @@
       <template v-if="!isEdit || currentStatus === 'draft'">
         <el-button @click="handleSave('draft')" :loading="saving">
           <SvgIcon v-if="!saving" name="save" :size="14" style="margin-right:4px" />
-          保存草稿
+          保存题目
         </el-button>
         <button class="btn-pink" type="button" @click="handleSave('publish')" :disabled="saving || loading">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px">
@@ -27,7 +27,7 @@
       <template v-else-if="currentStatus === 'archived'">
         <el-button @click="handleSave('save')" :loading="saving">
           <SvgIcon v-if="!saving" name="save" :size="14" style="margin-right:4px" />
-          保存修改
+          保存题目
         </el-button>
         <button class="btn-pink" type="button" @click="handleSave('republish')" :disabled="saving || loading">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px">
@@ -38,7 +38,7 @@
       </template>
       <!-- 已发布：保存修改（自动生效）-->
       <template v-else>
-        <el-button type="primary" @click="handleSave('save')" :loading="saving">保存修改</el-button>
+        <el-button type="primary" @click="handleSave('save')" :loading="saving">保存题目</el-button>
       </template>
     </div>
 
@@ -525,20 +525,21 @@ async function handleSave(action: 'draft' | 'publish' | 'save' | 'republish') {
 }
 
 .answer-card {
-  border: 1px solid rgba(96, 141, 248, 0.15);
-  border-radius: 4px;
+  border: none;
+  border-radius: var(--r-xs);
   overflow: hidden;
 
+  // 校验不通过：无边框，用内描边提示
   &--invalid {
-    border-color: rgba(239, 68, 68, 0.40);
+    box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.40);
   }
 
   &__header {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 8px 10px;
-    background: var(--bg-surface);
+    padding: 12px 14px 8px;
+    background: transparent;
 
     // 图标按钮去除内边距和自动 margin，间距完全由 gap 控制
     .el-button {
@@ -549,10 +550,18 @@ async function handleSave(action: 'draft' | 'publish' | 'save' | 'republish') {
   }
 
   &__weights {
-    padding: 8px 10px 10px;
-    background: var(--bg-muted);
-    border-top: 1px solid rgba(96, 141, 248, 0.10);
+    padding: 4px 14px 12px;
+    background: transparent;
   }
+}
+
+// 背景同 .preview-item（QuestionFormView）：蓝色渐变（按约 90px 走完后保持末端色），无边框、无外发光
+[data-theme="light"] .answer-card {
+  background: linear-gradient(90deg, rgba(94, 141, 249, 0.20) 0, rgba(94, 141, 249, 0.05) 90px, rgba(94, 141, 249, 0.05)), #ffffff;
+}
+
+[data-theme="dark"] .answer-card {
+  background: linear-gradient(90deg, rgba(94, 141, 249, 0.24) 0, rgba(94, 141, 249, 0.07) 90px, rgba(94, 141, 249, 0.07));
 }
 
 .answer-key-badge {
