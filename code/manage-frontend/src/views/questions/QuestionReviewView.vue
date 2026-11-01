@@ -46,7 +46,7 @@
       <!-- ── 分析结果（可修改，仅 pending_review 状态）── -->
       <div class="surface section-block">
         <div class="section-hd">
-          <span class="section-title"><SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />大模型分析结果</span>
+          <span class="section-title"><SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />{{ isEditable ? '大模型分析结果' : '题目详情' }}</span>
           <span v-if="question.status === 'pending_review'" class="edit-hint">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"/>
@@ -1160,6 +1160,12 @@ async function handleReject() {
     [data-theme="dark"] & { border-bottom-color: rgba(255, 255, 255, 0.20); }
 
     &:last-child { border-bottom: none; padding-bottom: 4px; }
+  }
+
+  .section-content,
+  .section-content:last-child {
+    margin-bottom: 0;
+    padding: 0;
   }
 
   // 去掉输入框外观，只保留文字
