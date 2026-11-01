@@ -112,7 +112,7 @@
           <!-- ── 题目属性 ── -->
           <div class="sub-section-title">题目属性</div>
           <div class="section-content">
-            <el-row :gutter="20">
+            <el-row :gutter="20" class="attr-row">
               <el-col :span="16">
                 <el-form-item label="题目类型">
                   <span v-if="!isEditable" class="plain-value">{{ questionTypeLabel }}</span>
@@ -1182,5 +1182,17 @@ async function handleReject() {
   :deep(.el-form-item__label) { color: var(--text-3); font-weight: 400; }
   .weights-radar { width: 420px; max-width: 100%; height: 300px; margin-right: auto; }
   .belongs-row { margin-bottom: 10px; .el-form-item { margin-bottom: 0; } }
+
+  // 题目属性与「归属体系」同一栅格：每列 20%（科目:年级:学期:章节 = 1:1:1:2），
+  // 使「难度等级」与上方「年级」在 x 轴方向对齐
+  .attr-row {
+    flex-wrap: nowrap;
+    margin: 0 !important;
+    .el-col {
+      flex: 0 0 20%;
+      max-width: 20%;
+      padding: 0 !important;
+    }
+  }
 }
 </style>
