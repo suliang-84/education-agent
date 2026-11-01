@@ -86,7 +86,7 @@
       </div>
 
       <!-- ── 基础信息 ── -->
-      <div class="form-section surface">
+      <div class="form-section surface surface--no-glow">
         <div class="section-hd">
           <span class="section-title">
             <SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />

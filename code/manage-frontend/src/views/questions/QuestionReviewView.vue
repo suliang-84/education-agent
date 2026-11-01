@@ -598,7 +598,7 @@ function renderRadar() {
     backgroundColor: 'transparent',
     radar: {
       indicator: powers.map((p, i) => ({ name: `${FivePowerLabels[p as FivePower]}  ${values[i]}`, max: 10, key: p })),
-      radius: '68%',
+      radius: 80,
       splitNumber: 5,
       axisName: {
         color: primary,
@@ -1158,8 +1158,19 @@ async function handleReject() {
 
   // 子模块纵向节奏统一为 10px：
   // 子标题 → 子内容 → 分割线 → 下一个子标题；子内容内各项之间同为 10px
+  // 文字框尽量贴合文字：标题 / 标签 / 只读值统一 22px 行高，
+  // 这样「10px」就是文字与文字之间的实际视觉间距，而不是各自 20/30px 框之间的间距
   .sub-section-title {
     margin: 0 0 10px;
+    height: 22px;
+    line-height: 22px;
+  }
+
+  :deep(.el-form-item__label),
+  :deep(.el-form-item__content) {
+    height: auto !important;
+    min-height: 22px;
+    line-height: 22px !important;
   }
 
   // 虚线置于每个子模块内容的底部（最后一个子模块除外）
@@ -1190,11 +1201,11 @@ async function handleReject() {
   }
 
   :deep(.el-form-item__label) { color: var(--text-3); font-weight: 400; }
-  .weights-radar { width: 420px; max-width: 100%; height: 300px; margin-right: auto; }
+  .weights-radar { width: 420px; max-width: 100%; height: 216px; margin-right: auto; }
   .belongs-row { margin-bottom: 10px; .el-form-item { margin-bottom: 0; } }
 
-  // 标签行高 30px、步骤文字行高 1.7×13px≈22px：顶部补 4px，使第一行与左侧标题垂直居中对齐
-  .plain-steps { padding-top: 4px; }
+  // 步骤逐条之间 10px（行内 margin-bottom），最后一条不留，避免与子内容底部 10px 叠加成 20px
+  .plain-steps .plain-value:last-child { margin-bottom: 0 !important; }
 
   // 题目属性与「归属体系」同一栅格：每列 20%（科目:年级:学期:章节 = 1:1:1:2），
   // 使「难度等级」与上方「年级」在 x 轴方向对齐

@@ -2712,3 +2712,11 @@ html[data-theme="dark"] .el-table.is-scrolling-none .el-table__header {
   tr { background-color: var(--el-table-header-bg-color); }
   th.el-table__cell { background-color: transparent !important; }
 }
+
+// 无云晕的普通 .surface 模块（如测试题录入/编辑页「基础信息」）：保留底色与描边，去掉径向光晕
+html[data-theme="dark"] .surface.surface--no-glow {
+  background: rgba(14, 17, 22, 0.60) !important;
+}
+html[data-theme="light"] .surface.surface--no-glow {
+  background: rgba(255, 255, 255, 0.74) !important;
+}
