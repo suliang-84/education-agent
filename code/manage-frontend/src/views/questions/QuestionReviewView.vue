@@ -882,7 +882,8 @@ async function handleReject() {
   }
 }
 
-.section-content {
+.section-content,
+.answer-block {
   padding: 15px 15px 15px 0;
 }
 
