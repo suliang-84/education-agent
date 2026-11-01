@@ -237,7 +237,9 @@
                   <el-input-number
                     v-model="form.five_power_weights[p as FivePower]"
                     :min="0" :max="10" :step="1"
+                    :precision="0"
                     controls-position="right"
+                    size="small"
                     class="power-weight-val"
                   />
                 </div>
@@ -639,18 +641,23 @@ async function handleSaveAndActivate() {
   &--err { background: var(--red-dim);   color: var(--red); }
 }
 
+// 与「测试题管理-答案配置」的五力权重配置（.weights-row / .weight-item）保持一致
 .power-weights-grid {
   display: flex;
-  flex-direction: row;
-  gap: 16px;
-  flex-wrap: nowrap;
-  align-items: flex-start;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+:deep(.power-weight-item .el-input__inner) {
+  text-align: left !important;
 }
 
 .power-weight-item {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  gap: 5px;
+  align-items: center;
 
   &__label {
     display: flex;
@@ -664,8 +671,7 @@ async function handleSaveAndActivate() {
 }
 
 .power-weight-val {
-  width: 120px !important;
-  text-align: center;
+  width: 90px !important;
 }
 
 .power-dot {
