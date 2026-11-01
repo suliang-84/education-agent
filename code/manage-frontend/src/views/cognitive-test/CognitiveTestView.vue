@@ -5,19 +5,26 @@
     <!-- ── 测试状态看板 ── -->
     <!-- ── 筛选栏 ── -->
     <div class="inner-toolbar">
-      <el-select v-model="filterStatus" placeholder="全部状态" clearable size="small" style="width:120px">
-        <el-option label="草稿" value="draft" />
-        <el-option label="已发布" value="published" />
-        <el-option label="已停用" value="archived" />
-      </el-select>
-      <el-input v-model="searchText" placeholder="搜索题干..." clearable size="small" style="flex:1;min-width:130px;max-width:260px">
+      <el-input v-model="searchText" placeholder="搜索题目..." clearable size="small" style="flex:1;min-width:130px;max-width:260px">
         <template #prefix>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/>
           </svg>
         </template>
       </el-input>
+      <el-select v-model="filterActive" placeholder="状态" clearable size="small" style="width:120px">
+        <el-option label="已启用" value="on" />
+        <el-option label="已停用" value="off" />
+      </el-select>
       <div style="flex:1" />
+      <el-button class="btn-import" style="color:var(--green);padding:0 8px !important" :loading="batchActivating" @click="handleBatchSetStatus(true)">
+        <SvgIcon v-if="!batchActivating" name="play" :size="15" style="margin-right:5px" />
+        批量启用
+      </el-button>
+      <el-button class="btn-import" style="color:var(--red);padding:0 8px !important" :loading="batchDeactivating" @click="handleBatchSetStatus(false)">
+        <SvgIcon v-if="!batchDeactivating" name="pause" :size="15" style="margin-right:5px" />
+        批量停用
+      </el-button>
       <el-button type="primary" @click="router.push('/cognitive-test/create')">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
@@ -29,13 +36,20 @@
     <div class="surface surface--table cognitive-surface" style="padding:0" v-loading="loading">
 
       <!-- ── 列表表格 ── -->
-      <el-table :data="filteredQuestions" row-key="id" style="width:100%">
+      <el-table
+        ref="tableRef"
+        :data="filteredQuestions"
+        row-key="id"
+        style="width:100%"
+        @selection-change="(rows: CognitiveQuestion[]) => selected = rows"
+      >
+        <el-table-column type="selection" width="46" />
 
-        <!-- 展开行：题干 + 答案 + 权重 -->
+        <!-- 展开行：题目 + 答案 + 权重 -->
         <el-table-column type="expand">
           <template #default="{ row }">
             <div class="expand-panel">
-              <!-- 题干 -->
+              <!-- 题目 -->
               <div class="expand-section">
                 <div class="expand-section__title">
                   <SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />题目内容
@@ -82,21 +96,22 @@
           </template>
         </el-table-column>
 
-        <!-- 状态 -->
-        <el-table-column label="状态" width="90" align="center">
-          <template #default="{ row }">
-            <span class="status-badge" :class="`status-badge--${row.status}`">
-              {{ CognitiveQuestionStatusLabels[row.status as CognitiveQuestionStatus] }}
-            </span>
-          </template>
-        </el-table-column>
-
-        <!-- 题干摘要 -->
-        <el-table-column label="题干摘要" min-width="360">
+        <!-- 题目 -->
+        <el-table-column label="题目" min-width="360">
           <template #default="{ row }">
             <el-tooltip :content="row.stem" placement="top-start" :show-after="300" effect="light">
               <span class="stem-text">{{ row.stem }}</span>
             </el-tooltip>
+          </template>
+        </el-table-column>
+
+        <!-- 状态 -->
+        <el-table-column label="状态" width="100" align="center">
+          <template #default="{ row }">
+            <span class="active-flag" :class="row.status === 'published' ? 'active-flag--on' : 'active-flag--off'">
+              <SvgIcon :name="row.status === 'published' ? 'check_circle' : 'close_circle'" :size="16" />
+              {{ CognitiveQuestionStatusLabels[row.status as CognitiveQuestionStatus] }}
+            </span>
           </template>
         </el-table-column>
 
@@ -109,20 +124,10 @@
         </el-table-column>
 
         <!-- 操作 -->
-        <el-table-column label="操作" width="90" fixed="right">
+        <el-table-column label="操作" width="120" fixed="right">
           <template #default="{ row }">
-            <!-- 草稿 -->
-            <template v-if="row.status === 'draft'">
-              <el-button text size="small" style="color:var(--color-primary)" @click="router.push(`/cognitive-test/${row.id}/edit`)">
-                <SvgIcon name="edit" :size="18" color="var(--color-primary)" title="编辑" />
-              </el-button>
-              <el-button text size="small" style="color:var(--green)" @click="confirmPublish(row)">发布</el-button>
-              <el-button text size="small" style="color:var(--red)" @click="confirmDelete(row)">
-                <SvgIcon name="delete" :size="18" color="var(--red)" title="删除" />
-              </el-button>
-            </template>
-            <!-- 已发布 -->
-            <template v-else-if="row.status === 'published'">
+            <!-- 已启用 -->
+            <template v-if="row.status === 'published'">
               <el-button text size="small" style="color:var(--amber)" @click="confirmArchive(row)">
                 <SvgIcon name="pause" :size="18" color="var(--amber)" title="停用" />
               </el-button>
@@ -145,62 +150,15 @@
       </el-table>
     </div>
 
-    <!-- ── 发布确认弹窗 ── -->
-    <el-dialog v-model="publishDialogVisible" title="确认发布此题目？" width="440px">
-      <div style="line-height:1.8;font-size:14px;color:var(--text-2)">
-        <p>发布后该题将加入测试题池。</p>
-        <p>当前已发布：<strong class="num">{{ publishedCount }}</strong> 道，发布后将达：<strong class="num">{{ publishedCount + 1 }}</strong> 道</p>
-        <div v-if="publishedCount + 1 === 10" style="margin-top:12px;padding:10px 14px;background:var(--green-dim);border:1px solid var(--green-border);border-radius:var(--r-lg);color:var(--green);font-size:13px">
-          🎉 发布后将达到10道，测试功能将自动开启！
-        </div>
-        <div v-else style="margin-top:12px;padding:10px 14px;background:var(--amber-dim);border:1px solid var(--amber-border);border-radius:var(--r-lg);color:var(--amber);font-size:13px">
-          ⚠ 发布后题目内容的修改将立即影响新测试会话的评分计算。
-        </div>
-      </div>
-      <template #footer>
-        <el-button @click="publishDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="doPublish">确认发布</el-button>
-      </template>
-    </el-dialog>
-
-    <!-- ── 停用确认弹窗 ── -->
-    <el-dialog v-model="archiveDialogVisible" title="确认停用此题目？" width="440px">
-      <div style="line-height:1.8;font-size:14px;color:var(--text-2)">
-        <p>停用后该题不再参与新测试组卷。</p>
-        <p>当前已发布：<strong class="num">{{ publishedCount }}</strong> 道，停用后将剩：<strong class="num">{{ publishedCount - 1 }}</strong> 道</p>
-        <div v-if="publishedCount - 1 < 10" style="margin-top:12px;padding:10px 14px;background:var(--amber-dim);border:1px solid var(--amber-border);border-radius:var(--r-lg);color:var(--amber);font-size:13px">
-          ⚠ 停用后已发布题目将不足10道，测试功能将暂停，请尽快补充发布。
-        </div>
-        <div v-else style="margin-top:12px;padding:10px 14px;background:var(--indigo-light);border:1px solid var(--indigo-border);border-radius:var(--r-lg);color:var(--indigo);font-size:13px">
-          停用后仍有 {{ publishedCount - 1 }} 道题目，测试功能保持正常。
-        </div>
-      </div>
-      <template #footer>
-        <el-button @click="archiveDialogVisible = false">取消</el-button>
-        <el-button type="warning" :loading="saving" @click="doArchive">确认停用</el-button>
-      </template>
-    </el-dialog>
-
-    <!-- ── 删除确认弹窗 ── -->
-    <el-dialog v-model="deleteDialogVisible" title="确认删除此草稿题目？" width="400px">
-      <div style="line-height:1.8;font-size:14px;color:var(--text-2)">
-        <p>此操作不可撤销，草稿题目将被永久删除。</p>
-        <p style="color:var(--text-3);font-size:13px">已发布或已停用的题目不可删除。</p>
-      </div>
-      <template #footer>
-        <el-button @click="deleteDialogVisible = false">取消</el-button>
-        <el-button type="danger" :loading="saving" @click="doDelete">确认删除</el-button>
-      </template>
-    </el-dialog>
-
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { cognitiveApi } from '@/api'
+import type { CognitiveBatchResult } from '@/api/cognitive'
 import type { CognitiveQuestion, FivePower, CognitiveQuestionStatus } from '@/types'
 import { FivePowerLabels, CognitiveQuestionStatusLabels } from '@/types'
 
@@ -209,30 +167,25 @@ const powers = ['INSIGHT', 'CONSTRUCT', 'DEDUCE', 'ADAPT', 'MIGRATE'] as const
 
 // ── 状态 ──────────────────────────────────────────────────────
 const loading = ref(false)
-const saving = ref(false)
 const allQuestions = ref<CognitiveQuestion[]>([])
 
 // 筛选
-const filterStatus = ref('')
+// 启用状态筛选：on 已启用 = published；off 已停用 = archived（测试题只有这两态）
+const filterActive = ref<'' | 'on' | 'off'>('')
 const searchText = ref('')
 
-// 操作确认弹窗
-const publishDialogVisible = ref(false)
-const archiveDialogVisible = ref(false)
-const deleteDialogVisible = ref(false)
-const actionTarget = ref<CognitiveQuestion | null>(null)
 
 // ── 计算属性 ──────────────────────────────────────────────────
 const publishedCount = computed(() => allQuestions.value.filter(q => q.status === 'published').length)
-const draftCount = computed(() => allQuestions.value.filter(q => q.status === 'draft').length)
 const archivedCount = computed(() => allQuestions.value.filter(q => q.status === 'archived').length)
 
 const filteredQuestions = computed(() => {
   let list = allQuestions.value
 
-  // 状态筛选
-  if (filterStatus.value) {
-    list = list.filter(q => q.status === filterStatus.value)
+  // 启用状态筛选
+  if (filterActive.value) {
+    const target = filterActive.value === 'on' ? 'published' : 'archived'
+    list = list.filter(q => q.status === target)
   }
 
   // 搜索
@@ -245,7 +198,7 @@ const filteredQuestions = computed(() => {
 })
 
 // ── 初始化 ────────────────────────────────────────────────────
-onMounted(async () => {
+async function loadData() {
   loading.value = true
   try {
     const res = await cognitiveApi.getList()
@@ -253,70 +206,126 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
-})
-
-// ── 发布操作 ──────────────────────────────────────────────────
-function confirmPublish(row: CognitiveQuestion) {
-  actionTarget.value = row
-  publishDialogVisible.value = true
 }
+onMounted(loadData)
 
-async function doPublish() {
-  if (!actionTarget.value) return
-  saving.value = true
-  try {
-    await cognitiveApi.publish(actionTarget.value.id)
-    actionTarget.value.status = 'published'
-    publishDialogVisible.value = false
-    ElMessage.success('题目已发布至测试池')
-  } finally {
-    saving.value = false
+// ── 批量启用 / 停用（后端批量接口，一次请求）──────────────────
+// 测试题只有两态：启用 = archived → published；停用 = published → archived
+const tableRef = ref<{ clearSelection: () => void } | null>(null)
+const selected = ref<CognitiveQuestion[]>([])
+const batchActivating = ref(false)
+const batchDeactivating = ref(false)
+const BATCH_MAX = 200          // 与后端 CBATCH-002 一致：单次最多 200 条
+const PUBLISH_LIMIT = 20       // 与后端一致：已启用上限
+const TEST_MIN_PUBLISHED = 10  // 已启用 ≥ 10 道测试功能可用
+
+function notifyBatchResult(res: CognitiveBatchResult, doneText: string) {
+  const byCode = (code: string) => res.items.filter(i => i.reason_code === code).length
+  const limited = byCode('PUBLISH_LIMIT_REACHED')
+  const skipped = res.skipped_count - limited
+  const notes = [
+    limited > 0 ? `${limited} 道因已启用题目达到上限（${PUBLISH_LIMIT}/${PUBLISH_LIMIT}）未启用` : '',
+    skipped > 0 ? `${skipped} 道状态不符或已处于目标状态，已跳过` : '',
+    res.failed_count > 0 ? `${res.failed_count} 道处理失败，请稍后重试` : '',
+    !res.test_available ? `已启用不足 ${TEST_MIN_PUBLISHED} 道，测试功能已暂停` : '',
+  ].filter(Boolean)
+  if (res.skipped_count === 0 && res.failed_count === 0 && res.test_available) {
+    ElMessage.success(`${doneText} ${res.success_count} 道题目`)
+  } else {
+    ElMessage.warning(`${doneText} ${res.success_count} 道题目${notes.length ? '；' + notes.join('；') : ''}`)
   }
 }
 
-// ── 下架操作 ──────────────────────────────────────────────────
-function confirmArchive(row: CognitiveQuestion) {
-  actionTarget.value = row
-  archiveDialogVisible.value = true
-}
-
-async function doArchive() {
-  if (!actionTarget.value) return
-  saving.value = true
-  try {
-    await cognitiveApi.archive(actionTarget.value.id)
-    actionTarget.value.status = 'archived'
-    archiveDialogVisible.value = false
-    ElMessage.success('题目已停用')
-  } finally {
-    saving.value = false
+async function handleBatchSetStatus(toActive: boolean) {
+  const verb = toActive ? '启用' : '停用'
+  if (selected.value.length === 0) {
+    ElMessage.warning(`请先勾选需要${verb}的题目`)
+    return
   }
-}
-
-// ── 重新发布 ──────────────────────────────────────────────────
-function confirmRepublish(row: CognitiveQuestion) {
-  actionTarget.value = row
-  publishDialogVisible.value = true
-}
-
-// ── 删除草稿 ──────────────────────────────────────────────────
-function confirmDelete(row: CognitiveQuestion) {
-  actionTarget.value = row
-  deleteDialogVisible.value = true
-}
-
-async function doDelete() {
-  if (!actionTarget.value) return
-  saving.value = true
-  try {
-    await cognitiveApi.delete(actionTarget.value.id)
-    const idx = allQuestions.value.findIndex(q => q.id === actionTarget.value!.id)
-    if (idx !== -1) allQuestions.value.splice(idx, 1)
-    deleteDialogVisible.value = false
-    ElMessage.success('草稿已删除')
-  } finally {
-    saving.value = false
+  if (selected.value.length > BATCH_MAX) {
+    ElMessage.warning(`单次最多${verb} ${BATCH_MAX} 道题目，当前已勾选 ${selected.value.length} 道，请减少勾选后重试`)
+    return
   }
+  // 前端预校验仅为交互优化，最终以后端校验为准
+  const sourceStatus = toActive ? 'archived' : 'published'
+  const targets = selected.value.filter(q => q.status === sourceStatus)
+  const skipped = selected.value.length - targets.length
+  if (targets.length === 0) {
+    ElMessage.warning(toActive
+      ? '所选题目中不包含已停用的题目，仅已停用题目可以启用'
+      : '所选题目中不包含已启用的题目，仅已启用题目可以停用')
+    return
+  }
+  let slotNote = ''
+  if (toActive) {
+    const slots = PUBLISH_LIMIT - publishedCount.value
+    if (slots <= 0) {
+      ElMessage.warning(`已启用题目已达上限（${PUBLISH_LIMIT}/${PUBLISH_LIMIT}），请先停用部分题目`)
+      return
+    }
+    if (targets.length > slots) slotNote = `当前剩余启用名额 ${slots} 个，将按勾选顺序启用前 ${slots} 道，其余将被跳过。`
+  } else {
+    const after = publishedCount.value - targets.length
+    if (after < TEST_MIN_PUBLISHED) slotNote = `停用后已启用题目将不足 ${TEST_MIN_PUBLISHED} 道，学生测试功能会暂停。`
+  }
+  const msg = (skipped > 0
+    ? `已勾选 ${selected.value.length} 道题目，其中 ${targets.length} 道将被${verb}；其余 ${skipped} 道状态不符，会被跳过。`
+    : `已勾选 ${targets.length} 道题目，将全部${verb}。`)
+    + slotNote + '是否继续？'
+  const confirmed = await ElMessageBox.confirm(msg, `批量${verb}确认`, {
+    confirmButtonText: `确认${verb}`, cancelButtonText: '取消', type: toActive ? 'info' : 'warning',
+  }).then(() => true, () => false)
+  if (!confirmed) return
+
+  const flag = toActive ? batchActivating : batchDeactivating
+  flag.value = true
+  try {
+    // 提交勾选的全部 ID，资格校验与状态变更由后端完成
+    const ids = selected.value.map(q => q.id)
+    const res = toActive ? await cognitiveApi.batchActivate(ids) : await cognitiveApi.batchDeactivate(ids)
+    notifyBatchResult(res, `已${verb}`)
+    tableRef.value?.clearSelection()
+    await loadData()
+  } finally { flag.value = false }
+}
+
+// ── 启用 / 停用 / 删除（确认弹窗样式与训练题录入「发布」确认一致）──────────
+async function confirmRepublish(row: CognitiveQuestion) {
+  const after = publishedCount.value + 1
+  await ElMessageBox.confirm(
+    `确认启用题目 #${row.id}？启用后该题将加入测试题池，当前已启用 ${publishedCount.value} 道，启用后将达 ${after} 道。\n\n` +
+    (after === 10 ? '启用后将达到 10 道，测试功能将自动开启。' : '启用后题目内容的修改将立即影响新测试会话的评分计算。'),
+    '确认启用',
+    { confirmButtonText: '确认启用', cancelButtonText: '取消', type: 'info' }
+  )
+  await cognitiveApi.publish(row.id)
+  row.status = 'published'
+  ElMessage.success('题目已启用，已加入测试题池')
+}
+
+async function confirmArchive(row: CognitiveQuestion) {
+  const left = publishedCount.value - 1
+  await ElMessageBox.confirm(
+    `确认停用题目 #${row.id}？停用后该题不再参与新测试组卷，当前已启用 ${publishedCount.value} 道，停用后将剩 ${left} 道。\n\n` +
+    (left < 10 ? '停用后已启用题目将不足 10 道，测试功能将暂停，请尽快启用更多题目。' : `停用后仍有 ${left} 道题目，测试功能保持正常。`),
+    '确认停用',
+    { confirmButtonText: '确认停用', cancelButtonText: '取消', type: 'warning' }
+  )
+  await cognitiveApi.archive(row.id)
+  row.status = 'archived'
+  ElMessage.success('题目已停用')
+}
+
+async function confirmDelete(row: CognitiveQuestion) {
+  await ElMessageBox.confirm(
+    `确认删除题目 #${row.id}？删除后该题目将从列表中移除，且无法恢复，历史测试成绩不受影响。`,
+    '确认删除',
+    { confirmButtonText: '确认删除', cancelButtonText: '取消', type: 'error' }
+  )
+  await cognitiveApi.delete(row.id)
+  const idx = allQuestions.value.findIndex(q => q.id === row.id)
+  if (idx !== -1) allQuestions.value.splice(idx, 1)
+  ElMessage.success('题目已删除')
 }
 </script>
 
@@ -347,7 +356,7 @@ async function doDelete() {
   }
 }
 
-// ── 题干列 ───────────────────────────────────────────────────
+// ── 题目列 ───────────────────────────────────────────────────
 .stem-text {
   font-size: 13.5px;
   color: var(--text-1);
@@ -480,23 +489,6 @@ async function doDelete() {
   &--DEDUCE    { background: var(--power-deduce); }
   &--ADAPT     { background: var(--power-adapt); }
   &--MIGRATE   { background: var(--power-migrate); }
-}
-
-// ── 状态 Badge（样式与训练题列表难度列一致）────────────────────
-.status-badge {
-  font-size: 12px;
-  font-weight: 500;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 22px;
-  padding: 0 10px;
-  border-radius: 11px;
-  border: none;
-
-  &--draft     { background: #FFF0D6; color: #B45309; }
-  &--published { background: #E8F5D0; color: #4A7C10; }
-  &--archived  { background: #FFE0E0; color: #DC2626; }
 }
 
 // 深色主题：indigo 变为亮黄绿，答案 key 徽标文字需改为深色

@@ -1,4 +1,6 @@
-from sqlalchemy import BigInteger, Integer, SmallInteger, String, Text
+from datetime import datetime
+
+from sqlalchemy import BigInteger, DateTime, Integer, SmallInteger, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -15,6 +17,8 @@ class CognitiveTestQuestion(Base, TimestampMixin):
     image_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     answers: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
     reference_time_sec: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=90)
-    status: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="archived")
     created_by: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     updated_by: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    # 软删除标记：非 NULL 表示已删除（数据保留，历史作答记录依赖该题）
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

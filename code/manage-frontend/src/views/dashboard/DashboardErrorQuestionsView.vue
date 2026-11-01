@@ -80,7 +80,7 @@
               <span class="num" :class="row.rank <= 3 ? 'rank-hot' : 'rank-normal'">{{ row.rank }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="题干摘要" min-width="340">
+          <el-table-column label="题目摘要" min-width="340">
             <template #default="{ row }">
               <span style="font-size:13.5px;color:var(--text-1)">{{ row.stem.substring(0, 55) }}{{ row.stem.length > 55 ? '…' : '' }}</span>
             </template>

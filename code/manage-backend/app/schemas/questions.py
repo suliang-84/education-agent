@@ -33,7 +33,7 @@ class PublishPayload(BaseModel):
 
 
 class ContentUpdateReq(PublishPayload):
-    """已发布/已停用题目的内容修改，字段同发布，另可修改题干"""
+    """已发布/已停用题目的内容修改，字段同发布，另可修改题目"""
     stem: str | None = Field(None, min_length=1, max_length=1000)
 
 

@@ -6,11 +6,13 @@
  * v1.3.0：去除 target_power、option_scores，答案统一使用 answers 数组
  * v1.4.0：去除 question_type 和 correct_option，新增 description 字段
  *
- * 状态流：draft → published / archived（PATCH /status 接口统一处理）
+ * v1.7.0：取消草稿，测试题只有「已启用 published / 已停用 archived」两态，新建即 archived
+ * 状态流：archived ⇄ published（PATCH /status 接口统一处理）
  * 历史成绩保护：每次测试会话创建时生成内容快照，后续修改不影响历史成绩
  */
 import request from './request'
 import type { CognitiveQuestion, FivePower } from '@/types'
+import type { BatchResult } from './questions'
 
 // ── 响应类型 ─────────────────────────────────────────────────
 
@@ -19,6 +21,12 @@ export interface CognitiveListResponse {
   published_count: number     // 当前已发布数量
   test_available: boolean     // 是否满足测试条件（已发布数 ≥ 10）
   list: CognitiveQuestion[]
+}
+
+/** 批量启用 / 停用响应：通用批量结果 + 处理后的测试池汇总 */
+export interface CognitiveBatchResult extends BatchResult {
+  published_count: number     // 处理后已发布总数
+  test_available: boolean     // 已发布数 ≥ 10
 }
 
 /** 状态变更响应 */
@@ -56,7 +64,7 @@ export const cognitiveApi = {
     request.get<unknown, CognitiveListResponse>('/cognitive-questions', { params }),
 
   /**
-   * 新增测试题目（创建后状态为 draft）
+   * 新增测试题目（创建后状态为 archived 已停用，启用后才参与测试）
    * POST /api/v1/admin/cognitive-questions
    * 接口文档：§9.3.2
    */
@@ -67,7 +75,7 @@ export const cognitiveApi = {
     ),
 
   /**
-   * 编辑测试题目（支持 draft、published、archived 三种状态）
+   * 编辑测试题目（仅已停用 archived 题目可编辑）
    * 所有字段均为可选（仅传需修改的字段）；answers 传入时为全量替换
    * PATCH /api/v1/admin/cognitive-questions/{id}
    * 接口文档：§9.3.3
@@ -79,8 +87,8 @@ export const cognitiveApi = {
     ),
 
   /**
-   * 发布题目（draft/archived → published）
-   * 当前已发布数 ≥ 20 时拒绝发布，返回 COGQ-001
+   * 启用题目（archived → published）
+   * 当前已启用数 ≥ 20 时拒绝启用，返回 COGQ-001
    * PATCH /api/v1/admin/cognitive-questions/{id}/status  body: { status: "published" }
    * 接口文档：§9.3.4
    */
@@ -91,8 +99,8 @@ export const cognitiveApi = {
     ),
 
   /**
-   * 下架题目（published → archived）
-   * 下架后可在 archived 状态下继续编辑，编辑完成后重新发布
+   * 停用题目（published → archived）
+   * 停用后可编辑，编辑完成后重新启用
    * PATCH /api/v1/admin/cognitive-questions/{id}/status  body: { status: "archived" }
    * 接口文档：§9.3.4
    */
@@ -103,7 +111,23 @@ export const cognitiveApi = {
     ),
 
   /**
-   * 删除草稿题目（仅 draft 状态，物理删除）
+   * 批量启用（仅已停用 archived 参与；受 20 道发布上限约束，名额按提交顺序分配）
+   * POST /api/v1/admin/cognitive-questions/batch-activate
+   * 接口文档：§9.3.6
+   */
+  batchActivate: (questionIds: number[]) =>
+    request.post<unknown, CognitiveBatchResult>('/cognitive-questions/batch-activate', { question_ids: questionIds }),
+
+  /**
+   * 批量停用（仅已启用 published 参与）
+   * POST /api/v1/admin/cognitive-questions/batch-deactivate
+   * 接口文档：§9.3.7
+   */
+  batchDeactivate: (questionIds: number[]) =>
+    request.post<unknown, CognitiveBatchResult>('/cognitive-questions/batch-deactivate', { question_ids: questionIds }),
+
+  /**
+   * 删除题目（已停用 archived 可删，已启用不可删）
    * DELETE /api/v1/admin/cognitive-questions/{id}
    * 接口文档：§9.3.5
    */

@@ -2,7 +2,7 @@
  * 题库管理接口模块
  * 接口文档：§9.1（题目管理）
  *
- * 流程：录入题干 → 触发模型分析（异步）→ 审核结果（可修改）→ 发布 / 驳回
+ * 流程：录入题目 → 触发模型分析（异步）→ 审核结果（可修改）→ 发布 / 驳回
  * 状态流：draft → analyzing → pending_review → published / archived
  *
  * v1.2.0：新增 analyze、publish、reject 接口，撤销独立 AI 标注审核
@@ -51,7 +51,7 @@ export interface QuestionListParams {
   // 其他筛选
   status?: 'draft' | 'analyzing' | 'pending_review' | 'published' | 'archived'
   difficulty?: 'basic' | 'advanced' | 'challenge'
-  /** 启用状态：true 已启用 / false 未启用（不传=全部） */
+  /** 状态：true 已启用 / false 已停用（不传=全部） */
   is_active?: boolean
   keyword?: string
   // 排序
@@ -130,7 +130,7 @@ export const questionApi = {
     request.get<unknown, Question & { latest_analysis: Record<string, any> | null }>(`/questions/${questionId}`),
 
   /**
-   * 录入题干（创建题目）—— 仅需 stem + 可选 image_url
+   * 录入题目—— 仅需 stem + 可选 image_url
    * 创建后状态为 draft，其余字段由大模型分析后填充
    * POST /api/v1/admin/questions
    * 接口文档：§9.1.2
@@ -139,7 +139,7 @@ export const questionApi = {
     request.post<unknown, { question_id: number; status: string }>('/questions', data),
 
   /**
-   * 识别图片中的题干文字（大模型视觉）
+   * 识别图片中的题目文字（大模型视觉）
    * POST /api/v1/admin/questions/recognize-image
    */
   recognizeImage: (file: File) => {
@@ -153,7 +153,7 @@ export const questionApi = {
   },
 
   /**
-   * 编辑草稿题干（仅 draft 状态允许）
+   * 编辑草稿题目（仅 draft 状态允许）
    * PATCH /api/v1/admin/questions/{question_id}
    */
   update: (questionId: number, data: { stem: string; image_url?: string | null }) =>
@@ -286,7 +286,7 @@ export const questionApi = {
     request.delete(`/questions/${questionId}`),
 
   /**
-   * 批量导入题干（文件上传，每条自动触发模型分析）
+   * 批量导入题目（文件上传，每条自动触发模型分析）
    * POST /api/v1/admin/questions/batch-import
    * Content-Type: multipart/form-data
    * 接口文档：§9.1.9
@@ -302,7 +302,7 @@ export const questionApi = {
   },
 
   /**
-   * 批量导入题干（文本数组形式，兼容当前前端实现）
+   * 批量导入题目（文本数组形式，兼容当前前端实现）
    * POST /api/v1/admin/questions/batch-import
    */
   batchImportStems: (stems: string[]) =>

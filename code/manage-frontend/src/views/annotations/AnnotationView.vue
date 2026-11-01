@@ -184,7 +184,7 @@ async function handleReject(item: Annotation) {
 function skipItem() { ElMessage.info('已跳过') }
 
 async function handleBatchConfirm() {
-  await ElMessageBox.confirm(`确认批量确认 ${highConfidenceCount.value} 条置信度 ≥85% 的标注？`, '批量确认', { type: 'warning' })
+  await ElMessageBox.confirm(`确认批量确认 ${highConfidenceCount.value} 条置信度 ≥85% 的标注？`, '批量确认', { confirmButtonText: '确认', cancelButtonText: '取消', type: 'warning' })
   await annotationApi.batchConfirm(0.85)
   ElMessage.success(`已批量确认 ${highConfidenceCount.value} 条标注`)
   loadData()

@@ -23,7 +23,7 @@
 
     <el-form ref="formRef" :model="form" :rules="rules" label-width="0" v-loading="loading" style="flex:1;min-height:0;display:flex;flex-direction:column">
 
-      <!-- 题干 -->
+      <!-- 题目 -->
       <div class="form-section surface stem-section stem-block">
         <div class="section-hd">
           <span class="section-title"><SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />题目内容</span>
@@ -37,7 +37,7 @@
           >
             <el-button size="small" text :loading="recognizing" style="color:var(--color-primary)">
               <SvgIcon v-if="!recognizing" name="camera" :size="16" color="var(--color-primary)" style="margin-right:4px" />
-              {{ recognizing ? '识别中...' : '上传图片识别题干' }}
+              {{ recognizing ? '识别中...' : '上传图片识别题目' }}
             </el-button>
           </el-upload>
         </div>
@@ -48,7 +48,7 @@
             type="textarea"
             style="height:100%"
             :rows="7"
-            placeholder="请输入完整的题目题干，包含题目情境、已知条件和设问...
+            placeholder="请输入完整的题目，包含题目情境、已知条件和设问...
 
 示例：
 几个人一起买一件东西。如果每人出400钱，会多出3400钱；如果每人出300钱，会多出100钱。请建立人数与总价之间的方程关系。"
@@ -133,16 +133,16 @@ async function handleImageChange(uploadFile: UploadFile) {
   try {
     const res = await questionApi.recognizeImage(file)
     form.stem = res.stem
-    ElMessage.success('图片识别成功，已填入题干')
+    ElMessage.success('图片识别成功，已填入题目')
   } catch {
-    ElMessage.error('图片识别失败，请手动输入题干')
+    ElMessage.error('图片识别失败，请手动输入题目')
   } finally {
     recognizing.value = false
   }
 }
 
 function handleImageRemove() {
-  // 移除图片时不清空题干（已识别的内容保留）
+  // 移除图片时不清空题目（已识别的内容保留）
 }
 
 const questionId = computed(() => route.params.id ? Number(route.params.id) : null)
@@ -175,11 +175,11 @@ async function handleSave(mode: 'draft' | 'analyze') {
     if (isEdit.value) {
       await questionApi.update(questionId.value!, { stem: form.stem })
       id = questionId.value!
-      ElMessage.success(mode === 'analyze' ? '题干已更新，大模型分析任务已提交，约 10~30 秒完成' : '草稿已更新')
+      ElMessage.success(mode === 'analyze' ? '题目已更新，大模型分析任务已提交，约 10~30 秒完成' : '草稿已更新')
     } else {
       const created = await questionApi.create({ stem: form.stem })
       id = created.question_id
-      ElMessage.success(mode === 'analyze' ? '题干已保存，大模型分析任务已提交，约 10~30 秒完成' : '草稿已保存')
+      ElMessage.success(mode === 'analyze' ? '题目已保存，大模型分析任务已提交，约 10~30 秒完成' : '草稿已保存')
     }
     if (mode === 'analyze') {
       await questionApi.analyze(id)
@@ -262,7 +262,7 @@ async function handleSave(mode: 'draft' | 'analyze') {
   border-radius: 4px;
 }
 
-// 题干盒子：flex 伸缩布局，自适应剩余高度
+// 题目盒子：flex 伸缩布局，自适应剩余高度
 .stem-section {
   flex: 1;
   min-height: 0;

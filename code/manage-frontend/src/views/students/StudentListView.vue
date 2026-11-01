@@ -508,7 +508,7 @@ async function toggleAdmin(row: AdminUser, active: 0 | 1) {
   await ElMessageBox.confirm(
     `确认${label}管理员「${row.display_name}」？${active === 0 ? '\n停用后该账号 Token 立即失效。' : ''}`,
     `${label}管理员账号`,
-    { confirmButtonText: '确认', cancelButtonText: '取消', type: 'warning' }
+    { confirmButtonText: `确认${label}`, cancelButtonText: '取消', type: 'warning' }
   ).catch(() => { throw new Error('cancelled') })
   try {
     await adminUserApi.setActive(row.id, active)

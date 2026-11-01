@@ -358,7 +358,7 @@ $t-slow:   350ms;
   }
 }
 
-// 深色主题下 Tooltip（含表格题干摘要的 effect="light" 提示）：背景与文字显式指定，避免深底深字看不清
+// 深色主题下 Tooltip（含表格题目摘要的 effect="light" 提示）：背景与文字显式指定，避免深底深字看不清
 // popper 挂载在 body 下，需用全局选择器
 [data-theme="dark"] .el-popper.is-dark,
 [data-theme="dark"] .el-popper.is-light {
@@ -2764,4 +2764,18 @@ html[data-theme] .el-message-box {
   vertical-align: top;
   position: relative !important;
   top: 25%;
+}
+
+// ── 状态列（训练题管理 / 测试题管理共用）──────────────────
+// 状态列：圆环对勾 / 圆环叉图标 + 文字，无底色无圆点，与「状态」列的圆点样式区分；图标色走主题变量
+.active-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  white-space: nowrap;
+
+  // 文字与图标同色：SvgIcon 默认 fill: currentColor，随文字色变化
+  &--on  { color: var(--green); }
+  &--off { color: var(--red); }
 }

@@ -45,6 +45,11 @@ class StatusChangeReq(BaseModel):
     status: str = Field(..., pattern=r'^(published|archived)$')
 
 
+class CognitiveBatchIdsReq(BaseModel):
+    """批量启用 / 停用请求体；数量与合法性由 service.normalize_batch_ids 校验（CBATCH-001/002）"""
+    question_ids: list[Any] = []
+
+
 # ── 响应体 ────────────────────────────────────────────────────
 
 class CognitiveQuestionItem(BaseModel):

@@ -261,7 +261,7 @@ const mockRoutes: MockMethod[] = [
     method: 'post',
     response: ({ body }) => {
       const stems = (body as { stems?: string[] }).stems || []
-      return success({ imported_count: stems.length, message: `已创建 ${stems.length} 条题干，AI 分析任务已提交` })
+      return success({ imported_count: stems.length, message: `已创建 ${stems.length} 条题目，AI 分析任务已提交` })
     },
   },
 

@@ -16,12 +16,12 @@ from app.services import audit_service, questions_service
 router = APIRouter()
 
 
-@router.post("/questions/recognize-image", summary="识别图片中的题干文字")
+@router.post("/questions/recognize-image", summary="识别图片中的题目文字")
 async def recognize_image(
     file: UploadFile = File(...),
     _: AdminUser = Depends(get_current_admin),
 ):
-    """上传图片，调用大模型视觉能力识别其中的文字内容，返回题干文本。"""
+    """上传图片，调用大模型视觉能力识别其中的文字内容，返回题目文本。"""
     allowed = {"image/jpeg", "image/png", "image/webp", "image/gif"}
     content_type = file.content_type or "image/jpeg"
     if content_type not in allowed:
@@ -192,7 +192,7 @@ async def get_question(
     })
 
 
-@router.post("/questions", summary="录入题干（创建题目）")
+@router.post("/questions", summary="录入题目")
 async def create_question(
     body: QuestionCreateReq,
     db: AsyncSession = Depends(get_db),

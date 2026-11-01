@@ -106,16 +106,16 @@
 
         <!-- 筛选栏 -->
         <div class="inner-toolbar">
-          <el-input v-model="filters.keyword" placeholder="搜索题干..." clearable>
+          <el-input v-model="filters.keyword" placeholder="搜索题目..." clearable>
             <template #prefix>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/>
               </svg>
             </template>
           </el-input>
-          <el-select v-model="filters.is_active" placeholder="启用状态" clearable style="width:110px" @change="handleSearch">
+          <el-select v-model="filters.is_active" placeholder="状态" clearable style="width:110px" @change="handleSearch">
             <el-option label="已启用" :value="true" />
-            <el-option label="未启用" :value="false" />
+            <el-option label="已停用" :value="false" />
           </el-select>
           <el-select v-model="filters.difficulty" placeholder="难度" clearable style="width:90px" @change="handleSearch">
             <el-option v-for="(label, key) in DifficultyLabels" :key="key" :label="label" :value="key" />
@@ -146,7 +146,7 @@
               </template>
             </el-table-column>
 
-            <el-table-column label="题干" min-width="300">
+            <el-table-column label="题目" min-width="300">
               <template #default="{ row }">
                 <el-tooltip :content="row.stem" placement="top-start" :show-after="300" effect="light">
                   <span class="stem-text">{{ row.stem }}</span>
@@ -154,12 +154,12 @@
               </template>
             </el-table-column>
 
-            <!-- 启用状态（is_active 独立于 status）-->
-            <el-table-column label="启用状态" width="100" align="center">
+            <!-- 状态（is_active：已启用 / 已停用，独立于发布状态 status）-->
+            <el-table-column label="状态" width="100" align="center">
               <template #default="{ row }">
                 <span class="active-flag" :class="row.is_active === false ? 'active-flag--off' : 'active-flag--on'">
                   <SvgIcon :name="row.is_active === false ? 'close_circle' : 'check_circle'" :size="16" />
-                  {{ row.is_active === false ? '未启用' : '已启用' }}
+                  {{ row.is_active === false ? '已停用' : '已启用' }}
                 </span>
               </template>
             </el-table-column>
@@ -381,7 +381,7 @@ async function loadData() {
       status: 'published',
     }
     if (filters.difficulty)            params.difficulty          = filters.difficulty
-    if (typeof filters.is_active === 'boolean') params.is_active = filters.is_active   // true 已启用 / false 未启用
+    if (typeof filters.is_active === 'boolean') params.is_active = filters.is_active   // true 已启用 / false 已停用
     if (filters.keyword)               params.keyword             = filters.keyword
     if (treeFilter.subject_id)         params.subject_id          = treeFilter.subject_id
     if (treeFilter.grade_id)           params.grade_id            = treeFilter.grade_id
@@ -657,7 +657,7 @@ onMounted(() => { loadData(); loadKnowledgeTree(); loadTotalAll() })
   gap: 10px;
 }
 
-// ── 题干列 ───────────────────────────────────────────────────
+// ── 题目列 ───────────────────────────────────────────────────
 .stem-cell { display: flex; align-items: center; gap: 8px; }
 .stem-text {
   font-size: 13.5px; color: var(--text-1);
@@ -686,19 +686,6 @@ onMounted(() => { loadData(); loadKnowledgeTree(); loadTotalAll() })
   &--DEDUCE    { color: var(--el-table-text-color); .power-dot-label__dot { background: var(--power-deduce); } }
   &--ADAPT     { color: var(--el-table-text-color); .power-dot-label__dot { background: var(--power-adapt); } }
   &--MIGRATE   { color: var(--el-table-text-color); .power-dot-label__dot { background: var(--power-migrate); } }
-}
-
-// 启用状态：圆环对勾 / 圆环叉图标 + 文字，无底色无圆点，与「状态」列的圆点样式区分；图标色走主题变量
-.active-flag {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 13px;
-  white-space: nowrap;
-
-  // 文字与图标同色：SvgIcon 默认 fill: currentColor，随文字色变化
-  &--on  { color: var(--green); }
-  &--off { color: var(--red); }
 }
 
 .diff-badge {

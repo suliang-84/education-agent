@@ -6,7 +6,7 @@
 
       <!-- 筛选栏（操作按钮与筛选同级） -->
       <div class="inner-toolbar">
-        <el-input v-model="filters.keyword" placeholder="搜索题干..." clearable>
+        <el-input v-model="filters.keyword" placeholder="搜索题目..." clearable>
           <template #prefix>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/>
@@ -34,7 +34,7 @@
         </el-button>
         <button class="btn-pink" style="padding:0 8px;gap:5px" @click="$router.push('/questions/create')">
           <SvgIcon name="add" :size="15" />
-          录入题干
+          录入题目
         </button>
       </div>
 
@@ -55,7 +55,7 @@
             </template>
           </el-table-column>
 
-          <el-table-column label="题干" min-width="300">
+          <el-table-column label="题目" min-width="300">
             <template #default="{ row }">
               <el-tooltip :content="row.stem" placement="top-start" :show-after="300" effect="light">
                 <span class="stem-text">{{ row.stem }}</span>
@@ -136,12 +136,12 @@
     </div>
 
     <!-- ── 批量导入弹窗 ── -->
-    <el-dialog v-model="showImport" title="批量导入题干" width="560px">
+    <el-dialog v-model="showImport" title="批量导入题目" width="560px">
       <div class="import-hint">
-        <p>每行一道题目的题干文本，导入后系统将<strong>自动触发大模型逐条分析</strong>，无需手动操作。</p>
+        <p>每行一道题目文本，导入后系统将<strong>自动触发大模型逐条分析</strong>，无需手动操作。</p>
         <p style="margin-top:8px">或上传 <code class="inline-code">.txt</code> / <code class="inline-code">.json</code> 格式文件（JSON 格式每条仅需包含 <code class="inline-code">stem</code> 字段）。</p>
       </div>
-      <el-input v-model="batchStems" type="textarea" :rows="8" placeholder="每行粘贴一道题干..." style="margin-top:16px" />
+      <el-input v-model="batchStems" type="textarea" :rows="8" placeholder="每行粘贴一道题目..." style="margin-top:16px" />
       <el-upload drag accept=".txt,.json" :auto-upload="false" :on-change="handleFileChange" style="margin-top:12px">
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--indigo)" stroke-width="1.5" style="margin-bottom:6px">
           <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
@@ -339,7 +339,7 @@ async function handleBatchPublish() {
 }
 
 async function handleDelete(row: Question) {
-  await ElMessageBox.confirm(`确认删除草稿 #${row.id}？此操作不可恢复。`, '确认删除', { type: 'error' })
+  await ElMessageBox.confirm(`确认删除草稿 #${row.id}？此操作不可恢复。`, '确认删除', { confirmButtonText: '确认删除', cancelButtonText: '取消', type: 'error' })
   await questionApi.delete(row.id)
   ElMessage.success('草稿已删除')
   loadData()
@@ -408,7 +408,7 @@ async function handleImport() {
   importLoading.value = true
   try {
     await questionApi.batchImportStems(stems)
-    ElMessage.success(`已导入 ${stems.length} 条题干，大模型分析任务已提交`)
+    ElMessage.success(`已导入 ${stems.length} 条题目，大模型分析任务已提交`)
     showImport.value = false; batchStems.value = ''
     loadData()
   } finally { importLoading.value = false }
@@ -491,7 +491,7 @@ onUnmounted(() => stopPolling())
   &--archived       { background: var(--text-3); }
 }
 
-// ── 题干列 ───────────────────────────────────────────────────
+// ── 题目列 ───────────────────────────────────────────────────
 .stem-cell { display: flex; align-items: center; gap: 8px; }
 .stem-text {
   font-size: 13.5px; color: var(--text-1);

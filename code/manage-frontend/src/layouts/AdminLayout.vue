@@ -190,7 +190,7 @@ const userInitial = computed(() => authStore.user?.username?.[0]?.toUpperCase() 
 
 async function handleCommand(cmd: string) {
   if (cmd === 'logout') {
-    await ElMessageBox.confirm('确认退出登录？', '提示', { type: 'warning' })
+    await ElMessageBox.confirm('确认退出登录？', '确认退出', { confirmButtonText: '确认退出', cancelButtonText: '取消', type: 'warning' })
     await authApi.logout().catch(() => {})
     authStore.clearAuth()
     router.push('/login')

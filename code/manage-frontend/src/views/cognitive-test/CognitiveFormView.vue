@@ -10,53 +10,40 @@
         返回
       </el-button>
       <div style="flex:1" />
-      <!-- 草稿：保存草稿 + 保存并发布 -->
-      <template v-if="!isEdit || currentStatus === 'draft'">
-        <el-button @click="handleSave('draft')" :loading="saving">
-          <SvgIcon v-if="!saving" name="save" :size="14" style="margin-right:4px" />
-          保存题目
-        </el-button>
-        <button class="btn-pink" type="button" @click="handleSave('publish')" :disabled="saving || loading">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-          </svg>
-          保存并发布
-        </button>
-      </template>
-      <!-- 已下架：保存修改 + 保存并重新发布 -->
-      <template v-else-if="currentStatus === 'archived'">
+      <!-- 新建 / 已停用：保存题目 + 保存并启用 -->
+      <template v-if="!isEdit || currentStatus === 'archived'">
         <el-button @click="handleSave('save')" :loading="saving">
           <SvgIcon v-if="!saving" name="save" :size="14" style="margin-right:4px" />
           保存题目
         </el-button>
-        <button class="btn-pink" type="button" @click="handleSave('republish')" :disabled="saving || loading">
+        <button class="btn-pink" type="button" @click="handleSave('enable')" :disabled="saving || loading">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>
-          保存并重新发布
+          保存并启用
         </button>
       </template>
-      <!-- 已发布：保存修改（自动生效）-->
+      <!-- 已启用：保存修改（自动生效）-->
       <template v-else>
         <el-button type="primary" @click="handleSave('save')" :loading="saving">保存题目</el-button>
       </template>
     </div>
 
-    <!-- ── 已发布题目修改提醒 ── -->
+    <!-- ── 已启用题目修改提醒 ── -->
     <div v-if="currentStatus === 'published'" class="published-notice">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0">
         <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
       </svg>
-      <span>此题目已发布，修改将<strong>立即影响新测试会话</strong>，历史成绩不受影响。</span>
+      <span>此题目已启用，修改将<strong>立即影响新测试会话</strong>，历史成绩不受影响。</span>
     </div>
 
-    <!-- ── 新增 / 草稿状态提示 ── -->
-    <div v-else-if="(!isEdit || currentStatus === 'draft') && publishedCount < 10" class="publish-tip publish-tip--warn">
+    <!-- ── 新增 / 已停用状态提示 ── -->
+    <div v-else-if="(!isEdit || currentStatus === 'archived') && publishedCount < 10" class="publish-tip publish-tip--warn">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0">
         <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"/>
       </svg>
       <span>
-        当前已发布 <strong class="num">{{ publishedCount }}</strong> 道，还需发布 <strong class="num">{{ 10 - publishedCount }}</strong> 道，测试功能方可对学生开放。
+        当前已启用 <strong class="num">{{ publishedCount }}</strong> 道，还需启用 <strong class="num">{{ 10 - publishedCount }}</strong> 道，测试功能方可对学生开放。
       </span>
     </div>
 
@@ -77,7 +64,7 @@
               v-model="form.stem"
               type="textarea"
               :rows="5"
-              placeholder="请输入题目题干，描述具体情境和问题..."
+              placeholder="请输入题目，描述具体情境和问题..."
               show-word-limit
               maxlength="800"
             />
@@ -223,22 +210,20 @@ const saving  = ref(false)
 const publishedCount = ref(0)
 
 const isEdit        = computed(() => !!route.params.id)
-const currentStatus = ref<'draft' | 'published' | 'archived' | null>(null)
+const currentStatus = ref<'published' | 'archived' | null>(null)
 const powers        = ['INSIGHT', 'CONSTRUCT', 'DEDUCE', 'ADAPT', 'MIGRATE'] as const
 
 // ── 页头动态文案 ──────────────────────────────────────────────
 const pageTitle = computed(() => {
   if (!isEdit.value) return '新增测试题目'
-  if (currentStatus.value === 'archived')  return '编辑已下架题目'
-  if (currentStatus.value === 'published') return '编辑已发布题目'
-  return '编辑草稿题目'
+  if (currentStatus.value === 'published') return '编辑已启用题目'
+  return '编辑已停用题目'
 })
 
 const pageSubtitle = computed(() => {
-  if (!isEdit.value) return '创建五力认知测试题，保存为草稿后可发布至测试池'
-  if (currentStatus.value === 'archived')  return `题目 #${route.params.id} · 修改完成后可重新发布，不影响历史成绩`
-  if (currentStatus.value === 'published') return `题目 #${route.params.id} · 已发布，修改立即对新测试会话生效`
-  return `题目 #${route.params.id} · 草稿状态`
+  if (!isEdit.value) return '创建五力认知测试题，保存后为已停用状态，启用后才参与测试'
+  if (currentStatus.value === 'published') return `题目 #${route.params.id} · 已启用，修改立即对新测试会话生效`
+  return `题目 #${route.params.id} · 已停用，修改完成后可启用，不影响历史成绩`
 })
 
 // ── 新建一个默认答案（均等权重）──────────────────────────────
@@ -313,7 +298,7 @@ onMounted(async () => {
 })
 
 // ── 保存 ─────────────────────────────────────────────────────
-async function handleSave(action: 'draft' | 'publish' | 'save' | 'republish') {
+async function handleSave(action: 'save' | 'enable') {
   const [v1, v2] = await Promise.all([
     formRef.value?.validate().catch(() => false),
     stemFormRef.value?.validate().catch(() => false),
@@ -341,25 +326,15 @@ async function handleSave(action: 'draft' | 'publish' | 'save' | 'republish') {
     return
   }
 
-  if (action === 'publish' || action === 'republish') {
-
-    if (action === 'republish') {
-      await ElMessageBox.confirm(
-        `重新发布后该题将重新加入测试题池。\n\n` +
-        `当前已发布：${publishedCount.value} 道，发布后将达：${publishedCount.value + 1} 道。\n\n` +
-        `✅ 历史测试会话的评分结果不受影响——系统已为每次测试生成内容快照，历史成绩始终基于测试时的快照版本计算。`,
-        '确认重新发布此题目？',
-        { confirmButtonText: '确认重新发布', cancelButtonText: '取消', type: 'info' }
-      ).catch(() => { throw new Error('cancelled') })
-    } else {
-      const willEnable = publishedCount.value < 10 && publishedCount.value + 1 >= 10
-      await ElMessageBox.confirm(
-        `发布后该题将加入测试池。当前已发布 ${publishedCount.value} 道，发布后将达 ${publishedCount.value + 1} 道。` +
-        (willEnable ? '\n\n🎉 发布后将达到10道，测试功能将自动对学生开放！' : '\n\n⚠ 发布后题目内容的修改将立即影响新测试会话。'),
-        '确认发布此题目？',
-        { confirmButtonText: '确认发布', cancelButtonText: '取消', type: 'warning' }
-      ).catch(() => { throw new Error('cancelled') })
-    }
+  if (action === 'enable') {
+    const willEnable = publishedCount.value < 10 && publishedCount.value + 1 >= 10
+    await ElMessageBox.confirm(
+      `启用后该题将加入测试题池。当前已启用 ${publishedCount.value} 道，启用后将达 ${publishedCount.value + 1} 道。` +
+      (willEnable ? '\n\n🎉 启用后将达到10道，测试功能将自动对学生开放！' : '') +
+      (isEdit.value ? '\n\n✅ 历史测试会话的评分结果不受影响——系统已为每次测试生成内容快照，历史成绩始终基于测试时的快照版本计算。' : ''),
+      '确认启用此题目？',
+      { confirmButtonText: '确认启用', cancelButtonText: '取消', type: 'info' }
+    ).catch(() => { throw new Error('cancelled') })
   }
 
   saving.value = true
@@ -376,22 +351,12 @@ async function handleSave(action: 'draft' | 'publish' | 'save' | 'republish') {
 
     if (isEdit.value) {
       await cognitiveApi.update(Number(route.params.id), payload)
-      if (action === 'publish' || action === 'republish') {
-        await cognitiveApi.publish(Number(route.params.id))
-      }
-      const successMsg: Record<typeof action, string> = {
-        draft:     '草稿已保存',
-        save:      '修改已保存',
-        publish:   '修改已保存并发布',
-        republish: '修改已保存，题目已重新发布至测试池',
-      }
-      ElMessage.success(successMsg[action])
+      if (action === 'enable') await cognitiveApi.publish(Number(route.params.id))
+      ElMessage.success(action === 'enable' ? '修改已保存，题目已启用' : '修改已保存')
     } else {
       const created = await cognitiveApi.create(payload)
-      if (action === 'publish') {
-        await cognitiveApi.publish(created.id)
-      }
-      ElMessage.success(action === 'publish' ? '题目已创建并发布至测试池' : '草稿已保存')
+      if (action === 'enable') await cognitiveApi.publish(created.id)
+      ElMessage.success(action === 'enable' ? '题目已创建并启用' : '题目已保存（已停用）')
     }
 
     router.push('/cognitive-test')
@@ -443,7 +408,7 @@ async function handleSave(action: 'draft' | 'publish' | 'save' | 'republish') {
   line-height: 1.5;
 }
 
-// ── 已下架题目安全编辑提示 ───────────────────────────────────
+// ── 已停用题目安全编辑提示 ───────────────────────────────────
 .archive-notice {
   display: flex;
   align-items: flex-start;
@@ -469,7 +434,7 @@ async function handleSave(action: 'draft' | 'publish' | 'save' | 'republish') {
   }
 }
 
-// ── 已发布题目修改提醒 ───────────────────────────────────────
+// ── 已启用题目修改提醒 ───────────────────────────────────────
 .published-notice {
   display: flex;
   align-items: center;

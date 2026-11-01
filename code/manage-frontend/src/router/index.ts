@@ -61,13 +61,13 @@ const router = createRouter({
           path: 'questions/create',
           name: 'QuestionCreate',
           component: () => import('@/views/questions/QuestionFormView.vue'),
-          meta: { title: '录入题干' },
+          meta: { title: '录入题目' },
         },
         {
           path: 'questions/:id/edit',
           name: 'QuestionEdit',
           component: () => import('@/views/questions/QuestionFormView.vue'),
-          meta: { title: '编辑题干' },
+          meta: { title: '编辑题目' },
         },
         {
           path: 'questions/:id/review',

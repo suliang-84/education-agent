@@ -6,6 +6,7 @@ from app.core.response import ok_response
 from app.dependencies import get_current_admin, get_db
 from app.models.admin import AdminUser
 from app.schemas.cognitive import (
+    CognitiveBatchIdsReq,
     CognitiveQuestionCreateReq,
     CognitiveQuestionUpdateReq,
     StatusChangeReq,
@@ -60,6 +61,36 @@ async def create_question(
     return ok_response({"id": qid, "status": qstatus}, "题目创建成功")
 
 
+@router.post("/cognitive-questions/batch-activate", summary="批量启用测试题")
+async def batch_activate(
+    body: CognitiveBatchIdsReq,
+    db: AsyncSession = Depends(get_db),
+    current_admin: AdminUser = Depends(get_current_admin),
+):
+    ids = cognitive_service.normalize_batch_ids(body.question_ids)
+    data = await cognitive_service.batch_set_status(db, ids, True, current_admin.id)
+    await audit_service.log(db, current_admin.id, "BATCH_ACTIVATE_COGNITIVE_QUESTION",
+                            target_type="cognitive_test_questions",
+                            detail={"question_ids": ids, **{k: data[k] for k in ("success_count", "skipped_count", "failed_count")}})
+    await db.commit()
+    return ok_response(data, "批量启用完成")
+
+
+@router.post("/cognitive-questions/batch-deactivate", summary="批量停用测试题")
+async def batch_deactivate(
+    body: CognitiveBatchIdsReq,
+    db: AsyncSession = Depends(get_db),
+    current_admin: AdminUser = Depends(get_current_admin),
+):
+    ids = cognitive_service.normalize_batch_ids(body.question_ids)
+    data = await cognitive_service.batch_set_status(db, ids, False, current_admin.id)
+    await audit_service.log(db, current_admin.id, "BATCH_DEACTIVATE_COGNITIVE_QUESTION",
+                            target_type="cognitive_test_questions",
+                            detail={"question_ids": ids, **{k: data[k] for k in ("success_count", "skipped_count", "failed_count")}})
+    await db.commit()
+    return ok_response(data, "批量停用完成")
+
+
 @router.patch("/cognitive-questions/{question_id}", summary="编辑测试题目")
 async def update_question(
     question_id: int,
@@ -89,7 +120,7 @@ async def change_status(
     await audit_service.log(db, current_admin.id, "CHANGE_COGNITIVE_STATUS",
                             target_type="cognitive_test_questions", target_id=str(qid))
     await db.commit()
-    msg = "题目已发布" if body.status == "published" else "题目已下架"
+    msg = "题目已启用" if body.status == "published" else "题目已停用"
     return ok_response({
         "id": qid,
         "status": qstatus,
@@ -98,7 +129,7 @@ async def change_status(
     }, msg)
 
 
-@router.delete("/cognitive-questions/{question_id}", summary="删除草稿题目")
+@router.delete("/cognitive-questions/{question_id}", summary="删除测试题目")
 async def delete_question(
     question_id: int,
     db: AsyncSession = Depends(get_db),
@@ -108,4 +139,4 @@ async def delete_question(
     await audit_service.log(db, current_admin.id, "DELETE_COGNITIVE_QUESTION",
                             target_type="cognitive_test_questions", target_id=str(question_id))
     await db.commit()
-    return ok_response(None, "草稿题目已删除")
+    return ok_response(None, "题目已删除")

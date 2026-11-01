@@ -445,7 +445,7 @@ async function loadGlobal() {
 }
 
 async function handleCreateGlobal() {
-  await ElMessageBox.confirm('创建后新版本立即全局生效，旧版本自动停用，确认？', '确认创建全局参数', { type: 'warning' })
+  await ElMessageBox.confirm('创建后新版本立即全局生效，旧版本自动停用，确认？', '确认创建全局参数', { confirmButtonText: '确认创建', cancelButtonText: '取消', type: 'warning' })
   saving.value = true
   try {
     await trainingConfigApi.createGlobal({ ...newGlobal })
@@ -504,7 +504,7 @@ async function handleCreateDimension() {
   await ElMessageBox.confirm(
     `创建后「${TrainingModeLabels[activeMode.value]}」新参数版本立即生效，旧版本自动停用，确认？`,
     '确认创建',
-    { type: 'warning' }
+    { confirmButtonText: '确认创建', cancelButtonText: '取消', type: 'warning' }
   )
   saving.value = true
   try {

@@ -69,7 +69,7 @@ export type FivePowerThoughts = Record<FivePower, string>
 // 题目（v1.2.0：AI 全量分析字段 + 5级知识体系 + 题目类型与答案）
 export interface Question {
   id: number
-  stem: string                        // 管理员录入的题干（唯一必填字段）
+  stem: string                        // 管理员录入的题目（唯一必填字段）
   image_url?: string                  // 配图（可选）
   status: QuestionStatus
   analysis_round: number              // 分析轮次（驳回后 +1）
@@ -95,11 +95,11 @@ export interface Question {
 }
 
 // 五力测试题状态
-export type CognitiveQuestionStatus = 'draft' | 'published' | 'archived'
+// 测试题只有两态：published 已启用 / archived 已停用（新建即 archived，启用后才参与测试）
+export type CognitiveQuestionStatus = 'published' | 'archived'
 export const CognitiveQuestionStatusLabels: Record<CognitiveQuestionStatus, string> = {
-  draft: '草稿',
-  published: '已发布',
-  archived: '已下架',
+  published: '已启用',
+  archived: '已停用',
 }
 
 // 五力测试题答案（v1.4.0）
