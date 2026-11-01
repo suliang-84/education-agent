@@ -53,3 +53,8 @@ class ReviewSaveReq(BaseModel):
     power_solutions: dict[str, str] | None = None
     five_power_weights: dict[str, int] | None = None
     transfer_directions: list[str] = []
+
+
+class BatchIdsReq(BaseModel):
+    """批量操作请求体；数量/合法性由 service.normalize_batch_ids 校验（QBATCH-001/002）"""
+    question_ids: list[Any] = []

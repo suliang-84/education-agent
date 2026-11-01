@@ -20,6 +20,7 @@ import './style.scss'
 import 'virtual:svg-icons-register'
 import SvgIcon from '@/components/SvgIcon.vue'
 import { setupRowSpotlight } from '@/utils/rowSpotlight'
+import { setupEdgeHighlight } from '@/utils/edgeHighlight'
 
 const app = createApp(App)
 
@@ -33,3 +34,4 @@ app.use(router)
 app.use(ElementPlus, { locale: zhCn })
 app.mount('#app')
 setupRowSpotlight()
+setupEdgeHighlight()

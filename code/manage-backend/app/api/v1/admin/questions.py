@@ -10,7 +10,7 @@ from app.core.response import ok_response
 from app.core.llm import chat_vision
 from app.dependencies import get_current_admin, get_db
 from app.models.admin import AdminUser
-from app.schemas.questions import QuestionCreateReq, PublishPayload, RejectReq, SetActiveReq, ContentUpdateReq, ReviewSaveReq
+from app.schemas.questions import QuestionCreateReq, PublishPayload, RejectReq, SetActiveReq, ContentUpdateReq, ReviewSaveReq, BatchIdsReq
 from app.services import audit_service, questions_service
 
 router = APIRouter()
@@ -58,6 +58,7 @@ async def list_questions(
     knowledge_point_id: int | None = Query(None),
     status: str | None = Query(None),
     difficulty: str | None = Query(None),
+    is_active: bool | None = Query(None),
     keyword: str | None = Query(None),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=1000),
@@ -67,7 +68,7 @@ async def list_questions(
     params = dict(
         subject_id=subject_id, grade_id=grade_id, semester_id=semester_id,
         chapter_id=chapter_id, knowledge_point_id=knowledge_point_id,
-        status=status, difficulty=difficulty, keyword=keyword,
+        status=status, difficulty=difficulty, is_active=is_active, keyword=keyword,
         page=page, limit=limit,
     )
     data = await questions_service.get_list(db, params)
@@ -99,6 +100,78 @@ async def question_stats(
         'published': result.published or 0,
         'archived': result.archived or 0,
     })
+
+
+@router.post("/questions/batch-analyze", summary="批量触发大模型分析")
+async def batch_analyze(
+    body: BatchIdsReq,
+    db: AsyncSession = Depends(get_db),
+    current_admin: AdminUser = Depends(get_current_admin),
+):
+    ids = questions_service.normalize_batch_ids(body.question_ids)
+    data, tasks = await questions_service.batch_analyze(db, ids)
+    await audit_service.log(db, current_admin.id, "BATCH_ANALYZE_QUESTION", target_type="questions",
+                            detail={"question_ids": ids, **{k: data[k] for k in ("success_count", "skipped_count", "failed_count")}})
+    await db.commit()
+    for qid, qround in tasks:
+        asyncio.create_task(questions_service.run_analysis(qid, current_admin.id, qround))
+    return ok_response(data, "批量分析任务已提交")
+
+
+@router.post("/questions/batch-publish", summary="批量发布（使用最新大模型分析结果）")
+async def batch_publish(
+    body: BatchIdsReq,
+    db: AsyncSession = Depends(get_db),
+    current_admin: AdminUser = Depends(get_current_admin),
+):
+    ids = questions_service.normalize_batch_ids(body.question_ids)
+    data = await questions_service.batch_publish(db, ids)
+    await audit_service.log(db, current_admin.id, "BATCH_PUBLISH_QUESTION", target_type="questions",
+                            detail={"question_ids": ids, **{k: data[k] for k in ("success_count", "skipped_count", "failed_count")}})
+    await db.commit()
+    return ok_response(data, "批量发布完成")
+
+
+@router.post("/questions/batch-delete", summary="批量软删除草稿题目")
+async def batch_delete(
+    body: BatchIdsReq,
+    db: AsyncSession = Depends(get_db),
+    current_admin: AdminUser = Depends(get_current_admin),
+):
+    ids = questions_service.normalize_batch_ids(body.question_ids)
+    data = await questions_service.batch_delete(db, ids)
+    await audit_service.log(db, current_admin.id, "BATCH_DELETE_QUESTION", target_type="questions",
+                            detail={"question_ids": ids, **{k: data[k] for k in ("success_count", "skipped_count", "failed_count")}})
+    await db.commit()
+    return ok_response(data, "批量删除完成")
+
+
+@router.post("/questions/batch-activate", summary="批量启用训练题")
+async def batch_activate(
+    body: BatchIdsReq,
+    db: AsyncSession = Depends(get_db),
+    current_admin: AdminUser = Depends(get_current_admin),
+):
+    ids = questions_service.normalize_batch_ids(body.question_ids)
+    data = await questions_service.batch_set_active(db, ids, True)
+    await audit_service.log(db, current_admin.id, "BATCH_ACTIVATE_QUESTION", target_type="questions",
+                            detail={"question_ids": ids, **{k: data[k] for k in ("success_count", "skipped_count", "failed_count")}})
+    await db.commit()
+    return ok_response(data, "批量启用完成")
+
+
+@router.post("/questions/batch-deactivate", summary="批量停用训练题")
+async def batch_deactivate(
+    body: BatchIdsReq,
+    db: AsyncSession = Depends(get_db),
+    current_admin: AdminUser = Depends(get_current_admin),
+):
+    ids = questions_service.normalize_batch_ids(body.question_ids)
+    data = await questions_service.batch_set_active(db, ids, False)
+    await audit_service.log(db, current_admin.id, "BATCH_DEACTIVATE_QUESTION", target_type="questions",
+                            detail={"question_ids": ids, **{k: data[k] for k in ("success_count", "skipped_count", "failed_count")}})
+    await db.commit()
+    return ok_response(data, "批量停用完成")
 
 
 @router.get("/questions/{question_id}", summary="题目详情（含分析结果）")

@@ -51,6 +51,8 @@ export interface QuestionListParams {
   // 其他筛选
   status?: 'draft' | 'analyzing' | 'pending_review' | 'published' | 'archived'
   difficulty?: 'basic' | 'advanced' | 'challenge'
+  /** 启用状态：true 已启用 / false 未启用（不传=全部） */
+  is_active?: boolean
   keyword?: string
   // 排序
   order_by?: string
@@ -75,6 +77,28 @@ export interface PublishPayload {
   transfer_directions?: string[]
   question_type?: string
   answer?: Record<string, unknown>
+}
+
+// ── 批量操作（后端批量接口，接口文档 §9.1.10）──────────────────
+
+/** 批量接口逐条结果：success 已处理 / skipped 状态不符未处理 / failed 处理出错 */
+export interface BatchItemResult {
+  question_id: number
+  result: 'success' | 'skipped' | 'failed'
+  status?: string
+  /** STATUS_NOT_ALLOWED / NOT_FOUND / ANALYSIS_INCOMPLETE / STATE_UNCHANGED / SYSTEM_ERROR */
+  reason_code?: string
+  reason?: string
+  /** 批量启用 / 停用返回：处理后的启用状态 */
+  is_active?: boolean
+}
+
+export interface BatchResult {
+  total: number
+  success_count: number
+  skipped_count: number
+  failed_count: number
+  items: BatchItemResult[]
 }
 
 // ── 题目管理接口 ─────────────────────────────────────────────
@@ -145,6 +169,47 @@ export const questionApi = {
     request.post<unknown, { question_id: number; status: string; analysis_round: number }>(
       `/questions/${questionId}/analyze`
     ),
+
+  /**
+   * 批量触发大模型分析（仅 draft 状态参与，其余由后端跳过并在 items 中说明）
+   * 一次请求提交全部勾选的题目 ID（单次 1~200 条），不要在前端循环调用 analyze
+   * POST /api/v1/admin/questions/batch-analyze
+   * 接口文档：§9.1.10.1
+   */
+  batchAnalyze: (questionIds: number[]) =>
+    request.post<unknown, BatchResult>('/questions/batch-analyze', { question_ids: questionIds }),
+
+  /**
+   * 批量发布（仅 pending_review 状态参与，使用各题最新大模型分析结果发布）
+   * POST /api/v1/admin/questions/batch-publish
+   * 接口文档：§9.1.10.2
+   */
+  batchPublish: (questionIds: number[]) =>
+    request.post<unknown, BatchResult>('/questions/batch-publish', { question_ids: questionIds }),
+
+  /**
+   * 批量软删除（仅 draft 状态参与）
+   * POST /api/v1/admin/questions/batch-delete
+   * 接口文档：§9.1.10.3
+   */
+  batchDelete: (questionIds: number[]) =>
+    request.post<unknown, BatchResult>('/questions/batch-delete', { question_ids: questionIds }),
+
+  /**
+   * 批量启用（仅已发布且已停用的题目参与，已启用的由后端跳过）
+   * POST /api/v1/admin/questions/batch-activate
+   * 接口文档：§9.1.10.4
+   */
+  batchActivate: (questionIds: number[]) =>
+    request.post<unknown, BatchResult>('/questions/batch-activate', { question_ids: questionIds }),
+
+  /**
+   * 批量停用（仅已发布且已启用的题目参与，已停用的由后端跳过）
+   * POST /api/v1/admin/questions/batch-deactivate
+   * 接口文档：§9.1.10.5
+   */
+  batchDeactivate: (questionIds: number[]) =>
+    request.post<unknown, BatchResult>('/questions/batch-deactivate', { question_ids: questionIds }),
 
   /**
    * 发布题目（审核通过）

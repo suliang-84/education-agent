@@ -20,6 +20,14 @@
           <el-option v-for="(label, key) in DifficultyLabels" :key="key" :label="label" :value="key" />
         </el-select>
         <div style="flex:1" />
+        <el-button class="btn-import" style="color:var(--indigo);padding:0 8px !important" :loading="batchPublishing" @click="handleBatchPublish">
+          <SvgIcon v-if="!batchPublishing" name="deploy" :size="15" style="margin-right:5px" />
+          批量发布
+        </el-button>
+        <el-button class="btn-import" style="color:var(--indigo);padding:0 8px !important" :loading="batchAnalyzing" @click="handleBatchAnalyze">
+          <SvgIcon v-if="!batchAnalyzing" name="analyse" :size="15" style="margin-right:5px" />
+          批量分析
+        </el-button>
         <el-button class="btn-import" style="color:var(--indigo);padding:0 8px !important" @click="showImport = true">
           <SvgIcon name="upload" :size="15" style="margin-right:5px" />
           批量导入
@@ -153,6 +161,7 @@
 import { ref, reactive, onMounted, onUnmounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { questionApi } from '@/api'
+import type { BatchResult } from '@/api/questions'
 import type { Question, QuestionStatus, Difficulty } from '@/types'
 import { QuestionStatusLabels, DifficultyLabels } from '@/types'
 
@@ -170,6 +179,7 @@ const batchStems = ref('')
 // 批量操作
 const selected = ref<Question[]>([])
 const batchAnalyzing = ref(false)
+const batchPublishing = ref(false)
 const batchDeleting = ref(false)
 const publishingId = ref<number | null>(null)
 
@@ -232,6 +242,29 @@ async function handleAnalyze(row: Question) {
   loadData()
 }
 
+/** 使用最近一次大模型分析结果发布；分析数据不完整时返回 false（需进入审核页手动补充） */
+async function publishWithAnalysis(id: number): Promise<boolean> {
+  const detail = await questionApi.getOne(id)
+  const ana = (detail as any).latest_analysis
+  if (!ana?.ai_subject?.id) return false
+  await questionApi.publish(id, {
+    subject_id:          ana.ai_subject.id,
+    grade_id:            ana.ai_grade.id,
+    semester_id:         ana.ai_semester?.id,
+    chapter_id:          ana.ai_chapter?.id,
+    knowledge_point_ids: (ana.ai_knowledge_point_ids ?? []).map(Number),
+    difficulty:          ana.ai_difficulty ?? 'basic',
+    solution:            ana.ai_solution ?? '',
+    common_error:        ana.ai_common_error,
+    power_solutions:     ana.ai_power_solutions,
+    five_power_weights:  ana.ai_five_power_weights ?? { INSIGHT: 2, CONSTRUCT: 5, DEDUCE: 2, ADAPT: 1, MIGRATE: 0 },
+    transfer_directions: ana.ai_transfer_directions ?? [],
+    question_type:       ana.ai_question_type,
+    answer:              ana.ai_answer,
+  })
+  return true
+}
+
 async function handlePublish(row: Question) {
   await ElMessageBox.confirm(
     `确认发布题目 #${row.id}？将直接使用大模型分析结果发布，发布后题目将参与训练推荐。`,
@@ -240,32 +273,69 @@ async function handlePublish(row: Question) {
   )
   publishingId.value = row.id
   try {
-    const detail = await questionApi.getOne(row.id)
-    const ana = (detail as any).latest_analysis
-    if (!ana?.ai_subject?.id) {
+    if (!(await publishWithAnalysis(row.id))) {
       ElMessage.warning('分析数据不完整，请进入「审核结果」页面手动补充后再发布')
       return
     }
-    await questionApi.publish(row.id, {
-      subject_id:          ana.ai_subject.id,
-      grade_id:            ana.ai_grade.id,
-      semester_id:         ana.ai_semester?.id,
-      chapter_id:          ana.ai_chapter?.id,
-      knowledge_point_ids: (ana.ai_knowledge_point_ids ?? []).map(Number),
-      difficulty:          ana.ai_difficulty ?? 'basic',
-      solution:            ana.ai_solution ?? '',
-      common_error:        ana.ai_common_error,
-      power_solutions:     ana.ai_power_solutions,
-      five_power_weights:  ana.ai_five_power_weights ?? { INSIGHT: 2, CONSTRUCT: 5, DEDUCE: 2, ADAPT: 1, MIGRATE: 0 },
-      transfer_directions: ana.ai_transfer_directions ?? [],
-      question_type:       ana.ai_question_type,
-      answer:              ana.ai_answer,
-    })
     ElMessage.success('题目已发布，可在「训练题管理」中查看')
     loadData()
   } finally {
     publishingId.value = null
   }
+}
+
+/** 按批量接口返回的汇总计数给出提示：全部成功用成功提示，存在跳过 / 失败则用警告并列出各自数量 */
+function notifyBatchResult(res: BatchResult, doneText: string, extra: { incompleteHint?: boolean } = {}) {
+  const skipped = res.skipped_count
+  const incomplete = extra.incompleteHint ? res.items.filter(i => i.reason_code === 'ANALYSIS_INCOMPLETE').length : 0
+  const failed = res.failed_count - incomplete
+  if (skipped === 0 && res.failed_count === 0) {
+    ElMessage.success(`${doneText} ${res.success_count} 道题目`)
+    return
+  }
+  const notes = [
+    skipped > 0 ? `${skipped} 道状态不符被跳过` : '',
+    incomplete > 0 ? `${incomplete} 道分析数据不完整，请进入「审核结果」页面补充后再发布` : '',
+    failed > 0 ? `${failed} 道处理失败，请稍后重试` : '',
+  ].filter(Boolean)
+  ElMessage.warning(`${doneText} ${res.success_count} 道题目；${notes.join('；')}`)
+}
+
+// ── 批量操作数量上限（与后端 QBATCH-002 一致：单次最多 200 条）──
+const BATCH_MAX = 200
+function exceedBatchLimit(action: string): boolean {
+  if (selected.value.length <= BATCH_MAX) return false
+  ElMessage.warning(`单次最多${action} ${BATCH_MAX} 道题目，当前已勾选 ${selected.value.length} 道，请减少勾选后重试`)
+  return true
+}
+
+// ── 批量发布（后端批量接口，一次请求）─────────────────────────
+async function handleBatchPublish() {
+  if (selected.value.length === 0) {
+    ElMessage.warning('请先勾选需要发布的题目')
+    return
+  }
+  if (exceedBatchLimit('发布')) return
+  const targets = selected.value.filter(q => q.status === 'pending_review')
+  const skipped = selected.value.length - targets.length
+  if (targets.length === 0) {
+    ElMessage.warning('所选题目中不包含待审核状态的题目，仅待审核题目可以发布')
+    return
+  }
+  const msg = skipped > 0
+    ? `已勾选 ${selected.value.length} 道题目，其中 ${targets.length} 道为待审核状态，将直接使用大模型分析结果发布；其余 ${skipped} 道状态不符，会被跳过。发布后题目将参与训练推荐，是否继续？`
+    : `已勾选 ${targets.length} 道待审核题目，将直接使用大模型分析结果发布，发布后题目将参与训练推荐。是否继续？`
+  const confirmed = await ElMessageBox.confirm(msg, '批量发布确认', { confirmButtonText: '确认发布', cancelButtonText: '取消', type: 'info' })
+    .then(() => true, () => false)
+  if (!confirmed) return
+  batchPublishing.value = true
+  try {
+    // 提交勾选的全部 ID，资格校验与发布由后端完成；前端上面的过滤只用于预判与提示
+    const res = await questionApi.batchPublish(selected.value.map(q => q.id))
+    notifyBatchResult(res, '已发布', { incompleteHint: true })
+    selected.value = []
+    loadData()
+  } finally { batchPublishing.value = false }
 }
 
 async function handleDelete(row: Question) {
@@ -275,49 +345,57 @@ async function handleDelete(row: Question) {
   loadData()
 }
 
-// ── 批量模型分析 ──────────────────────────────────────────────
+// ── 批量模型分析（后端批量接口，一次请求）─────────────────────
 async function handleBatchAnalyze() {
+  if (selected.value.length === 0) {
+    ElMessage.warning('请先勾选需要分析的题目')
+    return
+  }
+  if (exceedBatchLimit('分析')) return
   const targets = selected.value.filter(q => q.status === 'draft')
   const skipped = selected.value.length - targets.length
   if (targets.length === 0) {
-    ElMessage.warning('所选题目中无草稿状态题目，无法触发分析')
+    ElMessage.warning('所选题目中不包含草稿状态的题目，仅草稿题目可以触发分析')
     return
   }
   const msg = skipped > 0
-    ? `选中 ${selected.value.length} 条，其中 ${targets.length} 条草稿将触发分析，${skipped} 条因状态不符跳过。确认继续？`
-    : `将对 ${targets.length} 条草稿题目串行触发模型分析，确认继续？`
-  await ElMessageBox.confirm(msg, '批量模型分析', { confirmButtonText: '确认分析', cancelButtonText: '取消', type: 'info' })
+    ? `已勾选 ${selected.value.length} 道题目，其中 ${targets.length} 道为草稿状态，将提交大模型分析；其余 ${skipped} 道状态不符，会被跳过。是否继续？`
+    : `已勾选 ${targets.length} 道草稿题目，将提交大模型分析。是否继续？`
+  const confirmed = await ElMessageBox.confirm(msg, '批量分析确认', { confirmButtonText: '开始分析', cancelButtonText: '取消', type: 'info' })
+    .then(() => true, () => false)
+  if (!confirmed) return
   batchAnalyzing.value = true
-  let successCount = 0
   try {
-    for (const q of targets) {
-      try { await questionApi.analyze(q.id); successCount++ } catch { /* 单条失败跳过 */ }
-    }
-    ElMessage.success(`已提交 ${successCount} 条分析任务，请稍后查看结果`)
+    const res = await questionApi.batchAnalyze(selected.value.map(q => q.id))
+    notifyBatchResult(res, '已提交分析任务：')
     selected.value = []
     loadData()
   } finally { batchAnalyzing.value = false }
 }
 
-// ── 批量删除 ──────────────────────────────────────────────────
+// ── 批量删除（后端批量接口，一次请求；当前页面暂未开放入口）──────
 async function handleBatchDelete() {
+  if (selected.value.length === 0) {
+    ElMessage.warning('请先勾选需要删除的题目')
+    return
+  }
+  if (exceedBatchLimit('删除')) return
   const targets = selected.value.filter(q => q.status === 'draft')
   const skipped = selected.value.length - targets.length
   if (targets.length === 0) {
-    ElMessage.warning('所选题目中无草稿状态题目，无法删除')
+    ElMessage.warning('所选题目中不包含草稿状态的题目，仅草稿题目可以删除')
     return
   }
   const msg = skipped > 0
-    ? `选中 ${selected.value.length} 条，其中 ${targets.length} 条草稿将被删除，${skipped} 条因状态不符跳过。此操作不可恢复，确认继续？`
-    : `将删除 ${targets.length} 条草稿题目，此操作不可恢复，确认继续？`
-  await ElMessageBox.confirm(msg, '批量删除', { confirmButtonText: '确认删除', cancelButtonText: '取消', type: 'error' })
+    ? `已勾选 ${selected.value.length} 道题目，其中 ${targets.length} 道为草稿状态将被删除；其余 ${skipped} 道状态不符，会被跳过。删除后不可恢复，是否继续？`
+    : `已勾选 ${targets.length} 道草稿题目，删除后不可恢复。是否继续？`
+  const confirmed = await ElMessageBox.confirm(msg, '批量删除确认', { confirmButtonText: '确认删除', cancelButtonText: '取消', type: 'error' })
+    .then(() => true, () => false)
+  if (!confirmed) return
   batchDeleting.value = true
-  let successCount = 0
   try {
-    for (const q of targets) {
-      try { await questionApi.delete(q.id); successCount++ } catch { /* 单条失败跳过 */ }
-    }
-    ElMessage.success(`已删除 ${successCount} 条草稿题目`)
+    const res = await questionApi.batchDelete(selected.value.map(q => q.id))
+    notifyBatchResult(res, '已删除')
     selected.value = []
     loadData()
   } finally { batchDeleting.value = false }

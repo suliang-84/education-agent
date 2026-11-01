@@ -106,9 +106,6 @@
 
         <!-- 筛选栏 -->
         <div class="inner-toolbar">
-          <el-select v-model="filters.difficulty" placeholder="难度" clearable style="width:90px" @change="handleSearch">
-            <el-option v-for="(label, key) in DifficultyLabels" :key="key" :label="label" :value="key" />
-          </el-select>
           <el-input v-model="filters.keyword" placeholder="搜索题干..." clearable>
             <template #prefix>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -116,6 +113,22 @@
               </svg>
             </template>
           </el-input>
+          <el-select v-model="filters.is_active" placeholder="启用状态" clearable style="width:110px" @change="handleSearch">
+            <el-option label="已启用" :value="true" />
+            <el-option label="未启用" :value="false" />
+          </el-select>
+          <el-select v-model="filters.difficulty" placeholder="难度" clearable style="width:90px" @change="handleSearch">
+            <el-option v-for="(label, key) in DifficultyLabels" :key="key" :label="label" :value="key" />
+          </el-select>
+          <div style="flex:1" />
+          <el-button class="btn-import" style="color:var(--green);padding:0 8px !important" :loading="batchActivating" @click="handleBatchSetActive(true)">
+            <SvgIcon v-if="!batchActivating" name="play" :size="15" style="margin-right:5px" />
+            批量启用
+          </el-button>
+          <el-button class="btn-import" style="color:var(--red);padding:0 8px !important" :loading="batchDeactivating" @click="handleBatchSetActive(false)">
+            <SvgIcon v-if="!batchDeactivating" name="pause" :size="15" style="margin-right:5px" />
+            批量停用
+          </el-button>
         </div>
 
         <!-- 题目列表表格 -->
@@ -124,7 +137,9 @@
             :data="questions"
             v-loading="loading"
             style="width:100%"
+            @selection-change="(rows: Question[]) => selected = rows"
           >
+            <el-table-column type="selection" width="46" />
             <el-table-column label="序号" width="60" align="center">
               <template #default="{ $index }">
                 <span class="num" style="color:var(--text-3);font-size:12px">{{ (page - 1) * pageSize + $index + 1 }}</span>
@@ -136,6 +151,16 @@
                 <el-tooltip :content="row.stem" placement="top-start" :show-after="300" effect="light">
                   <span class="stem-text">{{ row.stem }}</span>
                 </el-tooltip>
+              </template>
+            </el-table-column>
+
+            <!-- 启用状态（is_active 独立于 status）-->
+            <el-table-column label="启用状态" width="100" align="center">
+              <template #default="{ row }">
+                <span class="active-flag" :class="row.is_active === false ? 'active-flag--off' : 'active-flag--on'">
+                  <SvgIcon :name="row.is_active === false ? 'close_circle' : 'check_circle'" :size="16" />
+                  {{ row.is_active === false ? '未启用' : '已启用' }}
+                </span>
               </template>
             </el-table-column>
 
@@ -167,13 +192,6 @@
                   {{ FivePowerLabels[topPower(row.five_power_weights) as FivePower] }}
                 </span>
                 <span v-else style="color:var(--text-3);font-size:12px">—</span>
-              </template>
-            </el-table-column>
-
-            <!-- 创建时间 -->
-            <el-table-column label="创建时间" width="140">
-              <template #default="{ row }">
-                <span style="font-size:12px;color:var(--el-table-text-color)">{{ formatDate(row.created_at) }}</span>
               </template>
             </el-table-column>
 
@@ -223,7 +241,7 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { questionApi, knowledgeTreeApi } from '@/api'
-import type { KnowledgeTreeNode } from '@/api/questions'
+import type { KnowledgeTreeNode, BatchResult } from '@/api/questions'
 import type { Question, Difficulty, FivePower } from '@/types'
 import { DifficultyLabels, FivePowerLabels } from '@/types'
 
@@ -236,8 +254,8 @@ const totalPages = ref(1)
 const pageSize = ref(50)
 const PAGE_SIZE = pageSize
 
-const filters = reactive<{ difficulty: Difficulty | ''; keyword: string }>({
-  difficulty: '', keyword: '',
+const filters = reactive<{ difficulty: Difficulty | ''; keyword: string; is_active: boolean | '' }>({
+  difficulty: '', keyword: '', is_active: '',
 })
 
 // ── 左树筛选状态（存 ID）────────────────────────────────────
@@ -351,14 +369,6 @@ function topPower(weights: Record<string, number>): string {
   return Object.entries(weights).sort((a, b) => b[1] - a[1])[0]?.[0] || 'CONSTRUCT'
 }
 
-// ── 日期格式化 ───────────────────────────────────────────────
-function formatDate(dt: string) {
-  if (!dt) return '—'
-  const d = new Date(dt)
-  const p = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
-}
-
 // ── 数据加载 ─────────────────────────────────────────────────
 async function loadData() {
   loading.value = true
@@ -371,6 +381,7 @@ async function loadData() {
       status: 'published',
     }
     if (filters.difficulty)            params.difficulty          = filters.difficulty
+    if (typeof filters.is_active === 'boolean') params.is_active = filters.is_active   // true 已启用 / false 未启用
     if (filters.keyword)               params.keyword             = filters.keyword
     if (treeFilter.subject_id)         params.subject_id          = treeFilter.subject_id
     if (treeFilter.grade_id)           params.grade_id            = treeFilter.grade_id
@@ -380,6 +391,7 @@ async function loadData() {
 
     const res = await questionApi.getList(params)
     questions.value = res.list
+    selected.value = []   // 翻页 / 筛选后清空勾选，范围仅限当前页
     total.value = res.total
     totalPages.value = res.total_pages ?? 1
   } finally { loading.value = false }
@@ -397,6 +409,62 @@ function debouncedSearch() {
 }
 watch(() => filters.keyword, debouncedSearch)
 function nextPage() { if (page.value < totalPages.value) { page.value++; loadData() } }
+
+// ── 批量启用 / 停用（后端批量接口，一次请求）──────────────────
+const selected = ref<Question[]>([])
+const batchActivating = ref(false)
+const batchDeactivating = ref(false)
+const BATCH_MAX = 200   // 与后端 QBATCH-002 一致：单次最多 200 条
+
+function notifyBatchResult(res: BatchResult, doneText: string) {
+  if (res.skipped_count === 0 && res.failed_count === 0) {
+    ElMessage.success(`${doneText} ${res.success_count} 道题目`)
+    return
+  }
+  const notes = [
+    res.skipped_count > 0 ? `${res.skipped_count} 道已处于目标状态或状态不符，已跳过` : '',
+    res.failed_count > 0 ? `${res.failed_count} 道处理失败，请稍后重试` : '',
+  ].filter(Boolean)
+  ElMessage.warning(`${doneText} ${res.success_count} 道题目；${notes.join('；')}`)
+}
+
+async function handleBatchSetActive(toActive: boolean) {
+  const verb = toActive ? '启用' : '停用'
+  if (selected.value.length === 0) {
+    ElMessage.warning(`请先勾选需要${verb}的题目`)
+    return
+  }
+  if (selected.value.length > BATCH_MAX) {
+    ElMessage.warning(`单次最多${verb} ${BATCH_MAX} 道题目，当前已勾选 ${selected.value.length} 道，请减少勾选后重试`)
+    return
+  }
+  // 前端预校验仅为交互优化，最终以后端校验为准
+  const targets = selected.value.filter(q => (q.is_active !== false) !== toActive)
+  const skipped = selected.value.length - targets.length
+  if (targets.length === 0) {
+    ElMessage.warning(`所选题目均已处于${verb}状态，无需${verb}`)
+    return
+  }
+  const effect = toActive
+    ? '启用后将重新加入小程序端练习抽题'
+    : '停用后将从小程序端练习抽题中移除，直到重新启用为止，题目发布状态不受影响'
+  const msg = skipped > 0
+    ? `已勾选 ${selected.value.length} 道题目，其中 ${targets.length} 道将被${verb}；其余 ${skipped} 道已处于${verb}状态，会被跳过。${effect}，是否继续？`
+    : `已勾选 ${targets.length} 道题目，将全部${verb}。${effect}，是否继续？`
+  const confirmed = await ElMessageBox.confirm(msg, `批量${verb}确认`, {
+    confirmButtonText: `确认${verb}`, cancelButtonText: '取消', type: toActive ? 'info' : 'warning',
+  }).then(() => true, () => false)
+  if (!confirmed) return
+
+  const flag = toActive ? batchActivating : batchDeactivating
+  flag.value = true
+  try {
+    const ids = selected.value.map(q => q.id)
+    const res = toActive ? await questionApi.batchActivate(ids) : await questionApi.batchDeactivate(ids)
+    notifyBatchResult(res, `已${verb}`)
+    loadData()
+  } finally { flag.value = false }
+}
 
 async function handleDeactivate(row: Question) {
   if (row.is_active === false) return
@@ -618,6 +686,19 @@ onMounted(() => { loadData(); loadKnowledgeTree(); loadTotalAll() })
   &--DEDUCE    { color: var(--el-table-text-color); .power-dot-label__dot { background: var(--power-deduce); } }
   &--ADAPT     { color: var(--el-table-text-color); .power-dot-label__dot { background: var(--power-adapt); } }
   &--MIGRATE   { color: var(--el-table-text-color); .power-dot-label__dot { background: var(--power-migrate); } }
+}
+
+// 启用状态：圆环对勾 / 圆环叉图标 + 文字，无底色无圆点，与「状态」列的圆点样式区分；图标色走主题变量
+.active-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  white-space: nowrap;
+
+  // 文字与图标同色：SvgIcon 默认 fill: currentColor，随文字色变化
+  &--on  { color: var(--green); }
+  &--off { color: var(--red); }
 }
 
 .diff-badge {

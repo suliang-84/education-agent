@@ -151,6 +151,8 @@ async def get_list(db: AsyncSession, params: dict) -> dict:
         q = q.where(Question.status == params['status'])
     if params.get('difficulty'):
         q = q.where(Question.difficulty == params['difficulty'])
+    if params.get('is_active') is not None:
+        q = q.where(Question.is_active == params['is_active'])
     if params.get('keyword'):
         kw = f"%{params['keyword']}%"
         q = q.where(Question.stem.ilike(kw))
@@ -661,3 +663,179 @@ async def delete(db: AsyncSession, question_id: int) -> None:
         raise AppException('仅草稿状态题目可删除', 409)
     q.deleted_at = datetime.now(UTC)
     await db.flush()
+
+
+# ── 批量操作（接口文档 §9.1.10）──────────────────────────────────
+
+BATCH_MAX = 200
+
+
+def normalize_batch_ids(ids: list) -> list[int]:
+    """校验并去重批量 ID，保持提交顺序"""
+    if not ids:
+        raise AppException('question_ids 不能为空', 400, 'QBATCH-001')
+    if any(isinstance(i, bool) or not isinstance(i, int) or i <= 0 for i in ids):
+        raise AppException('question_ids 包含非法值', 400, 'QBATCH-001')
+    uniq = list(dict.fromkeys(ids))
+    if len(uniq) > BATCH_MAX:
+        raise AppException(f'单次最多提交 {BATCH_MAX} 条', 400, 'QBATCH-002')
+    return uniq
+
+
+def _batch_summary(items: list[dict]) -> dict:
+    return {
+        'total': len(items),
+        'success_count': sum(1 for i in items if i['result'] == 'success'),
+        'skipped_count': sum(1 for i in items if i['result'] == 'skipped'),
+        'failed_count': sum(1 for i in items if i['result'] == 'failed'),
+        'items': items,
+    }
+
+
+async def _load_batch(db: AsyncSession, ids: list[int]) -> dict[int, Question]:
+    rows = (await db.execute(
+        select(Question).where(Question.id.in_(ids), Question.deleted_at.is_(None))
+    )).scalars().all()
+    return {q.id: q for q in rows}
+
+
+def _not_found(qid: int) -> dict:
+    return {'question_id': qid, 'result': 'skipped', 'reason_code': 'NOT_FOUND', 'reason': '题目不存在或已删除'}
+
+
+def _valid_weights(w) -> bool:
+    return (
+        isinstance(w, dict) and bool(w)
+        and all(isinstance(v, int) and not isinstance(v, bool) and 0 <= v <= 10 for v in w.values())
+        and sum(w.values()) == 10
+    )
+
+
+async def batch_analyze(db: AsyncSession, ids: list[int]) -> tuple[dict, list[tuple[int, int]]]:
+    """批量置 analyzing。返回 (结果, [(question_id, round)]) 供路由层 commit 后启动后台分析"""
+    qs = await _load_batch(db, ids)
+    items, tasks = [], []
+    for qid in ids:
+        q = qs.get(qid)
+        if not q:
+            items.append(_not_found(qid))
+            continue
+        if q.status != 'draft':
+            items.append({'question_id': qid, 'result': 'skipped', 'reason_code': 'STATUS_NOT_ALLOWED',
+                          'reason': '仅草稿状态的题目可以触发分析', 'status': q.status})
+            continue
+        try:
+            async with db.begin_nested():
+                q.status = 'analyzing'
+                q.analysis_round = (q.analysis_round or 0) + 1
+                await db.flush()
+            tasks.append((qid, q.analysis_round))
+            items.append({'question_id': qid, 'result': 'success', 'status': 'analyzing'})
+        except Exception:
+            items.append({'question_id': qid, 'result': 'failed', 'reason_code': 'SYSTEM_ERROR',
+                          'reason': '系统异常', 'status': 'draft'})
+    return _batch_summary(items), tasks
+
+
+async def batch_publish(db: AsyncSession, ids: list[int]) -> dict:
+    """批量发布：使用各题最新一轮分析结果，每题独立 savepoint"""
+    qs = await _load_batch(db, ids)
+    items = []
+    for qid in ids:
+        q = qs.get(qid)
+        if not q:
+            items.append(_not_found(qid))
+            continue
+        if q.status != 'pending_review':
+            items.append({'question_id': qid, 'result': 'skipped', 'reason_code': 'STATUS_NOT_ALLOWED',
+                          'reason': '仅待审核状态的题目可以发布', 'status': q.status})
+            continue
+        try:
+            ana = (await db.execute(
+                select(QuestionAnalysis).where(QuestionAnalysis.question_id == qid)
+                .order_by(QuestionAnalysis.round.desc()).limit(1)
+            )).scalar_one_or_none()
+            if (not ana or not ana.ai_subject_id or not ana.ai_grade_id
+                    or not _valid_weights(ana.ai_five_power_weights)):
+                items.append({'question_id': qid, 'result': 'failed', 'reason_code': 'ANALYSIS_INCOMPLETE',
+                              'reason': '分析数据不完整（缺少科目 / 年级 / 五力权重不合法），请进入审核页补充后再发布',
+                              'status': q.status})
+                continue
+            async with db.begin_nested():
+                weights = ana.ai_five_power_weights
+                q.subject_id = ana.ai_subject_id
+                q.grade_id = ana.ai_grade_id
+                q.semester_id = ana.ai_semester_id
+                q.chapter_id = ana.ai_chapter_id
+                q.knowledge_point_ids = list(ana.ai_knowledge_point_ids or [])
+                q.difficulty = ana.ai_difficulty
+                q.solution = ana.ai_solution
+                q.common_error = ana.ai_common_error
+                q.power_solutions = ana.ai_power_solutions
+                q.five_power_weights = weights
+                q.primary_power = max(weights, key=weights.get)
+                q.transfer_direction = list(ana.ai_transfer_directions or [])
+                q.question_type = ana.ai_question_type
+                q.answer = ana.ai_answer
+                q.status = 'published'
+                flag_modified(q, 'knowledge_point_ids')
+                flag_modified(q, 'five_power_weights')
+                await db.flush()
+            items.append({'question_id': qid, 'result': 'success', 'status': 'published',
+                          'embedding_status': q.embedding_status})
+        except Exception:
+            items.append({'question_id': qid, 'result': 'failed', 'reason_code': 'SYSTEM_ERROR',
+                          'reason': '系统异常', 'status': 'pending_review'})
+    return _batch_summary(items)
+
+
+async def batch_delete(db: AsyncSession, ids: list[int]) -> dict:
+    qs = await _load_batch(db, ids)
+    items = []
+    for qid in ids:
+        q = qs.get(qid)
+        if not q:
+            items.append(_not_found(qid))
+            continue
+        if q.status != 'draft':
+            items.append({'question_id': qid, 'result': 'skipped', 'reason_code': 'STATUS_NOT_ALLOWED',
+                          'reason': '仅草稿状态的题目可以删除', 'status': q.status})
+            continue
+        try:
+            async with db.begin_nested():
+                q.deleted_at = datetime.now(UTC)
+                await db.flush()
+            items.append({'question_id': qid, 'result': 'success'})
+        except Exception:
+            items.append({'question_id': qid, 'result': 'failed', 'reason_code': 'SYSTEM_ERROR',
+                          'reason': '系统异常', 'status': 'draft'})
+    return _batch_summary(items)
+
+
+async def batch_set_active(db: AsyncSession, ids: list[int], is_active: bool) -> dict:
+    """批量启用 / 停用（§9.1.10.4 / §9.1.10.5）：仅 published 题目参与，只改 is_active，不改 status"""
+    qs = await _load_batch(db, ids)
+    verb = '启用' if is_active else '停用'
+    items = []
+    for qid in ids:
+        q = qs.get(qid)
+        if not q:
+            items.append(_not_found(qid))
+            continue
+        if q.status != 'published':
+            items.append({'question_id': qid, 'result': 'skipped', 'reason_code': 'STATUS_NOT_ALLOWED',
+                          'reason': f'仅已发布的题目可以{verb}', 'status': q.status, 'is_active': q.is_active})
+            continue
+        if q.is_active == is_active:
+            items.append({'question_id': qid, 'result': 'skipped', 'reason_code': 'STATE_UNCHANGED',
+                          'reason': f'题目已处于{verb}状态', 'status': q.status, 'is_active': q.is_active})
+            continue
+        try:
+            async with db.begin_nested():
+                q.is_active = is_active
+                await db.flush()
+            items.append({'question_id': qid, 'result': 'success', 'status': q.status, 'is_active': is_active})
+        except Exception:
+            items.append({'question_id': qid, 'result': 'failed', 'reason_code': 'SYSTEM_ERROR',
+                          'reason': '系统异常', 'status': q.status, 'is_active': q.is_active})
+    return _batch_summary(items)

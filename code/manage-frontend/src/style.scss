@@ -840,6 +840,12 @@ body {
   td.el-table__cell .cell .el-button + .el-button {
     margin-left: 15px;
   }
+  // 悬停 / 聚焦 / 按下时不改背景色（EP 文字按钮默认会加一层灰底）
+  td.el-table__cell .cell .el-button {
+    &:hover, &:focus, &:focus-visible, &:active {
+      background: transparent !important;
+    }
+  }
   td.el-table__cell .cell .svg-icon {
     cursor: pointer;
   }
@@ -1564,6 +1570,8 @@ $form-height:       30px;
   .el-input  { width: 200px !important; flex: none; }
   .el-select { width: 120px !important; flex: none; }
   .el-button { flex-shrink: 0; }
+  // 清除 Element Plus 相邻按钮默认 margin-left:12px，间距统一由 gap(10px) 控制
+  .el-button + .el-button { margin-left: 0; }
 }
 
 // ── Stat Card ────────────────────────────────────────────────
@@ -2181,9 +2189,10 @@ html[data-theme="light"] {
     inset: 0;
     border-radius: $radius;
     padding: 1px;
-    // 固定在盒子左上角（px 圆形 + 0 0），不随盒子宽高变化，所有盒子的高亮位置一致
+    // 高亮位置：--hl-x / --hl-y 由 utils/edgeHighlight.ts 在盒子渲染时随机写入（落在边框上）；
+    // 未写入时回退到左上角
     background: radial-gradient(
-      420px circle at 0 0,
+      420px circle at var(--hl-x, 0%) var(--hl-y, 0%),
       $edge,
       rgba(255, 255, 255, 0.10) 38%,
       rgba(255, 255, 255, 0.02) 70%
@@ -2720,4 +2729,39 @@ html[data-theme="dark"] .surface.surface--no-glow {
 }
 html[data-theme="light"] .surface.surface--no-glow {
   background: rgba(255, 255, 255, 0.74) !important;
+}
+
+// 确认弹窗（el-message-box）底部的确认 / 取消按钮：宽度至少 70px，文字居中
+.el-message-box__btns .el-button {
+  min-width: 70px;
+  justify-content: center;
+  text-align: center;
+}
+
+// 确认弹窗（el-message-box）圆角 8px（含顶部高亮描边的 ::before）
+html[data-theme] .el-message-box {
+  border-radius: 8px !important;
+
+  &::before { border-radius: 8px; }
+}
+
+// 确认弹窗：去掉主体内容左侧的状态图标，并清掉为图标预留的左内边距
+.el-message-box__status { display: none !important; }
+.el-message-box__status + .el-message-box__message { padding-left: 0 !important; }
+
+// 确认弹窗：主体内容文字用主色
+.el-message-box__content,
+.el-message-box__message,
+.el-message-box__message p {
+  color: var(--color-primary) !important;
+}
+
+// 确认弹窗位置：距视口顶部 25%（EP 默认用 inline-block + :after 占位把弹窗垂直居中，这里关掉占位再整体下移）
+.is-message-box .el-overlay-message-box::after { display: none; }
+// 遮罩层自带 16px 内边距会让 top 百分比偏移，上下清零后 25% 即视口的 25%
+.is-message-box .el-overlay-message-box { padding-top: 0; padding-bottom: 0; }
+.el-message-box {
+  vertical-align: top;
+  position: relative !important;
+  top: 25%;
 }
