@@ -937,6 +937,46 @@ $form-height:       30px;
   }
 }
 
+// 已选中值的文字：亮色黑、暗色白（取 --text-1）；未选时的占位文字（.is-transparent）和禁用态保持原色
+.el-select__wrapper:not(.is-disabled) .el-select__placeholder:not(.is-transparent) {
+  color: var(--text-1);
+}
+
+// 禁用态下的占位提示（如「请先选择章节」）：与普通输入框 placeholder 同色
+//   部分页面把 .el-form 的 --el-disabled-text-color 改成了正文色（让禁用输入框的值更清晰），
+//   会连带把禁用 select 的占位文字也染成正文色，这里单独还原
+.el-select__wrapper.is-disabled .el-select__selected-item.is-transparent {
+  color: var(--el-text-color-placeholder);
+}
+
+// 多选下拉的「纯文本」展示（加 class="select-plain-multi"）：选中项不用 tag，以「、」分隔
+//   去掉 tag 的底色 / 描边 / 内边距 / 关闭按钮；取消选项在下拉列表里点击已选项即可
+//   左右内边距沿用 .el-select__wrapper 的 10px
+.el-select.select-plain-multi {
+  .el-select__selection { gap: 0; }
+  // EP 对有选中项的多选加了 margin-left: -8px（给 tag 让位），会吃掉左内边距，这里还原，保证左右各 10px
+  .el-select__selection.is-near { margin-left: 0; }
+  .el-select__selected-item:not(.el-select__placeholder) .el-tag {
+    height: auto;
+    margin: 0;
+    padding: 0;
+    border: none !important;
+    background: transparent !important;
+    color: var(--text-1) !important;
+    font-size: 13px;
+    line-height: 22px;
+  }
+  .el-select__selected-item:not(.el-select__placeholder) .el-tag .el-tag__close { display: none; }
+  .el-select__selected-item:not(.el-select__placeholder) .el-select__tags-text { color: var(--text-1) !important; }
+  .el-select__selected-item:not(.el-select__placeholder) + .el-select__selected-item:not(.el-select__placeholder)::before {
+    content: '、';
+    color: var(--text-1);
+    font-size: 13px;
+    line-height: 22px;
+    margin-right: -5px;   // 「、」字形偏左，右侧留白大，收紧与后一项的间距
+  }
+}
+
 // EP v1 兼容（旧版 select 走 .el-input__wrapper）
 .el-select .el-input__wrapper {
   height: $form-height !important;
@@ -1955,7 +1995,7 @@ html[data-theme="dark"] {
   }
   .admin-shell .nav-item {
     border-radius: 6px;
-    &:hover  { background: rgba(255, 255, 255, 0.05); }
+    &:hover  { background: transparent; color: var(--color-primary); }
     &.active {
       background: rgba(169, 190, 255, 0.10);
       color: #a9beff;
@@ -2356,7 +2396,7 @@ html[data-theme="dark"] .admin-shell .sidebar {
 
   .nav-section__label { color: rgba(255, 255, 255, 0.34); }
   .nav-item { color: rgba(255, 255, 255, 0.62); }
-  .nav-item:hover { background: rgba(255, 255, 255, 0.06); color: #ffffff; }
+  .nav-item:hover { background: transparent; color: var(--color-primary); }
   .nav-item.active {
     background: linear-gradient(90deg, rgba(94, 141, 249, 0.24), rgba(94, 141, 249, 0.07));
     color: #ffffff;
@@ -2399,7 +2439,7 @@ html[data-theme="light"] .admin-shell .sidebar {
 
   .nav-section__label { color: #9aa1b0; }
   .nav-item { color: #5b6270; }
-  .nav-item:hover { background: rgba(94, 141, 249, 0.07); color: #1f2937; }
+  .nav-item:hover { background: transparent; color: var(--color-primary); }
   .nav-item.active {
     background: linear-gradient(90deg, rgba(94, 141, 249, 0.20), rgba(94, 141, 249, 0.05));
     color: #2f5fd6;
@@ -2505,6 +2545,40 @@ html[data-theme="dark"] .btn-back.el-button.el-button {
 .el-dialog__footer .el-button + .el-button { margin-left: 10px; }
 
 // ═══════════════════════════════════════════════════════════════
+// 下拉选项列表（el-select 弹层）：选项圆角 4px、左右留 6px 边距
+//   悬停：无背景，文字变主色；已选中：同侧栏选中项 / 保存草稿按钮的渐变底，字重常规，无加粗
+// ═══════════════════════════════════════════════════════════════
+
+.el-select-dropdown__item {
+  margin: 0 6px;
+  border-radius: 4px;
+  font-weight: 400;
+}
+
+// 多选下拉：选项之间留 5px 间隙
+.el-select-dropdown.is-multiple .el-select-dropdown__item + .el-select-dropdown__item { margin-top: 5px; }
+
+html[data-theme="light"] {
+  .el-select-dropdown__item.is-hovering:not(.is-selected),
+  .el-select-dropdown__item:hover:not(.is-selected) { background: transparent; color: #5e8df9; }
+  .el-select-dropdown__item.is-selected {
+    background: linear-gradient(90deg, rgba(94, 141, 249, 0.20), rgba(94, 141, 249, 0.05)), #ffffff;
+    color: #2f5fd6;
+    font-weight: 400;
+  }
+}
+
+html[data-theme="dark"] {
+  .el-select-dropdown__item.is-hovering:not(.is-selected),
+  .el-select-dropdown__item:hover:not(.is-selected) { background: transparent; color: #a9beff; }
+  .el-select-dropdown__item.is-selected {
+    background: linear-gradient(90deg, rgba(94, 141, 249, 0.24), rgba(94, 141, 249, 0.07));
+    color: #ffffff;
+    font-weight: 400;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
 // 暗色表格行悬停：同侧栏选中项的玻璃胶囊
 //   渐变画在整行 tr 上：底色与上下描边的最亮处跟随鼠标（--mx 由 utils/rowSpotlight.ts 写入），向两侧逐渐变暗
 //   单元格自身透明（含固定的操作列），避免各画各的而断开
@@ -2571,4 +2645,21 @@ html[data-theme="light"] .el-table {
   &.is-scrolling-none .el-table__body-wrapper tr.hover-row > td.el-table-fixed-column--right {
     background-color: transparent !important;
   }
+}
+
+// 训练题管理：知识体系树上方的过滤输入框无边框（覆盖上方全局 .content-area 输入框描边）
+html[data-theme] .content-area .tree-search .el-input__wrapper {
+  &, &:hover, &.is-focus {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+}
+
+// 无云晕的模块（如训练题管理详情页「题目内容」）：保留底色与描边，去掉左上/右下的径向光晕
+html[data-theme="dark"] .content-area .section-block.section-block--no-glow {
+  background: rgba(14, 17, 22, 0.60) !important;
+}
+html[data-theme="light"] .content-area .section-block.section-block--no-glow {
+  background: rgba(255, 255, 255, 0.74) !important;
 }

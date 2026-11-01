@@ -28,13 +28,19 @@
 
     <div v-if="question">
 
-      <!-- ── 题干内容（只读）── -->
-      <div class="surface section-block">
+      <!-- ── 题目内容（只读）── -->
+      <div class="surface section-block section-block--no-glow">
         <div class="section-hd">
-          <span class="section-title"><SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />题干内容</span>
+          <span class="section-title"><SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />题目内容</span>
         </div>
-        <div v-if="!isEditable" class="stem-display">{{ question.stem }}</div>
-        <el-input v-else v-model="question.stem" type="textarea" :rows="7" />
+        <el-form label-width="0">
+          <div class="section-content">
+            <el-form-item>
+              <span v-if="!isEditable" class="plain-value-area">{{ question.stem }}</span>
+              <el-input v-else v-model="question.stem" type="textarea" :rows="7" />
+            </el-form-item>
+          </div>
+        </el-form>
       </div>
 
       <!-- ── 分析结果（可修改，仅 pending_review 状态）── -->
@@ -93,6 +99,7 @@
                 v-else
                 v-model="form.knowledge_point_ids"
                 multiple
+                class="select-plain-multi"
                 :disabled="knowledgePointOptions.length === 0"
                 :placeholder="knowledgePointOptions.length === 0 ? '请先选择章节' : '请选择知识点（可多选）'"
                 style="width:100%"
@@ -582,7 +589,6 @@ function renderRadar() {
   const values = powers.map(p => form.five_power_weights[p as FivePower] ?? 0)
   const css = getComputedStyle(radarRef.value)
   const primary = css.getPropertyValue('--color-primary').trim() || '#608df8'
-  const textColor = css.getPropertyValue('--text-2').trim() || '#6b7280'
   const alpha = (hex: string, a: number) => {
     const m = /^#([0-9a-f]{6})$/i.exec(hex)
     if (!m) return hex
@@ -599,7 +605,7 @@ function renderRadar() {
       radius: '68%',
       splitNumber: 5,
       axisName: {
-        color: textColor,
+        color: primary,
         fontSize: 13,
         formatter: (name: string, indicator: any) => `{dot_${indicator.key}|}  ${name}`,
         rich: dotRich,
@@ -1150,7 +1156,8 @@ async function handleReject() {
     background: transparent;
     padding: 6px 0 14px;
     margin-bottom: 8px;
-    border-bottom: 1px dashed var(--border);
+    border-bottom: 1px dashed rgba(94, 141, 249, 0.40);
+    [data-theme="dark"] & { border-bottom-color: rgba(255, 255, 255, 0.20); }
 
     &:last-child { border-bottom: none; padding-bottom: 4px; }
   }

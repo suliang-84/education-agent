@@ -22,12 +22,12 @@
 
     <div v-if="question">
 
-      <!-- ── 题干内容 ── -->
-      <div class="surface section-block">
+      <!-- ── 题目内容 ── -->
+      <div class="surface section-block stem-block">
         <div class="section-hd">
-          <span class="section-title"><SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />题干内容</span>
+          <span class="section-title"><SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />题目内容</span>
         </div>
-        <el-input v-model="question.stem" type="textarea" :rows="7" />
+        <el-input v-model="question.stem" class="stem-input" type="textarea" :rows="7" />
       </div>
 
       <!-- ── 编辑内容 ── -->
@@ -73,6 +73,7 @@
               <el-select
                 v-model="form.knowledge_point_ids"
                 multiple
+                class="select-plain-multi"
                 :disabled="knowledgePointOptions.length === 0"
                 :placeholder="knowledgePointOptions.length === 0 ? '请先选择章节' : '请选择知识点（可多选）'"
                 style="width:100%"

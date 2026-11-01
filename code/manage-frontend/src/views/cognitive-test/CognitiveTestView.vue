@@ -38,7 +38,7 @@
               <!-- 题干 -->
               <div class="expand-section">
                 <div class="expand-section__title">
-                  <SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />题干内容
+                  <SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />题目内容
                 </div>
                 <div class="expand-stem">{{ row.stem }}</div>
               </div>

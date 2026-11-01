@@ -24,9 +24,9 @@
     <el-form ref="formRef" :model="form" :rules="rules" label-width="0" v-loading="loading" style="flex:1;min-height:0;display:flex;flex-direction:column">
 
       <!-- 题干 -->
-      <div class="form-section surface stem-section">
+      <div class="form-section surface stem-section stem-block">
         <div class="section-hd">
-          <span class="section-title"><SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />题干内容</span>
+          <span class="section-title"><SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />题目内容</span>
           <el-upload
             action="#"
             :auto-upload="false"
@@ -44,6 +44,7 @@
         <el-form-item prop="stem" style="flex:1;min-height:0;margin-bottom:0">
           <el-input
             v-model="form.stem"
+            class="stem-input"
             type="textarea"
             style="height:100%"
             :rows="7"
@@ -150,7 +151,7 @@ const isEdit = computed(() => !!questionId.value)
 const form = reactive({ stem: '' })
 
 const rules: FormRules = {
-  stem: [{ required: true, message: '请输入题干内容', trigger: 'blur' }],
+  stem: [{ required: true, message: '请输入题目内容', trigger: 'blur' }],
 }
 
 onMounted(async () => {

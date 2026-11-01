@@ -326,7 +326,7 @@ async function handleBatchDelete() {
 function handleFileChange() { ElMessage.info('文件已选择') }
 async function handleImport() {
   const stems = batchStems.value.split('\n').map(s => s.trim()).filter(Boolean)
-  if (stems.length === 0) { ElMessage.warning('请粘贴题干内容或上传文件'); return }
+  if (stems.length === 0) { ElMessage.warning('请粘贴题目内容或上传文件'); return }
   importLoading.value = true
   try {
     await questionApi.batchImportStems(stems)

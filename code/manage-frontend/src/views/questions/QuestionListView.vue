@@ -494,30 +494,32 @@ onMounted(() => { loadData(); loadKnowledgeTree(); loadTotalAll() })
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 5px 14px;
+  padding: 5px 6px;
+  margin: 1px 8px;
   font-size: 13px;
   color: var(--text-2);
   cursor: default;
-  border-radius: 0;
-  transition: background 0.12s, color 0.12s;
+  border-radius: 6px;
+  transition: background 0.12s, color 0.12s, box-shadow 0.12s;
   white-space: nowrap;
   overflow: hidden;
 
-  &:hover { background: var(--bg-muted); }
+  &:hover { color: var(--color-primary); }
 
+  // 同侧栏选中项：蓝色渐变底
   &.active {
-    background: var(--indigo-light);
-    color: var(--indigo);
+    background: linear-gradient(90deg, rgba(94, 141, 249, 0.20), rgba(94, 141, 249, 0.05));
+    color: var(--color-primary);
     font-weight: 600;
   }
 
   &--all { font-weight: 600; color: var(--text-1); cursor: pointer; }
-  &--l1  { padding-left: 14px; color: var(--text-1); }
-  &--l2  { padding-left: 24px; color: var(--text-2); }
-  &--l3  { padding-left: 34px; font-size: 12.5px; color: var(--text-2); }
-  &--l4  { padding-left: 44px; font-size: 12px; color: var(--text-2); }
-  &--l5  { padding-left: 54px; font-size: 11.5px; color: var(--text-2); cursor: pointer;
-            &:hover { color: var(--indigo); } }
+  &--l1  { padding-left: 6px; color: var(--text-1); }
+  &--l2  { padding-left: 16px; color: var(--text-2); }
+  &--l3  { padding-left: 26px; font-size: 12.5px; color: var(--text-2); }
+  &--l4  { padding-left: 36px; font-size: 12px; color: var(--text-2); }
+  &--l5  { padding-left: 46px; font-size: 11.5px; color: var(--text-2); cursor: pointer;
+            &:hover { color: var(--color-primary); } }
 
   &__label {
     flex: 1;
@@ -530,7 +532,7 @@ onMounted(() => { loadData(); loadKnowledgeTree(); loadTotalAll() })
     transition: color 0.12s, background 0.12s;
 
     &:hover {
-      color: var(--indigo);
+      color: var(--color-primary);
     }
   }
 
@@ -560,8 +562,8 @@ onMounted(() => { loadData(); loadKnowledgeTree(); loadTotalAll() })
   transition: background 0.12s, color 0.12s;
 
   &:hover {
-    background: rgba(79, 70, 229, 0.10);
-    color: var(--indigo);
+    background: var(--color-primary-light);
+    color: var(--color-primary);
   }
 }
 
@@ -574,7 +576,7 @@ onMounted(() => { loadData(); loadKnowledgeTree(); loadTotalAll() })
   transition: color 0.12s;
 
   .tree-node.active &,
-  .tree-node:hover & { color: var(--indigo); }
+  .tree-node:hover & { color: var(--color-primary); }
 }
 
 // ── 右侧表格区 ───────────────────────────────────────────────

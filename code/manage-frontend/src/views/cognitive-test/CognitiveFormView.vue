@@ -62,12 +62,12 @@
 
     <div v-loading="loading">
 
-      <!-- ── 题干内容 ── -->
+      <!-- ── 题目内容 ── -->
       <div class="form-section surface">
         <div class="section-hd">
           <span class="section-title">
             <SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />
-            题干内容
+            题目内容
           </span>
           <span class="section-badge">展示给学生，支持 Markdown / LaTeX</span>
         </div>
@@ -261,7 +261,7 @@ const form = reactive({
 })
 
 const rules: FormRules = {
-  stem:               [{ required: true, message: '请输入题干内容', trigger: 'blur' }],
+  stem:               [{ required: true, message: '请输入题目内容', trigger: 'blur' }],
   reference_time_sec: [{ required: true, message: '请填写参考时间', trigger: 'change' }],
 }
 
