@@ -1146,26 +1146,22 @@ async function handleReject() {
     [data-theme="dark"] & { background: transparent; }
   }
 
+  // 子模块纵向节奏统一为 10px：
+  // 子标题 → 子内容 → 分割线 → 下一个子标题；子内容内各项之间同为 10px
   .sub-section-title {
-    margin-top: 6px;
+    margin: 0 0 10px;
   }
 
   // 虚线置于每个子模块内容的底部（最后一个子模块除外）
   .section-content,
   .answer-block {
     background: transparent;
-    padding: 6px 0 14px;
-    margin-bottom: 8px;
+    padding: 0 0 10px;
+    margin: 0 0 10px;
     border-bottom: 1px dashed rgba(94, 141, 249, 0.40);
     [data-theme="dark"] & { border-bottom-color: rgba(255, 255, 255, 0.20); }
 
-    &:last-child { border-bottom: none; padding-bottom: 4px; }
-  }
-
-  .section-content,
-  .section-content:last-child {
-    margin-bottom: 0;
-    padding: 0;
+    &:last-child { border-bottom: none; padding-bottom: 0; margin-bottom: 0; }
   }
 
   // 去掉输入框外观，只保留文字
@@ -1185,6 +1181,6 @@ async function handleReject() {
 
   :deep(.el-form-item__label) { color: var(--text-3); font-weight: 400; }
   .weights-radar { width: 420px; max-width: 100%; height: 300px; margin-right: auto; }
-  .belongs-row .el-form-item { margin-bottom: 4px; }
+  .belongs-row { margin-bottom: 10px; .el-form-item { margin-bottom: 0; } }
 }
 </style>
