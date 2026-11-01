@@ -1183,6 +1183,9 @@ async function handleReject() {
   .weights-radar { width: 420px; max-width: 100%; height: 300px; margin-right: auto; }
   .belongs-row { margin-bottom: 10px; .el-form-item { margin-bottom: 0; } }
 
+  // 标签行高 30px、步骤文字行高 1.7×13px≈22px：顶部补 4px，使第一行与左侧标题垂直居中对齐
+  .plain-steps { padding-top: 4px; }
+
   // 题目属性与「归属体系」同一栅格：每列 20%（科目:年级:学期:章节 = 1:1:1:2），
   // 使「难度等级」与上方「年级」在 x 轴方向对齐
   .attr-row {
