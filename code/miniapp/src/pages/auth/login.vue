@@ -50,6 +50,50 @@ function playBgVideo() {
 onReady(playBgVideo)
 onShow(() => setTimeout(playBgVideo, 100))   // 稍作延迟，等原生组件挂载完成
 
+// ── 登录卡片贴紧机器人底边（适配不同机型）──────────────────────
+// 视频按 cover 铺满页面：缩放比 s = max(W/540, H/960)，纵向居中裁剪。
+// 视频帧里机器人底边的位置固定（比例 ROBOT_BOTTOM_IN_VIDEO），所以屏幕上的位置可以算出来，
+// 再把卡片顶边放到这条线上：长屏、短屏、平板都能贴紧，不会出现缝隙或盖住机器人。
+// 视频被重新裁剪后，只需要改下面这个比例：(原视频里机器人底边像素 683 − 顶部裁掉的像素 127) / 960
+const VIDEO_W = 540
+const VIDEO_H = 960
+const ROBOT_BOTTOM_IN_VIDEO = (683 - 127) / 960
+const robotBottom = ref(0)   // 机器人底边在页面里的 y（px）；0 表示还没算出来，CSS 兜底 57%
+const cardTop = ref(0)       // 卡片顶边 y（px）
+let bottomInset = 0
+
+function layoutCard(W: number, H: number, cardH = 0) {
+  const s = Math.max(W / VIDEO_W, H / VIDEO_H)
+  const rb = (H - VIDEO_H * s) / 2 + ROBOT_BOTTOM_IN_VIDEO * VIDEO_H * s
+  robotBottom.value = Math.round(rb)
+  let top = rb - uni.upx2px(4)                                   // 微小重叠，避免出现发丝缝
+  const footerReserve = uni.upx2px(100) + bottomInset            // 底部页脚占位
+  if (cardH && top + cardH > H - footerReserve) {                // 卡片放不下（矮屏 / 开发入口展开）→ 整体上移，保证不被截断
+    top = Math.max(0, H - footerReserve - cardH)
+  }
+  cardTop.value = Math.round(top)
+}
+
+function relayout() {
+  const q = uni.createSelectorQuery()
+  q.select('.bg-stage').boundingClientRect()
+  q.select('.login-card').boundingClientRect()
+  q.exec((r: Array<{ width: number; height: number } | null>) => {
+    const stage = r?.[0]
+    const card = r?.[1]
+    if (stage?.width && stage?.height) layoutCard(stage.width, stage.height, card?.height || 0)
+  })
+}
+
+// 首次渲染前先用系统信息估算，避免卡片先出现在错误位置再跳动
+{
+  const info = uni.getSystemInfoSync()
+  bottomInset = Math.max(0, info.screenHeight - (info.safeArea?.bottom ?? info.screenHeight))
+  layoutCard(info.windowWidth, info.windowHeight)
+}
+onReady(relayout)                       // 渲染后用实际的页面区域和卡片高度精修
+uni.onWindowResize?.(relayout)          // 折叠屏展开 / 横竖屏切换
+
 function onBgVideoError(e: Event) {
   videoFailed.value = true
   const detail = (e as unknown as { detail?: { errMsg?: string } }).detail
@@ -58,6 +102,8 @@ function onBgVideoError(e: Event) {
 
 // 开发模式：是否显示开发登录入口
 const IS_DEV = import.meta.env.VITE_APP_ENV === 'development'
+// 临时开关：设为 true 才显示开发登录入口（便于查看正式环境下的登录页效果）
+const SHOW_DEV_LOGIN = IS_DEV && false
 const devPhone = ref('13800138000')  // 开发用测试手机号
 
 /** 路由到首页（复用逻辑） */
@@ -135,106 +181,97 @@ async function handleWxLogin() {
 
 <template>
   <page-meta :page-style="pageStyle" />
-  <view class="login-page">
-    <!-- 全屏循环背景视频 + 压暗遮罩 -->
+  <view class="login-page" :style="robotBottom ? { '--robot-bottom': robotBottom + 'px' } : {}">
+    <!-- 全屏循环背景视频 -->
     <view class="bg-stage">
-    <!-- 视频下方的静态封面：视频正常渲染时被盖住；视频未渲染（兼容性 / 加载失败）时仍能看到画面 -->
-    <image class="bg-poster" src="../../assets/login-background-poster.jpg" mode="aspectFill" />
-    <video
-      v-if="bgVideoSrc && !videoFailed"
-      :id="BG_VIDEO_ID"
-      class="bg-video"
-      :src="bgVideoSrc"
-      autoplay
-      loop
-      muted
-      :controls="false"
-      :show-loading="false"
-      :show-center-play-btn="false"
-      :show-play-btn="false"
-      :show-fullscreen-btn="false"
-      :show-progress="false"
-      :enable-progress-gesture="false"
-      :show-mute-btn="false"
-      object-fit="cover"
-      @error="onBgVideoError"
-    />
+      <!-- 视频下方的静态封面：视频未就绪 / 加载失败时仍能看到画面 -->
+      <image class="bg-poster" src="../../assets/login-background-poster.jpg" mode="aspectFill" />
+      <video
+        v-if="bgVideoSrc && !videoFailed"
+        :id="BG_VIDEO_ID"
+        class="bg-video"
+        :src="bgVideoSrc"
+        autoplay
+        loop
+        muted
+        :controls="false"
+        :show-loading="false"
+        :show-center-play-btn="false"
+        :show-play-btn="false"
+        :show-fullscreen-btn="false"
+        :show-progress="false"
+        :enable-progress-gesture="false"
+        :show-mute-btn="false"
+        object-fit="cover"
+        @error="onBgVideoError"
+      />
     </view>
     <view class="bg-mask" />
 
+    <!-- 底部玻璃卡片：品牌 + 登录（与后台登录卡片同一视觉语言） -->
+    <view class="login-card" :style="cardTop ? { top: cardTop + 'px' } : {}">
+      <view class="card-body">
+        <text class="brand-sys-name">MESH · AI助教</text>
+        <text class="brand-headline">五力成长，从每次训练开始</text>
 
-    <!-- 登录按钮区 -->
-    <view class="btn-area">
-      <button
-        class="wx-login-btn"
-        :class="{ 'wx-login-btn--loading': loading }"
-        :disabled="loading"
-        @tap="handleWxLogin"
-      >
-        <view class="btn-inner">
-          <view v-if="!loading" class="wx-icon"><SvgIcon name="sparkles" :size="36" color="on-primary" /></view>
-          <view v-else class="spinner" />
-          <text class="btn-label">{{ loading ? '登录中...' : '微信一键登录' }}</text>
+        <button
+          class="submit-btn"
+          :class="{ 'submit-btn--loading': loading }"
+          :disabled="loading"
+          @tap="handleWxLogin"
+        >
+          <view class="btn-inner">
+            <SvgIcon v-if="!loading" name="sparkles" :size="36" color="#1a2a3a" />
+            <view v-else class="spinner" />
+            <text class="btn-label">{{ loading ? '登录中...' : '微信一键登录' }}</text>
+          </view>
+        </button>
+
+        <text class="hint-text">登录即代表同意《用户协议》和《隐私政策》</text>
+
+        <!-- 开发模式快速登录入口（仅 development 环境显示） -->
+        <view v-if="SHOW_DEV_LOGIN" class="dev-login-wrap">
+          <view class="dev-divider"><text class="dev-divider-text">开发模式</text></view>
+          <text class="field-label">测试手机号</text>
+          <view class="dev-input-row">
+            <view class="field-wrap">
+              <SvgIcon name="phone" :size="30" color="rgba(255,255,255,0.45)" />
+              <input
+                v-model="devPhone"
+                class="field-input"
+                type="number"
+                maxlength="11"
+                placeholder="请输入测试手机号"
+                placeholder-style="color: rgba(255,255,255,0.35)"
+              />
+            </view>
+            <button class="dev-btn" :disabled="loading" @tap="handleDevLogin">快速登录</button>
+          </view>
+          <text class="dev-hint">跳过微信授权 · 仅本地开发使用</text>
         </view>
-      </button>
-
-      <text class="hint-text">登录即代表同意《用户协议》和《隐私政策》</text>
-
-      <!-- 开发模式快速登录入口（仅 development 环境显示） -->
-      <view v-if="IS_DEV" class="dev-login-wrap">
-        <view class="dev-divider"><text class="dev-divider-text">开发模式</text></view>
-        <view class="dev-input-row">
-          <input
-            v-model="devPhone"
-            class="dev-input"
-            type="number"
-            maxlength="11"
-            placeholder="测试手机号"
-          />
-          <button
-            class="dev-btn"
-            :disabled="loading"
-            @tap="handleDevLogin"
-          >
-            快速登录
-          </button>
-        </view>
-        <text class="dev-hint">跳过微信授权 · 仅本地开发使用</text>
       </view>
     </view>
 
+    <text class="page-footer">MESH AI · 认知训练平台</text>
   </view>
 </template>
 
 <style lang="scss" scoped>
+// 视觉语言与后台登录页一致：全屏视频 + 深色玻璃卡片 + 白→浅蓝渐变胶囊按钮
+// 背景是深色视频，所以卡片内颜色固定，不随亮/暗主题切换
 
 .login-page {
   position: relative;
   height: 100vh;
   min-height: 100vh;
   background: #000011;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
   overflow: hidden;
-  padding: 0 $space-5 120rpx;
 }
 
-// 视频已转为 720×1280（9:16）H.264 无音轨 30fps（H.265 在部分安卓微信中无法播放，背景视频也不需要声音）；
-// 机器人位于水平正中、垂直约 53% 处，占宽约 56%；
-// 铺满整屏（absolute 相对 .login-page + 显式宽高，避免 video 高度回落到默认 225px；
-// 不用 fixed，原生组件放在 fixed 容器内在部分机型上不渲染），cover 在 9:19.5 的长屏上左右各裁约 9%，机器人仍完整居中
-.bg-stage {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 0;
-}
-
-.bg-poster {
+// 视频为 540×960（9:16）H.264；机器人位于水平正中、垂直约 21%–57% 处（已裁掉顶部空黑上移，避免被底部卡片压住）。
+// 铺满整屏用 absolute + 显式宽高（避免 video 高度回落到默认 225px；原生组件放在 fixed 容器内在部分机型上不渲染）
+.bg-stage,
+.bg-mask {
   position: absolute;
   top: 0;
   left: 0;
@@ -242,6 +279,9 @@ async function handleWxLogin() {
   height: 100%;
 }
 
+.bg-stage { z-index: 0; }
+
+.bg-poster,
 .bg-video {
   position: absolute;
   top: 0;
@@ -250,158 +290,254 @@ async function handleWxLogin() {
   height: 100%;
 }
 
+// 顶部几乎透明，机器人底边附近渐变压暗：
 .bg-mask {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
   z-index: 1;
-  background: rgba(0, 0, 17, 0.2);
+  // 渐变跟着机器人底边走（--robot-bottom 由脚本按机型算出，未算出时按 57% 兜底）：
+  // 底边上方 220rpx 开始压暗，到底边下方 40rpx 基本压实，既遮住视频里机器人身体底部的硬切边，也托住下面的卡片文字
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 1, 0, 0.08) 0%,
+    rgba(0, 1, 0, 0.08) calc(var(--robot-bottom, 57%) - 220rpx),
+    rgba(0, 1, 0, 0.88) calc(var(--robot-bottom, 57%) + 40rpx),
+    rgba(0, 1, 0, 0.92) 100%
+  );
   pointer-events: none;
 }
 
-// 按钮区
-.btn-area {
-  position: relative;
+// ── 玻璃卡片 ─────────────────────────────────────────────────
+.login-card {
+  position: absolute;
   z-index: 2;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: $space-3;
+  top: 57%;                // 兜底；实际 top 由脚本按机器人底边算出并写入行内样式
+  left: $space-4;
+  right: $space-4;
+  border-radius: 48rpx;
+  overflow: hidden;
+  background:
+    radial-gradient(
+      600rpx circle at 50% -20%,
+      rgba(94, 141, 249, 0.22),
+      rgba(94, 141, 249, 0.05) 40%,
+      transparent 65%
+    ),
+    rgba(12, 14, 18, 0.85);
+  border: 1rpx solid rgba(140, 165, 255, 0.28);
+  box-shadow:
+    0 32rpx 72rpx rgba(0, 0, 0, 0.60),
+    0 8rpx 28rpx rgba(0, 0, 0, 0.40),
+    inset 0 1rpx 0 rgba(255, 255, 255, 0.08);
+
+  // 定时反光：单次光线扫过后长时间停顿
+  &::after {
+    content: '';
+    position: absolute;
+    top: -100%;
+    left: -100%;
+    width: 300%;
+    height: 300%;
+    background: linear-gradient(
+      125deg,
+      transparent 40%,
+      rgba(255, 255, 255, 0.05) 48%,
+      rgba(255, 255, 255, 0.11) 50%,
+      rgba(255, 255, 255, 0.05) 52%,
+      transparent 60%
+    );
+    animation: glass-shine 8s ease-in-out infinite;
+    pointer-events: none;
+  }
 }
 
-.wx-login-btn {
+@keyframes glass-shine {
+  0%   { transform: translate(-40%, -40%); opacity: 0; }
+  5%   { opacity: 1; }
+  75%  { transform: translate(40%, 40%); opacity: 1; }
+  82%  { opacity: 0; }
+  100% { transform: translate(40%, 40%); opacity: 0; }
+}
+
+.card-body {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 64rpx 56rpx 48rpx;
+}
+
+// 品牌名：白色粗体 + 蓝色外发光
+.brand-sys-name {
+  font-size: 44rpx;
+  font-weight: 900;
+  color: #ffffff;
+  letter-spacing: 0.04em;
+  margin-bottom: 20rpx;
+  text-shadow:
+    0 0 8rpx rgba(255, 255, 255, 0.85),
+    0 0 20rpx rgba(110, 150, 255, 0.95),
+    0 0 40rpx rgba(70, 110, 255, 0.80),
+    0 0 68rpx rgba(50, 90, 255, 0.60);
+}
+
+// 后台是浅蓝渐变文字；小程序里渐变文字在部分机型不显示，用渐变中间色代替
+.brand-headline {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #9fb6d9;
+  margin-bottom: 56rpx;
+}
+
+// ── 主按钮：白→浅蓝渐变胶囊 ──────────────────────────────
+.submit-btn {
   width: 100%;
-  height: 100rpx;
-  border-radius: $r-pill;
-  background: $cta-gradient;
-  box-shadow: $shadow-cta;
+  height: 96rpx;
   border: none;
   padding: 0;
-  transition: $transition-base;
+  border-radius: 9999rpx;
+  background: linear-gradient(to right, #cadbf3 0%, #a9beff 100%);
+  box-shadow:
+    0 8rpx 40rpx rgba(105, 140, 188, 0.35),
+    inset 0 1rpx 0 rgba(255, 255, 255, 0.30);
 
-  &::after {
-    border: none;
-  }
-
-  &--loading {
-    opacity: 0.85;
-  }
-
-  &[disabled] {
-    background: $primary-hover;
-  }
+  &::after { border: none; }
+  &:active { transform: scale(0.98); }
+  &--loading { opacity: 0.65; }
+  &[disabled] { background: linear-gradient(to right, #cadbf3 0%, #a9beff 100%); }
 }
 
 .btn-inner {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: $space-2;
-}
-
-.wx-icon {
-  display: flex;
-  align-items: center;
+  gap: 16rpx;
 }
 
 .btn-label {
-  font-size: $font-size-lg;
-  color: $on-primary;
-  font-weight: 700;
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #1a2a3a;
+  letter-spacing: 0.04em;
 }
 
 .spinner {
-  width: 36rpx;
-  height: 36rpx;
+  width: 32rpx;
+  height: 32rpx;
   border-radius: 50%;
-  border: 4rpx solid $on-primary-line;
-  border-top-color: $on-primary;
+  border: 4rpx solid rgba(26, 42, 58, 0.30);
+  border-top-color: #1a2a3a;
   animation: spin 0.7s linear infinite;
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
+@keyframes spin { to { transform: rotate(360deg); } }
 
 .hint-text {
-  font-size: $font-size-xs;
-  color: rgba(255, 255, 255, 0.75);
+  margin-top: 28rpx;
+  font-size: 22rpx;
+  color: rgba(255, 255, 255, 0.45);
   text-align: center;
 }
 
-// 开发模式快速登录
+// ── 开发模式快速登录 ──────────────────────────────────────
 .dev-login-wrap {
-  margin-top: $space-4;
-  width: 100%;
+  margin-top: 40rpx;
+  display: flex;
+  flex-direction: column;
 }
 
 .dev-divider {
   display: flex;
   align-items: center;
-  margin-bottom: $space-3;
+  margin-bottom: 28rpx;
 
-  &::before, &::after {
+  &::before,
+  &::after {
     content: '';
     flex: 1;
     height: 1rpx;
-    background: $border;
+    background: rgba(255, 255, 255, 0.10);
   }
 
   &-text {
-    font-size: $font-size-xs;
-    padding: 4rpx $space-2;
-    margin: 0 $space-2;
-    background: $primary-light;
-    border-radius: $r-pill;
-    color: $primary;
+    margin: 0 20rpx;
+    padding: 4rpx 20rpx;
+    font-size: 22rpx;
+    color: #aabffe;
+    border-radius: 9999rpx;
+    background: rgba(94, 141, 249, 0.14);
   }
+}
+
+// 与后台表单一致：小号浅蓝标签 + 深色半透明输入框
+.field-label {
+  margin-bottom: 12rpx;
+  font-size: 22rpx;
+  font-weight: 600;
+  color: #aabffe;
+  letter-spacing: 0.07em;
 }
 
 .dev-input-row {
   display: flex;
-  gap: $space-2;
   align-items: center;
+  gap: 16rpx;
 }
 
-.dev-input {
+.field-wrap {
   flex: 1;
-  height: 80rpx;
-  border: 1rpx solid $border-hover;
-  border-radius: $r-pill;
-  padding: 0 $space-3;
-  font-size: $font-size-sm;
-  color: $text-1;
-  background: $bg-surface;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  height: 88rpx;
+  padding: 0 28rpx;
+  border-radius: 20rpx;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1rpx solid rgba(255, 255, 255, 0.12);
+}
 
-  &:focus {
-    border-color: $primary;
-    box-shadow: 0 0 0 6rpx rgba(94, 141, 249, 0.18);
-  }
+.field-input {
+  flex: 1;
+  min-width: 0;
+  height: 88rpx;
+  font-size: 28rpx;
+  color: rgba(255, 255, 255, 0.90);
 }
 
 .dev-btn {
-  height: 80rpx;
-  padding: 0 $space-4;
-  background: $cta-gradient;
-  box-shadow: $shadow-cta;
-  color: $on-primary;
-  border-radius: $r-pill;
-  font-size: $font-size-sm;
-  font-weight: 600;
+  flex-shrink: 0;
+  height: 88rpx;
+  line-height: 88rpx;
+  padding: 0 40rpx;
   border: none;
+  border-radius: 9999rpx;
+  background: linear-gradient(to right, #cadbf3 0%, #a9beff 100%);
+  color: #1a2a3a;
+  font-size: 28rpx;
+  font-weight: 600;
   white-space: nowrap;
 
   &::after { border: none; }
+  &:active { transform: scale(0.98); }
 }
 
 .dev-hint {
-  display: block;
-  font-size: $font-size-xs;
-  color: rgba(255, 255, 255, 0.7);
+  margin-top: 16rpx;
+  font-size: 22rpx;
+  color: rgba(255, 255, 255, 0.35);
   text-align: center;
-  margin-top: $space-1;
+}
+
+// ── 页脚：卡片外，保持可读 ────────────────────────────────
+.page-footer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(40rpx + env(safe-area-inset-bottom));
+  z-index: 2;
+  text-align: center;
+  font-size: 22rpx;
+  color: rgba(255, 255, 255, 0.35);
+  letter-spacing: 0.06em;
+  pointer-events: none;
 }
 </style>

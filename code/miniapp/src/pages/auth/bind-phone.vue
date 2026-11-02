@@ -384,21 +384,25 @@ onUnmounted(() => {
   flex-shrink: 0;
   height: 60rpx;
   padding: 0 $space-3;
-  background: $cta-gradient;
+  // 与登录页主按钮一致：白→浅蓝横向渐变胶囊 + 深色文字
+  background: linear-gradient(to right, #cadbf3 0%, #a9beff 100%);
+  box-shadow: 0 4rpx 20rpx rgba(105, 140, 188, 0.30), inset 0 1rpx 0 rgba(255, 255, 255, 0.30);
   border-radius: $r-pill;
   border: none;
   line-height: 60rpx;
 
   &::after { border: none; }
+  &:active { transform: scale(0.98); }
 
   &--disabled {
     background: $bg-muted;
+    box-shadow: none;
   }
 
   &-text,
   .send-code-text {
     font-size: $font-size-xs;
-    color: $on-primary;
+    color: #1a2a3a;
     font-weight: 500;
 
     .send-code-btn--disabled & {
@@ -417,8 +421,9 @@ onUnmounted(() => {
   width: 100%;
   height: 100rpx;
   border-radius: $r-pill;
-  background: $cta-gradient;
-  box-shadow: $shadow-cta;
+  // 与登录页主按钮一致：白→浅蓝横向渐变胶囊 + 深色文字
+  background: linear-gradient(to right, #cadbf3 0%, #a9beff 100%);
+  box-shadow: 0 8rpx 40rpx rgba(105, 140, 188, 0.35), inset 0 1rpx 0 rgba(255, 255, 255, 0.30);
   border: none;
   display: flex;
   align-items: center;
@@ -426,6 +431,7 @@ onUnmounted(() => {
   gap: $space-2;
 
   &::after { border: none; }
+  &:active { transform: scale(0.98); }
 
   &--disabled {
     background: $bg-muted;
@@ -434,8 +440,9 @@ onUnmounted(() => {
 
   &__text {
     font-size: $font-size-lg;
-    color: $on-primary;
-    font-weight: 700;
+    color: #1a2a3a;
+    font-weight: 600;
+    letter-spacing: 0.04em;
 
     .submit-btn--disabled & {
       color: $text-3;
@@ -447,8 +454,8 @@ onUnmounted(() => {
   width: 36rpx;
   height: 36rpx;
   border-radius: 50%;
-  border: 4rpx solid $on-primary-line;
-  border-top-color: $on-primary;
+  border: 4rpx solid rgba(26, 42, 58, 0.30);
+  border-top-color: #1a2a3a;
   animation: spin 0.7s linear infinite;
 }
 
