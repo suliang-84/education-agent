@@ -92,8 +92,6 @@ function measureLimit() {
 const submitting = ref(false)
 const submitted = ref(false)
 const isCorrect = ref<boolean | null>(null)
-const wrongCount = ref(0) // 累计答错次数（用于触发 AI 主动介入）
-const showAiBar = ref(false)
 
 // ── 计时 ──────────────────────────────────────────────────────────────────
 const elapsed = ref(0) // 当前题用时（秒）
@@ -127,14 +125,7 @@ async function submitAnswer() {
     isCorrect.value = resp.is_correct
     trainingStore.recordAnswer(question.value.question_index, answerText(mode.value, answerState.value), resp.is_correct)
 
-    if (!resp.is_correct) {
-      wrongCount.value++
-      // 注意：答错后不再自动生成解析，学生点击「智能解答」才调用大模型（见 askAi）
-      // 连续答错 ≥2 次，显示 AI 主动介入提示
-      if (wrongCount.value >= 2) {
-        showAiBar.value = true
-      }
-    }
+    // 注意：答错后不会自动生成解析，也不会弹出任何提示；学生点击「智能解答」才调用大模型（见 askAi）
   } catch {
     uni.showToast({ title: '提交失败，请重试', icon: 'none' })
     startTimer() // 恢复计时
@@ -209,11 +200,6 @@ function resetQuestion() {
   submitted.value = false
   isCorrect.value = null
   startTimer()
-}
-
-function goToAssistant() {
-  showAiBar.value = false
-  uni.navigateTo({ url: PAGES.ASSISTANT_CHAT })
 }
 
 // ── 退出确认弹窗 ──────────────────────────────────────────────────────────
@@ -447,14 +433,6 @@ onUnmounted(() => {
         </template>
       </view>
     </template>
-
-    <!-- ── AI 主动介入浮动条（连续错≥2次触发） ──────────────── -->
-    <view v-if="showAiBar" class="ai-bar">
-      <text class="ai-bar__icon">🤖</text>
-      <text class="ai-bar__text">遇到困难了？来和 AI 助教聊聊吧</text>
-      <button class="ai-bar__btn" @tap="goToAssistant">去聊聊</button>
-      <text class="ai-bar__close" @tap="showAiBar = false">✕</text>
-    </view>
 
     <!-- 退出确认弹窗 -->
     <view v-if="showExitDialog" class="dialog-mask">
@@ -929,50 +907,6 @@ $seg-gap: 4rpx;
 }
 
 // ── AI 主动介入浮动条 ─────────────────────────────────────────────────────
-.ai-bar {
-  position: fixed;
-  bottom: 180rpx;
-  left: $space-4;
-  right: $space-4;
-  background: $cta-gradient;
-  border-radius: $r-xl;
-  padding: $space-3 $space-4;
-  display: flex;
-  align-items: center;
-  gap: $space-2;
-  box-shadow: $shadow-cta;
-  z-index: 100;
-  animation: slideUp 0.3s ease;
-
-  &__icon { font-size: 36rpx; flex-shrink: 0; }
-  &__text { flex: 1; font-size: $font-size-sm; color: $on-primary; }
-  &__btn {
-    flex-shrink: 0;
-    height: 56rpx;
-    padding: 0 $space-3;
-    background: $on-primary-line;
-    border: 2rpx solid $on-primary-line;
-    border-radius: $r-pill;
-    font-size: $font-size-xs;
-    color: $on-primary;
-    font-weight: 600;
-
-    &::after { border: none; }
-  }
-
-  &__close {
-    font-size: 28rpx;
-    color: $on-primary-dim;
-    padding: $space-1;
-    flex-shrink: 0;
-  }
-}
-
-@keyframes slideUp {
-  from { transform: translateY(20rpx); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
-}
-
 .spinner {
   width: 36rpx;
   height: 36rpx;
