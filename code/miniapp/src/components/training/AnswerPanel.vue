@@ -216,7 +216,7 @@ defineExpose({ focusFirst, refit })
         <text v-if="readonly" class="ap-ro">{{ modelValue.text.trim() || '（未填写）' }}</text>
         <textarea
           v-else
-          class="ap-textarea"
+          class="ap-textarea ap-textarea--process"
           :value="modelValue.text"
           :focus="focusKey === 'text'"
           :cursor="cursors['text'] ?? -1"
@@ -235,7 +235,7 @@ defineExpose({ focusFirst, refit })
       <view class="ap-block">
         <text class="ap-label">最终答案</text>
         <text v-if="readonly" class="ap-ro">{{ modelValue.final.trim() || '（未作答）' }}</text>
-        <input
+        <textarea
           v-else
           class="ap-final"
           :value="modelValue.final"
@@ -243,8 +243,11 @@ defineExpose({ focusFirst, refit })
           :cursor="cursors['final'] ?? -1"
           placeholder="例如：35人，10600元（请带上单位）"
           placeholder-style="color: rgba(148, 163, 184, 0.85)"
-          :maxlength="100"
+          :maxlength="200"
+          :show-confirm-bar="false"
           :hold-keyboard="true"
+          disable-default-padding
+          auto-height
           @input="onInput('final', $event)"
           @focus="onFocus('final')"
           @blur="onBlur('final', $event)"
@@ -443,11 +446,16 @@ defineExpose({ focusFirst, refit })
   line-height: 1.7;
 }
 
+// 解题过程：起始高度 = 原来的 160rpx + 4 行（每行 28rpx × 1.7 ≈ 48rpx，4 行 ≈ 190rpx）
+.ap-textarea--process { min-height: 350rpx; }
+
+// 最终答案：多行输入框，起始高度 = 原来单行的 72rpx + 2 行（≈ 96rpx）；超出后 auto-height 继续撑高
 .ap-final {
-  height: 72rpx;
-  line-height: 72rpx;
+  width: 100%;
+  min-height: 168rpx;
   font-size: $font-size-base;
   color: $text-1;
+  line-height: 1.7;
   border-bottom: 2rpx solid $border-hover;
   background: transparent;
 }
