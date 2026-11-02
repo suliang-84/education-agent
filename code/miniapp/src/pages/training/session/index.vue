@@ -1,19 +1,18 @@
 <script setup lang="ts">
 import { useTheme } from '@/hooks/useTheme'
-import type { FivePower } from '@/constants'
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { onReady } from '@dcloudio/uni-app'
 import { useTrainingStore } from '@/store'
 import { trainingApi } from '@/api'
 import { useRagPoller } from '@/hooks/useRagPoller'
-import { FIVE_POWER_LABELS, PAGES } from '@/constants'
+import { PAGES, QUESTION_TYPE_META } from '@/constants'
 import { formatSeconds } from '@/utils'
 import SvgIcon from '@/components/SvgIcon.vue'
 import AnswerPanel from '@/components/training/AnswerPanel.vue'
 import { answerMode, answerText, buildSubmit, emptyAnswer, restoreAnswer, type AnswerState } from '@/utils/answer'
 
 
-const { pageStyle, hl, powerColors } = useTheme()
+const { pageStyle, hl, typeColors } = useTheme()
 const trainingStore = useTrainingStore()
 const { ragContent, staticSolution, status: ragStatus, canRetry, startPolling, retry, stop: stopRag } = useRagPoller()
 
@@ -22,6 +21,11 @@ const question = computed(() => trainingStore.currentQuestion())
 const currentIndex = computed(() => trainingStore.currentIndex)
 const totalQuestions = computed(() => trainingStore.questions.length)
 const isLast = computed(() => trainingStore.isLastQuestion())
+
+// 题目类型（标签用）
+const typeKey = computed(() => String(question.value?.question_type || '').toUpperCase())
+const typeMeta = computed(() => QUESTION_TYPE_META[typeKey.value] ?? null)
+const typeColor = computed(() => typeColors.value[typeKey.value] ?? '#94A3B8')
 
 // ── 答题状态 ───────────────────────────────────────────────────────────────
 // 作答状态按题型组织（见 utils/answer.ts）：单选 / 多选 / 判断用 selected，填空用 blanks，应用题用 text + final，其它用 text
@@ -53,6 +57,19 @@ const answerTip = computed(() => {
 function focusAnswer() {
   if (submitted.value) return
   answerPanelRef.value?.focusFirst()
+}
+// 点击答题区 / 作答容器的留白才聚焦。注意不能用 @tap.self：小程序里 .self 是比较 target.id 与 currentTarget.id，
+// 两者都是空串时恒相等，子元素（输入框、选项）冒泡上来的点击也会被当成“点在容器上”，把焦点抢回第一个输入框。
+// 这里改为给两个容器各设固定 id，只有 target.id 正好是它们（真正点在留白上）才聚焦。
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function onAreaTap(e: any) {
+  const id = e?.target?.id
+  if (id === 'answer-area' || id === 'answer-body') focusAnswer()
+}
+// 答题卡浮层：只有点在遮罩本身（面板外）才关闭，点在面板内部不关闭（同样不能用 .self，见上）
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function onMaskTap(e: any) {
+  if (e?.target?.id === 'card-mask') closeAnswerCard()
 }
 
 // 文本框模式要铺满剩余高度：把「底部操作栏顶部的 y（扣掉作答区下方留白）」传给组件，由组件算出文本框最小高度。
@@ -305,12 +322,16 @@ onUnmounted(() => {
     <template v-else>
       <!-- ── 题目元信息 ────────────────────────────────────────── -->
       <view class="question-meta">
+        <!-- 题目类型标签：图标 + 文字，同色淡底 + 描边（与后台「题目类型」列一致） -->
         <view
-          class="power-badge"
-          :style="{ background: powerColors[question.power_type as FivePower] + '20', color: powerColors[question.power_type as FivePower] }"
+          v-if="typeMeta"
+          class="type-tag"
+          :style="{ color: typeColor, background: typeColor + '1F', borderColor: typeColor + '47' }"
         >
-          <text class="power-badge__text">{{ FIVE_POWER_LABELS[question.power_type as keyof typeof FIVE_POWER_LABELS] || question.power_type }}</text>
+          <view class="type-tag__icon"><SvgIcon :name="typeMeta.icon" :size="28" :color="typeColor" /></view>
+          <text class="type-tag__text">{{ typeMeta.label }}</text>
         </view>
+        <view v-else />
         <text class="question-index">{{ currentIndex + 1 }}/{{ totalQuestions }}</text>
       </view>
 
@@ -328,10 +349,11 @@ onUnmounted(() => {
 
       <!-- ── 答题区域 ───────────────────────────────────────────── -->
       <view
+        id="answer-area"
         class="answer-area"
         :style="hl('answer')"
         :class="{ 'answer-area--submitted': submitted }"
-        @tap.self="focusAnswer"
+        @tap="onAreaTap"
       >
         <!-- 标题行 -->
         <view class="answer-head" @tap="focusAnswer">
@@ -341,7 +363,7 @@ onUnmounted(() => {
         </view>
 
         <!-- 按题型切换的作答组件 -->
-        <view class="answer-body" @tap.self="focusAnswer">
+        <view id="answer-body" class="answer-body" @tap="onAreaTap">
           <AnswerPanel
             ref="answerPanelRef"
             v-model="answerState"
@@ -442,7 +464,7 @@ onUnmounted(() => {
     </view>
 
     <!-- 答题卡浮层 -->
-    <view v-if="showAnswerCard" class="card-mask" @tap.self="closeAnswerCard">
+    <view v-if="showAnswerCard" id="card-mask" class="card-mask" @tap="onMaskTap">
       <view class="answer-card">
         <view class="answer-card__header">
           <text class="answer-card__title">答题卡</text>
@@ -601,13 +623,32 @@ onUnmounted(() => {
   padding: $space-4 $space-4 0;
 }
 
-.power-badge {
-  padding: 6rpx 24rpx;
+// 题目类型标签：胶囊 + 淡色底 + 同色描边 + 图标 + 文字
+.type-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8rpx;
+  padding: 10rpx 22rpx 10rpx 16rpx;   // 上下内边距 5px
   border-radius: $r-pill;
+  border: 1rpx solid transparent;
+
+  // 图标和文字各占一个高度相同（28rpx）的盒子并垂直居中，才能真正对齐：
+  // 自定义组件的外层元素里是 inline-block 的图片，行高会把外层撑得比图标高，图标会偏上
+  &__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28rpx;
+    height: 28rpx;
+    line-height: 0;
+    flex-shrink: 0;
+  }
 
   &__text {
     font-size: $font-size-xs;
-    font-weight: 600;
+    font-weight: 500;
+    line-height: 28rpx;
+    height: 28rpx;
   }
 }
 

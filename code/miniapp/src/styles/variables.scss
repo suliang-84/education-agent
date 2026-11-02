@@ -109,13 +109,17 @@ $r-panel: 20rpx; // 10px
       left: 0;
       right: 0;
       bottom: 0;
-      padding: 1rpx;
+      padding: 2rpx;
       border-radius: inherit;
+      // 椭圆半径按面板自身宽高取比例（宽 130% × 高 170%），高亮向两侧铺开超过一个面板宽，但最亮的仍是点所在的那条边
+      // （点所在边的亮度约为其它边最亮处的 1.5 倍；再宽就会出现点在上边却照亮侧边更多的情况）。
+      // 边缘色 / 向外 38% / 70% 三档颜色取自 --panel-edge / --panel-edge-mid / --panel-edge-low，亮暗主题各自定义。
+      // 不能用固定半径的圆：长条卡片（约 650×100rpx）上，点在上边靠右也会把整条右侧竖边照亮，看起来就成了「右边」
       background: radial-gradient(
-        840rpx circle at var(--hl-x, 0%) var(--hl-y, 0%),
+        ellipse 130% 170% at var(--hl-x, 0%) var(--hl-y, 0%),
         var(--panel-edge),
-        rgba(255, 255, 255, 0.10) 38%,
-        rgba(255, 255, 255, 0.02) 70%
+        var(--panel-edge-mid) 38%,
+        var(--panel-edge-low) 70%
       );
       -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
       mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);

@@ -35,6 +35,29 @@ export const FIVE_POWER_META: Record<FivePower, { icon: string; desc: string }> 
   MIGRATE: { icon: 'rocket', desc: '跨情境应用' },
 }
 
+// 题目类型：名称 / 图标 / 颜色（与后台训练题管理的「题目类型」标签一致）
+export const QUESTION_TYPE_META: Record<string, { label: string; icon: string }> = {
+  SINGLE_CHOICE: { label: '单选题', icon: 'qt_single' },
+  MULTIPLE_CHOICE: { label: '多选题', icon: 'qt_multi' },
+  FILL_BLANK: { label: '填空题', icon: 'qt_fill' },
+  TRUE_FALSE: { label: '判断题', icon: 'qt_judge' },
+  APPLICATION: { label: '应用题', icon: 'qt_application' },
+}
+export const QUESTION_TYPE_COLORS: Record<string, string> = {
+  SINGLE_CHOICE: '#3B82F6',
+  MULTIPLE_CHOICE: '#8B5CF6',
+  FILL_BLANK: '#CA8A04',
+  TRUE_FALSE: '#06B6D4',
+  APPLICATION: '#EC4899',
+}
+export const QUESTION_TYPE_COLORS_DARK: Record<string, string> = {
+  SINGLE_CHOICE: '#60A5FA',
+  MULTIPLE_CHOICE: '#A78BFA',
+  FILL_BLANK: '#FACC15',
+  TRUE_FALSE: '#22D3EE',
+  APPLICATION: '#F472B6',
+}
+
 // 暗色主题下的五力颜色：提亮一档（同后台暗色 --power-*），在近黑底上不发暗
 export const FIVE_POWER_COLORS_DARK: Record<FivePower, string> = {
   INSIGHT: '#2DD4BF',

@@ -20,6 +20,12 @@ const ICONS: Record<string, string> = {
   phone: '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>',
   sparkles: '<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"/>',
   trophy: '<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0z"/>',
+  // 题目类型图标（与后台 src/icons/qt_*.svg 同形）；__C__ 为占位符，渲染时替换成当前描边色（实心点需要显式颜色）
+  qt_single: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.4" fill="__C__" stroke="none"/>',
+  qt_multi: '<path d="M8 4.5h9.5A2.5 2.5 0 0 1 20 7v9.5"/><rect x="4" y="8" width="12.5" height="12.5" rx="2.5"/><path d="M7.4 14.4l2.3 2.3 4-4.4"/>',
+  qt_fill: '<rect x="3" y="6" width="18" height="12" rx="2.5"/><path d="M7 14.2h6"/><path d="M16.5 9.5v5"/>',
+  qt_judge: '<path d="M4 8.2l2.8 2.8L11.6 5.6"/><path d="M13.6 13.6l5.4 5.4M19 13.6l-5.4 5.4"/>',
+  qt_application: '<rect x="5" y="3" width="14" height="18" rx="2.5"/><path d="M8.6 8h6.8M8.6 12h6.8M8.6 16h4"/>',
   branch: '<path d="M6 3v12"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/>',
 }
 
@@ -45,7 +51,7 @@ const theme = useThemeStore()
 const src = computed(() => {
   const palette = ICON_COLORS[theme.isDark ? 'dark' : 'light']
   const stroke = palette[props.color] ?? props.color
-  const body = ICONS[props.name] ?? ''
+  const body = (ICONS[props.name] ?? '').replace(/__C__/g, stroke)
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="${stroke}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`
   return `data:image/svg+xml;base64,${toBase64(svg)}`
 })
