@@ -11,7 +11,9 @@ export interface TrainingQuestion {
   image_url: string | null
   difficulty: string
   power_type: string
-  answer?: Record<string, unknown>
+  question_type?: string | null   // SINGLE_CHOICE / MULTIPLE_CHOICE / TRUE_FALSE / FILL_BLANK / APPLICATION
+  options?: Array<{ key: string; text: string }> | null   // 单选 / 多选的选项（服务端从题干拆出；拆分失败为 null，退回文本框）
+  blank_count?: number | null     // 填空题的空数（服务端只下发数量，不下发标准答案）
 }
 
 export interface CreateSessionReq {
@@ -72,6 +74,8 @@ export const trainingApi = {
     question_id: number
     question_index: number
     student_answer?: string
+    student_answers?: string[]   // 填空题：按空作答
+    final_answer?: string        // 应用题：最终答案栏
     time_spent_sec: number
     hint_level_used?: number
   }) =>

@@ -175,6 +175,13 @@ $t-slow:   350ms;
   --power-adapt:     #{$power-adapt};
   --power-migrate:   #{$power-migrate};
 
+  // 题目类型标识色（避开五力色与「已启用 / 已停用」的绿 / 红）
+  --qt-single:      #3B82F6;   // 单选：蓝
+  --qt-multi:       #8B5CF6;   // 多选：紫
+  --qt-fill:        #CA8A04;   // 填空：黄（取深一档的金黄，白底上文字也够清晰；避开与「已停用」红色相近的橙）
+  --qt-judge:       #06B6D4;   // 判断：青
+  --qt-application: #EC4899;   // 应用：粉
+
   // 文字
   --text-1:        #{$text-1};
   --text-2:        #{$text-2};
@@ -305,6 +312,13 @@ $t-slow:   350ms;
   --power-deduce:    #38BDF8;
   --power-adapt:     #FCD34D;
   --power-migrate:   #A78BFA;
+
+  // 题目类型标识色（深色版：整体提亮）
+  --qt-single:      #60A5FA;
+  --qt-multi:       #A78BFA;
+  --qt-fill:        #FACC15;
+  --qt-judge:       #22D3EE;
+  --qt-application: #F472B6;
 
   // 文字（白→灰 层次）
   --text-1:        #F9FAFB;
@@ -2783,4 +2797,43 @@ html[data-theme] .el-message-box {
   // 文字与图标同色：SvgIcon 默认 fill: currentColor，随文字色变化
   &--on  { color: var(--green); }
   &--off { color: var(--red); }
+}
+
+// ── 题目类型标签（训练题管理列表「题目类型」列）──────────────
+// 胶囊 + 淡色底 + 同色描边 + 图标 + 文字；颜色取 --qt-*，随亮 / 暗主题自动切换。
+// 图标为 src/icons/qt_*.svg（描边风格，currentColor），与文字同色
+.qt-tag {
+  --qt-color: var(--text-3);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 10px 2px 8px;
+  border-radius: 9999px;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 20px;
+  white-space: nowrap;
+  color: var(--qt-color);
+  background: color-mix(in srgb, var(--qt-color) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--qt-color) 28%, transparent);
+
+  &--SINGLE_CHOICE   { --qt-color: var(--qt-single); }
+  &--MULTIPLE_CHOICE { --qt-color: var(--qt-multi); }
+  &--FILL_BLANK      { --qt-color: var(--qt-fill); }
+  &--TRUE_FALSE      { --qt-color: var(--qt-judge); }
+  &--APPLICATION     { --qt-color: var(--qt-application); }
+}
+
+// 题目类型下拉选项里的图标（与标签同色）
+.qt-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--qt-color);
+
+  &--SINGLE_CHOICE   { --qt-color: var(--qt-single); }
+  &--MULTIPLE_CHOICE { --qt-color: var(--qt-multi); }
+  &--FILL_BLANK      { --qt-color: var(--qt-fill); }
+  &--TRUE_FALSE      { --qt-color: var(--qt-judge); }
+  &--APPLICATION     { --qt-color: var(--qt-application); }
 }

@@ -113,6 +113,14 @@
               </svg>
             </template>
           </el-input>
+          <el-select v-model="filters.question_type" placeholder="题目类型" clearable style="width:130px" @change="handleSearch">
+            <el-option v-for="(label, key) in QuestionTypeLabels" :key="key" :label="label" :value="key">
+              <span class="qt-option" :class="`qt-option--${key}`">
+                <SvgIcon :name="QT_ICONS[key as QuestionType]" :size="15" />
+                {{ label }}
+              </span>
+            </el-option>
+          </el-select>
           <el-select v-model="filters.is_active" placeholder="状态" clearable style="width:110px" @change="handleSearch">
             <el-option label="已启用" :value="true" />
             <el-option label="已停用" :value="false" />
@@ -151,6 +159,17 @@
                 <el-tooltip :content="row.stem" placement="top-start" :show-after="300" effect="light">
                   <span class="stem-text">{{ row.stem }}</span>
                 </el-tooltip>
+              </template>
+            </el-table-column>
+
+            <!-- 题目类型：图标 + 颜色标识（单选 / 多选 / 填空 / 判断 / 应用）-->
+            <el-table-column label="题目类型" width="116" align="center">
+              <template #default="{ row }">
+                <span v-if="row.question_type" class="qt-tag" :class="`qt-tag--${row.question_type}`">
+                  <SvgIcon :name="QT_ICONS[row.question_type as QuestionType] ?? 'qt_application'" :size="14" />
+                  {{ QuestionTypeLabels[row.question_type as QuestionType] ?? row.question_type }}
+                </span>
+                <span v-else style="color:var(--text-3);font-size:12px">—</span>
               </template>
             </el-table-column>
 
@@ -242,8 +261,8 @@ import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { questionApi, knowledgeTreeApi } from '@/api'
 import type { KnowledgeTreeNode, BatchResult } from '@/api/questions'
-import type { Question, Difficulty, FivePower } from '@/types'
-import { DifficultyLabels, FivePowerLabels } from '@/types'
+import type { Question, Difficulty, FivePower, QuestionType } from '@/types'
+import { DifficultyLabels, FivePowerLabels, QuestionTypeLabels } from '@/types'
 
 const loading = ref(false)
 const questions = ref<Question[]>([])
@@ -254,8 +273,17 @@ const totalPages = ref(1)
 const pageSize = ref(50)
 const PAGE_SIZE = pageSize
 
-const filters = reactive<{ difficulty: Difficulty | ''; keyword: string; is_active: boolean | '' }>({
-  difficulty: '', keyword: '', is_active: '',
+// 题目类型 → 图标（src/icons/qt_*.svg）
+const QT_ICONS: Record<QuestionType, string> = {
+  SINGLE_CHOICE:   'qt_single',
+  MULTIPLE_CHOICE: 'qt_multi',
+  FILL_BLANK:      'qt_fill',
+  TRUE_FALSE:      'qt_judge',
+  APPLICATION:     'qt_application',
+}
+
+const filters = reactive<{ difficulty: Difficulty | ''; question_type: QuestionType | ''; keyword: string; is_active: boolean | '' }>({
+  difficulty: '', question_type: '', keyword: '', is_active: '',
 })
 
 // ── 左树筛选状态（存 ID）────────────────────────────────────
@@ -381,6 +409,7 @@ async function loadData() {
       status: 'published',
     }
     if (filters.difficulty)            params.difficulty          = filters.difficulty
+    if (filters.question_type)         params.question_type       = filters.question_type
     if (typeof filters.is_active === 'boolean') params.is_active = filters.is_active   // true 已启用 / false 已停用
     if (filters.keyword)               params.keyword             = filters.keyword
     if (treeFilter.subject_id)         params.subject_id          = treeFilter.subject_id

@@ -18,6 +18,10 @@ from app.models.student import (
 from app.models.training import TrainingAnswerRecord, TrainingDimensionConfig, TrainingSession, TrainingInterrupt
 from app.models.question import Question
 from app.models.knowledge import KnowledgePoint, Chapter, Semester, Subject
+from app.services.answer_judge import (
+    SINGLE_CHOICE, MULTIPLE_CHOICE,
+    blank_count_of, judge_answer, question_type_of, split_stem_options,
+)
 
 router = APIRouter()
 
@@ -34,7 +38,9 @@ class SubmitAnswerReq(BaseModel):
     session_id: str
     question_id: int
     question_index: int
-    student_answer: str | None = None
+    student_answer: str | None = None      # 整段作答文本（单选 'C'、多选 'CD'、判断 '对'、填空 / 应用题的展示文本），写入答题记录和错题集
+    student_answers: list[str] | None = None   # 填空题：按空分别作答，传了就逐空比对（答案里本身带逗号时不会被误拆）
+    final_answer: str | None = None        # 应用题：「最终答案」一栏，传了就只用它判对错（不再从整段过程里凑数字）
     time_spent_sec: int
     hint_level_used: int = 0
 
@@ -210,18 +216,7 @@ async def create_session(
             "version_number": dim_config.version_number if dim_config else "default",
             "questions_per_session": questions_per_session,
         },
-        "questions": [
-            {
-                "question_id": q.id,
-                "question_index": i,
-                "stem": q.stem,
-                "image_url": q.image_url,
-                "difficulty": q.difficulty,
-                "power_type": q.primary_power,
-                "answer": q.answer,
-            }
-            for i, q in enumerate(selected_qs)
-        ],
+        "questions": [_question_payload(q, i) for i, q in enumerate(selected_qs)],
         "total_questions": len(selected_qs),
         "tips": {
             "focus_power_name": focus_power,
@@ -255,7 +250,10 @@ async def submit_answer(
         raise AppException("题目不存在", 404)
 
     # 判题：按题型比对答案
-    is_correct = _judge_answer(question.answer, question.question_type, body.student_answer)
+    is_correct = judge_answer(
+        question.answer, question.question_type, body.student_answer,
+        student_answers=body.student_answers, final_answer=body.final_answer,
+    )
 
     record = TrainingAnswerRecord(
         session_id=body.session_id,
@@ -501,55 +499,28 @@ async def delete_interrupt(
     return ok_response(None, msg="中断记录已清除")
 
 
-# ── 判题逻辑 ──────────────────────────────────────────────────────────────────
+# ── 下发给小程序的题目结构 ─────────────────────────────────────────────────────
 
-def _normalize(s: str) -> str:
-    """去除空白、统一全半角、转小写"""
-    s = s.strip().lower()
-    s = s.replace('，', ',').replace('。', '.').replace(' ', '')
-    return s
+def _question_payload(q: Question, index: int) -> dict:
+    """训练会话下发的单道题。
 
-def _judge_answer(answer: dict | None, question_type: str | None, student_answer: str | None) -> bool:
-    """按题型比对学生答案，无法判断时返回 False"""
-    if not answer or not student_answer:
-        return False
-    sa = _normalize(student_answer)
-    qtype = (question_type or answer.get('type', '')).upper()
-
-    if qtype == 'SINGLE_CHOICE':
-        correct = str(answer.get('correct', '')).upper()
-        return sa.upper() == correct
-
-    if qtype == 'MULTIPLE_CHOICE':
-        correct = set(str(c).upper() for c in answer.get('correct', []))
-        submitted = set(re.findall(r'[A-Da-d]', student_answer.upper()))
-        return submitted == correct
-
-    if qtype == 'TRUE_FALSE':
-        correct = answer.get('correct', None)
-        true_vals  = {'true', '对', '正确', '√', 'yes', '1'}
-        false_vals = {'false', '错', '错误', '×', 'no', '0'}
-        if correct is True:
-            return sa in true_vals
-        if correct is False:
-            return sa in false_vals
-        return False
-
-    if qtype == 'FILL_BLANK':
-        correct_list = [_normalize(str(c)) for c in answer.get('correct', [])]
-        # 单空直接比；多空按逗号/分号拆分
-        if len(correct_list) == 1:
-            return sa == correct_list[0]
-        parts = [_normalize(p) for p in re.split(r'[,;，；]', student_answer)]
-        return parts == correct_list
-
-    if qtype == 'APPLICATION':
-        # 应用题：比对 final_answer 中的关键数字是否都出现在学生答案中
-        final = _normalize(str(answer.get('final_answer', '')))
-        # 提取标准答案中所有数字
-        nums = re.findall(r'\d+\.?\d*', final)
-        if not nums:
-            return False
-        return all(n in sa for n in nums)
-
-    return False
+    - 单选 / 多选：把选项从题干文本里拆出来（stem 只留纯题干，options 为 [{key, text}]）；
+      拆不出来时 stem 保持原样、options 为 None，小程序退回文本框作答
+    - 填空：下发空数 blank_count（只给数量，不给答案内容）
+    - 不下发标准答案 q.answer（抓包即可看到答案），判题只在服务端 judge_answer 里做
+    """
+    qtype = question_type_of(q)
+    stem, options = q.stem, None
+    if qtype in (SINGLE_CHOICE, MULTIPLE_CHOICE):
+        stem, options = split_stem_options(q.stem)
+    return {
+        "question_id": q.id,
+        "question_index": index,
+        "stem": stem,
+        "image_url": q.image_url,
+        "difficulty": q.difficulty,
+        "power_type": q.primary_power,
+        "question_type": qtype,
+        "options": options,
+        "blank_count": blank_count_of(q),
+    }

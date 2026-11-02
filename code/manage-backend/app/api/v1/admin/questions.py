@@ -58,6 +58,7 @@ async def list_questions(
     knowledge_point_id: int | None = Query(None),
     status: str | None = Query(None),
     difficulty: str | None = Query(None),
+    question_type: str | None = Query(None, description="题目类型：SINGLE_CHOICE / MULTIPLE_CHOICE / FILL_BLANK / TRUE_FALSE / APPLICATION"),
     is_active: bool | None = Query(None),
     keyword: str | None = Query(None),
     page: int = Query(1, ge=1),
@@ -68,7 +69,7 @@ async def list_questions(
     params = dict(
         subject_id=subject_id, grade_id=grade_id, semester_id=semester_id,
         chapter_id=chapter_id, knowledge_point_id=knowledge_point_id,
-        status=status, difficulty=difficulty, is_active=is_active, keyword=keyword,
+        status=status, difficulty=difficulty, question_type=question_type, is_active=is_active, keyword=keyword,
         page=page, limit=limit,
     )
     data = await questions_service.get_list(db, params)

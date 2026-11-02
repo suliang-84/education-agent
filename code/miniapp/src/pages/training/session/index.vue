@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import { useTheme } from '@/hooks/useTheme'
 import type { FivePower } from '@/constants'
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { onReady } from '@dcloudio/uni-app'
 import { useTrainingStore } from '@/store'
 import { trainingApi } from '@/api'
 import { useRagPoller } from '@/hooks/useRagPoller'
 import { FIVE_POWER_LABELS, PAGES } from '@/constants'
 import { formatSeconds } from '@/utils'
 import SvgIcon from '@/components/SvgIcon.vue'
+import AnswerPanel from '@/components/training/AnswerPanel.vue'
+import { answerMode, answerText, buildSubmit, emptyAnswer, restoreAnswer, type AnswerState } from '@/utils/answer'
 
 
 const { pageStyle, hl, powerColors } = useTheme()
@@ -21,7 +24,50 @@ const totalQuestions = computed(() => trainingStore.questions.length)
 const isLast = computed(() => trainingStore.isLastQuestion())
 
 // ── 答题状态 ───────────────────────────────────────────────────────────────
-const studentAnswer = ref('')
+// 作答状态按题型组织（见 utils/answer.ts）：单选 / 多选 / 判断用 selected，填空用 blanks，应用题用 text + final，其它用 text
+const answerState = ref<AnswerState>(emptyAnswer(question.value?.blank_count ?? 0))
+const mode = computed(() => answerMode(question.value))
+const answerPanelRef = ref<InstanceType<typeof AnswerPanel> | null>(null)
+
+// 标题行右侧的一句话格式提示（与后端判题规则一致：见接口设计说明书 §5.2）
+const answerTip = computed(() => {
+  const qType = String(question.value?.question_type || '').toUpperCase()
+  switch (mode.value) {
+    case 'single': return '选择一个答案'
+    case 'multi': return '可选多项，选出所有正确答案'
+    case 'tf': return '判断对错'
+    case 'fill': {
+      const n = question.value?.blank_count ?? 0
+      return n > 1 ? `共 ${n} 个空，请依次作答` : '填写答案'
+    }
+    case 'application': return '写出过程，并填写最终答案'
+    default:
+      if (qType === 'SINGLE_CHOICE') return '只填一个选项字母'
+      if (qType === 'MULTIPLE_CHOICE') return '填所有正确选项字母'
+      return '写出思路和过程，解析更有针对性'
+  }
+})
+
+// 点到答题子模块（标题行 / 留白）时自动聚焦第一个输入框；选择类题型没有输入框，不触发。
+// 点在输入框、选项上不走这里（组件内部已处理，避免抢走用户刚点的那个输入框的焦点）
+function focusAnswer() {
+  if (submitted.value) return
+  answerPanelRef.value?.focusFirst()
+}
+
+// 文本框模式要铺满剩余高度：把「底部操作栏顶部的 y（扣掉作答区下方留白）」传给组件，由组件算出文本框最小高度。
+// 题目文字 / 图片高度不固定，所以每题切换、提交后和图片加载后都重新量。
+const limitBottom = ref(0)
+function measureLimit() {
+  uni.createSelectorQuery()
+    .select('.action-bar')
+    .boundingClientRect((r) => {
+      const rect = r as { top: number } | null
+      if (rect) limitBottom.value = Math.floor(rect.top - uni.upx2px(24 * 2))   // 作答区下内边距 + 与操作栏之间的留白
+      nextTick(() => answerPanelRef.value?.refit())
+    })
+    .exec()
+}
 const submitting = ref(false)
 const submitted = ref(false)
 const isCorrect = ref<boolean | null>(null)
@@ -65,14 +111,14 @@ async function submitAnswer() {
       session_id: trainingStore.sessionId!,
       question_id: question.value.question_id,
       question_index: question.value.question_index,
-      student_answer: studentAnswer.value.trim() || undefined,   // 未输入也可提交（后端按未作答判错）
+      ...buildSubmit(mode.value, answerState.value),   // 未作答也可提交（后端按未作答判错）
       time_spent_sec: elapsed.value,
       hint_level_used: hintsUsed.value > 0 ? hintsUsed.value : undefined,
     })
 
     submitted.value = true
     isCorrect.value = resp.is_correct
-    trainingStore.recordAnswer(question.value.question_index, studentAnswer.value.trim(), resp.is_correct)
+    trainingStore.recordAnswer(question.value.question_index, answerText(mode.value, answerState.value), resp.is_correct)
 
     if (!resp.is_correct) {
       wrongCount.value++
@@ -122,7 +168,7 @@ async function nextOrComplete() {
 }
 
 function resetQuestion() {
-  studentAnswer.value = ''
+  answerState.value = emptyAnswer(question.value?.blank_count ?? 0)
   submitted.value = false
   isCorrect.value = null
   answerRecordId.value = null
@@ -198,7 +244,7 @@ function jumpToQuestion(index: number) {
   const answered = trainingStore.isAnswered(index)
   if (answered) {
     const snap = trainingStore.answers[index]
-    studentAnswer.value = snap.student_answer
+    answerState.value = restoreAnswer(question.value, snap.student_answer)
     submitted.value = true
     isCorrect.value = snap.is_correct
     ragContent.value = null
@@ -209,6 +255,10 @@ function jumpToQuestion(index: number) {
     resetQuestion()
   }
 }
+
+onReady(measureLimit)
+// 换题 / 提交后回到未提交态时，上方内容高度变了，需要重新量
+watch([question, submitted], () => nextTick(() => setTimeout(measureLimit, 50)))
 
 onMounted(() => {
   startTimer()
@@ -271,24 +321,34 @@ onUnmounted(() => {
           v-if="question.image_url"
           class="question-image"
           :src="question.image_url"
+          @load="measureLimit"
           mode="widthFix"
         />
       </view>
 
       <!-- ── 答题区域 ───────────────────────────────────────────── -->
-      <view class="answer-area" :style="hl('answer')" :class="{ 'answer-area--submitted': submitted }">
-        <textarea
-          v-if="!submitted"
-          v-model="studentAnswer"
-          class="answer-textarea"
-          placeholder="在此输入你的解题过程和答案..."
-          placeholder-class="textarea-placeholder"
-          :maxlength="2000"
-          auto-height
-        />
-        <view v-else class="student-answer-display">
-          <text class="student-answer-label">你的答案</text>
-          <text class="student-answer-text">{{ studentAnswer.trim() || '（未作答）' }}</text>
+      <view
+        class="answer-area"
+        :style="hl('answer')"
+        :class="{ 'answer-area--submitted': submitted }"
+        @tap.self="focusAnswer"
+      >
+        <!-- 标题行 -->
+        <view class="answer-head" @tap="focusAnswer">
+          <view class="answer-head__icon"><SvgIcon name="book" :size="30" /></view>
+          <text class="answer-head__title">{{ submitted ? '你的答案' : '我的解答' }}</text>
+          <text v-if="!submitted" class="answer-head__tip">{{ answerTip }}</text>
+        </view>
+
+        <!-- 按题型切换的作答组件 -->
+        <view class="answer-body" @tap.self="focusAnswer">
+          <AnswerPanel
+            ref="answerPanelRef"
+            v-model="answerState"
+            :question="question"
+            :readonly="submitted"
+            :limit-bottom="limitBottom"
+          />
         </view>
       </view>
 
@@ -579,37 +639,39 @@ onUnmounted(() => {
 
 // ── 答题区 ────────────────────────────────────────────────────────────────
 .answer-area {
-  @include glass-panel(true, false);   // 输入类组件：不要渐变高亮边，聚焦时也不换边框色
+  @include glass-panel(false, false);   // 输入类组件：不要扫光、不要渐变高亮边，聚焦时也不换边框色
   margin: 0 $space-4 $space-3;
   padding: $space-3;
   border: 1rpx solid $border;
   transition: $transition-base;
+}
 
-  &--submitted {
-    border-color: $border;
-    background: $bg-muted;
+// 标题行：小图标 + “我的解答” + 右侧按题型给出的一句格式提示
+.answer-head {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  margin-bottom: $space-2;
+  padding: 0 $space-1;
+
+  &__icon { display: flex; align-items: center; }
+
+  &__title {
+    font-size: $font-size-sm;
+    font-weight: 700;
+    color: $text-1;
+  }
+
+  &__tip {
+    margin-left: auto;
+    font-size: $font-size-xs;
+    color: $text-3;
   }
 }
 
-.answer-textarea {
-  width: 100%;
-  min-height: 200rpx;
-  font-size: $font-size-base;
-  color: $text-1;
-  line-height: 1.7;
-}
-
-.student-answer-label {
-  display: block;
-  font-size: $font-size-xs;
-  color: $text-3;
-  margin-bottom: $space-1;
-}
-
-.student-answer-text {
-  font-size: $font-size-base;
-  color: $text-2;
-  line-height: 1.6;
+// 作答组件容器（组件内部自带各题型样式：选项行、填空下划线、应用题两栏、文本框、符号快捷条）
+.answer-body {
+  padding: 0 $space-1;
 }
 
 // ── 提示卡 ────────────────────────────────────────────────────────────────

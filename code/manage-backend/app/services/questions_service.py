@@ -151,6 +151,8 @@ async def get_list(db: AsyncSession, params: dict) -> dict:
         q = q.where(Question.status == params['status'])
     if params.get('difficulty'):
         q = q.where(Question.difficulty == params['difficulty'])
+    if params.get('question_type'):
+        q = q.where(Question.question_type == params['question_type'].upper())
     if params.get('is_active') is not None:
         q = q.where(Question.is_active == params['is_active'])
     if params.get('keyword'):
