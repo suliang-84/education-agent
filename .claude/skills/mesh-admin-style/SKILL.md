@@ -263,6 +263,25 @@ isHovering ? 'transition: transform 0.12s cubic-bezier(0.16,1,0.3,1)'
 
 ---
 
+### 2026-11-02 · 小程序子模块对齐后台二级页面玻璃面板
+
+**来源：** 用户要求小程序端子模块（背景色、边框样式等）参考后台二级页面子模块。已确认：动效全含、圆角 4px、全部页面统一。
+
+**核心决策：**
+- 面板 = 半透明云晕底（左上蓝 / 右下紫蓝）+ 圆角 + 极淡描边 + 顶部内高光 + 渐变高亮边 + 9s 定时扫光，亮 / 暗主题各一套 `--panel-*` 变量
+- 小程序实现：`variables.scss` 的 `@mixin glass-panel`；令牌在 `global.scss`（亮）/ `styles/theme.ts`（暗）；扫光 keyframes 放 `global.scss`
+- 与后台的实现差异：高亮边用 `border-image`（不依赖 mask-composite）；不加 `backdrop-filter`（小程序页面底是平滑渐变，磨砂无可见收益且耗性能）；随机高亮点由 `useTheme` 按页面写入，同页面面板共用
+- 新增卡片类样式时，用 `@include glass-panel`，不要再写 `background: $bg-surface` + 大圆角 + 阴影
+
+**影响范围：** `miniapp/src/styles/*`、`hooks/useTheme.ts`、各页面卡片（assistant / profile / test / training / wrong-answers）；登录页、绑定手机页、弹窗、输入框、气泡不在此列
+
+**后续调整（同日，圆角 / 高亮边）：** 面板圆角改为 10px（`$r-panel: 20rpx`）；高亮边位置改为每个面板各自随机（模板 `:style="hl('唯一key')"`，`useTheme` 提供，同页面实例内 key 稳定、每次打开页面重新随机），不再整页共用一个点。
+**后续调整（同日）：** 亮色不扫光（同后台）；暗色只给大面板保留扫光，列表项 / 小卡片 / 骨架屏用 `@include glass-panel(false)`（不生成扫光层）。开关是 CSS 变量 `--panel-shine-anim`（亮色 `none`，暗色为 `panel-shine 9s ease-in-out infinite`）。
+**注意：** 后台暗色二级页面实际是「不扫光」（`.content-area.no-shine`），小程序暗色大面板保留扫光是有意与之不同。
+
+
+---
+
 ### 2026-10-27 · 系统整体风格对齐登录框 / 弹窗（玻璃质感）
 
 **来源：** 用户认为暗色弹窗（参考登录框）非常好看，要求系统整体按其风格调整，亮色主题对应调整。

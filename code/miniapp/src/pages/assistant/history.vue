@@ -8,7 +8,7 @@ import { fromNow } from '@/utils'
 import type { ChatSession } from '@/api/assistant'
 
 
-const { pageStyle } = useTheme()
+const { pageStyle, hl } = useTheme()
 const sessions = ref<ChatSession[]>([])
 const loading = ref(true)
 
@@ -43,7 +43,7 @@ function enterSession(s: ChatSession) {
   <page-meta :page-style="pageStyle" />
   <view class="history-page">
     <view v-if="loading" class="skeleton-list">
-      <view v-for="i in 5" :key="i" class="skel-card" />
+      <view v-for="i in 5" :key="i" class="skel-card" :style="hl('skel-' + i)" />
     </view>
 
     <view v-else-if="sessions.length === 0" class="empty-state">
@@ -56,6 +56,7 @@ function enterSession(s: ChatSession) {
         v-for="s in sessions"
         :key="s.session_id"
         class="session-card"
+        :style="hl('session-' + s.session_id)"
         @tap="enterSession(s)"
       >
         <view class="session-left">
@@ -103,10 +104,9 @@ function enterSession(s: ChatSession) {
 }
 
 .skel-card {
+  @include glass-panel(false);
   height: 120rpx;
-  background: $bg-surface;
   border: 1rpx solid $border;
-  border-radius: $r-xl;
   animation: shimmer 1.2s ease-in-out infinite;
 }
 
@@ -140,15 +140,13 @@ function enterSession(s: ChatSession) {
 }
 
 .session-card {
+  @include glass-panel(false);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: $bg-surface;
   border: 1rpx solid $border;
-  border-radius: $r-xl;
   padding: $space-3 $space-4;
   margin-bottom: $space-3;
-  box-shadow: $shadow-sm;
   transition: $transition-fast;
 
   &:active { opacity: 0.85; border-color: $border-hover; }

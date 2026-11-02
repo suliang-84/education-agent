@@ -11,7 +11,7 @@ import type { InterruptRecord } from '@/api/training'
 import type { TrainingDimension } from '@/constants'
 
 
-const { pageStyle } = useTheme()
+const { pageStyle, hl } = useTheme()
 const trainingStore = useTrainingStore()
 
 // ── 选科 & 维度 ────────────────────────────────────────────────────────────
@@ -136,6 +136,7 @@ async function handleStartNew() {
           v-for="s in subjects"
           :key="s.code"
           class="subject-card"
+          :style="hl('subject-' + s.code)"
           :class="{ 'subject-card--active': selectedSubject === s.code }"
           @tap="selectSubject(s.code)"
         >
@@ -159,6 +160,7 @@ async function handleStartNew() {
           v-for="dim in dimensions"
           :key="dim.key"
           class="dim-card"
+          :style="hl('dim-' + dim.key)"
           @tap="startTraining(dim.key)"
         >
           <view class="dim-card__icon"><SvgIcon :name="dim.icon" :size="40" /></view>
@@ -260,15 +262,13 @@ async function handleStartNew() {
 }
 
 .subject-card {
+  @include glass-panel(false);
   flex: 1;
-  background: $bg-surface;
-  border-radius: $r-lg;
   padding: $space-4 $space-2;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: $space-2;
-  box-shadow: $shadow-sm;
   border: 2rpx solid $border;
   transition: $transition-base;
 
@@ -324,13 +324,11 @@ async function handleStartNew() {
 }
 
 .dim-card {
-  background: $bg-surface;
-  border-radius: $r-lg;
+  @include glass-panel(false);
   padding: $space-3 $space-4;
   display: flex;
   align-items: center;
   gap: $space-3;
-  box-shadow: $shadow-sm;
   border: 1rpx solid $border;
   transition: $transition-fast;
 

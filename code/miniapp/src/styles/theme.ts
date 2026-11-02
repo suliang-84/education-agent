@@ -40,6 +40,13 @@ export const DARK_VARS: Record<string, string> = {
   '--glass-edge': 'rgba(255,255,255,0.08)',
   '--glow-1': 'rgba(94,141,249,0.13)',
   '--glow-2': 'rgba(94,141,249,0.08)',
+  // 玻璃面板（同后台二级页面子模块：云晕 + 半透明底 + 顶部高光 + 渐变高亮边 + 定时扫光）
+  '--panel-bg': 'radial-gradient(360rpx circle at 8% -25%, rgba(94,141,249,0.20), transparent 62%), radial-gradient(420rpx circle at 104% 125%, rgba(124,112,255,0.13), transparent 62%), rgba(14,17,22,0.60)',
+  '--panel-shadow': '0 4rpx 16rpx rgba(0,0,0,0.16), inset 0 1rpx 0 rgba(255,255,255,0.06)',
+  '--panel-edge': 'rgba(94,141,249,0.85)',
+  '--panel-shine-mid': 'rgba(255,255,255,0.05)',
+  '--panel-shine-peak': 'rgba(255,255,255,0.10)',
+  '--panel-shine-anim': 'panel-shine 9s ease-in-out infinite',
 }
 
 export function toStyleString(vars: Record<string, string>): string {

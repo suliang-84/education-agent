@@ -6,7 +6,7 @@ import { PAGES } from '@/constants'
 import SvgIcon from '@/components/SvgIcon.vue'
 
 
-const { pageStyle } = useTheme()
+const { pageStyle, hl } = useTheme()
 // ── 检查是否有未完成的测试（本地存储） ───────────────────────────────────
 const hasInProgress = ref(false)
 const inProgressSessionId = ref<number | null>(null)
@@ -92,7 +92,7 @@ function clearAndStart() {
     </view>
 
     <!-- 说明卡 -->
-    <view class="info-card">
+    <view class="info-card" :style="hl('info')">
       <view class="info-row">
         <view class="info-icon"><SvgIcon name="calendar" :size="36" /></view>
         <view class="info-text-wrap">
@@ -119,7 +119,7 @@ function clearAndStart() {
     </view>
 
     <!-- 五力简介 -->
-    <view class="powers-preview">
+    <view class="powers-preview" :style="hl('powers')">
       <text class="powers-title">测试将评估以下五力</text>
       <view class="powers-list">
         <view
@@ -219,12 +219,10 @@ function clearAndStart() {
 
 // 说明卡
 .info-card {
-  background: $bg-surface;
-  border-radius: $r-xl;
+  @include glass-panel;
   padding: $space-4;
   margin-bottom: $space-4;
   border: 1rpx solid $border;
-  box-shadow: $shadow-sm;
 }
 
 .info-row {
@@ -269,34 +267,37 @@ function clearAndStart() {
   margin: 4rpx 0;
 }
 
-// 五力预览
+// 五力预览：面板自身不留内边距，标题行 / 每个维度行各自带内边距，行与行之间用通栏分割线分隔
 .powers-preview {
-  background: $bg-surface;
-  border-radius: $r-xl;
-  padding: $space-4;
+  @include glass-panel;
+  padding: 0;
   margin-bottom: $space-4;
   border: 1rpx solid $border;
-  box-shadow: $shadow-sm;
 }
 
 .powers-title {
-  font-size: $font-size-base;
-  color: $text-2;
-  font-weight: 500;
   display: block;
-  margin-bottom: $space-3;
+  padding: $space-4;
+  font-size: $font-size-base;
+  color: $primary;
+  font-weight: 600;
+  border-bottom: 1rpx solid $border;
 }
 
 .powers-list {
   display: flex;
   flex-direction: column;
-  gap: $space-2;
 }
 
 .power-preview-item {
   display: flex;
   align-items: center;
   gap: $space-3;
+  padding: 28rpx $space-4;
+
+  & + & {
+    border-top: 1rpx solid $border;
+  }
 }
 
 .power-preview-icon {

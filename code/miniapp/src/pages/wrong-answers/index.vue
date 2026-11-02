@@ -8,7 +8,7 @@ import { fromNow } from '@/utils'
 import type { WrongAnswer } from '@/api/profile'
 
 
-const { pageStyle } = useTheme()
+const { pageStyle, hl } = useTheme()
 // ── 标签定义 ──────────────────────────────────────────────────────────────
 const tabs = [
   { key: '', label: '全部' },
@@ -126,7 +126,7 @@ function truncate(text: string, len = 60): string {
 
     <!-- ── 骨架屏 ────────────────────────────────────────── -->
     <view v-if="loading" class="skeleton-list">
-      <view v-for="i in 4" :key="i" class="skel-card">
+      <view v-for="i in 4" :key="i" class="skel-card" :style="hl('skel-' + i)">
         <view class="skel-power-tag" />
         <view class="skel-content">
           <view class="skel-line skel-line--title" />
@@ -149,6 +149,7 @@ function truncate(text: string, len = 60): string {
         v-for="item in list"
         :key="item.wrong_id"
         class="wrong-card"
+        :style="hl('wrong-' + item.wrong_id)"
       >
         <!-- 顶部：五力色标签 + 状态 + 难度 -->
         <view class="wrong-card__header">
@@ -320,14 +321,12 @@ function truncate(text: string, len = 60): string {
 }
 
 .skel-card {
-  background: $bg-surface;
-  border-radius: $r-lg;
+  @include glass-panel(false);
   padding: $space-3 $space-4;
   display: flex;
   align-items: center;
   gap: $space-3;
   border: 1rpx solid $border;
-  box-shadow: $shadow-sm;
 }
 
 .skel-power-tag {
@@ -405,11 +404,9 @@ function truncate(text: string, len = 60): string {
 }
 
 .wrong-card {
-  background: $bg-surface;
-  border-radius: $r-lg;
+  @include glass-panel(false);
   padding: $space-3 $space-4;
   border: 1rpx solid $border;
-  box-shadow: $shadow-sm;
   display: flex;
   flex-direction: column;
   gap: $space-2;

@@ -10,7 +10,7 @@ import RadarChart from '@/components/charts/RadarChart.vue'
 import SvgIcon from '@/components/SvgIcon.vue'
 
 
-const { pageStyle, theme } = useTheme()
+const { pageStyle, theme, hl } = useTheme()
 
 const themeOptions = [
   { value: 'system', label: '跟随系统' },
@@ -85,7 +85,7 @@ function goToTraining() {
   <page-meta :page-style="pageStyle" />
   <view class="profile-page">
     <!-- ── 顶部用户信息 + 重测按钮 ─────────────────────────── -->
-    <view class="user-header">
+    <view class="user-header" :style="hl('user-header')">
       <view class="user-info">
         <view class="avatar">
           <SvgIcon name="brain" :size="52" />
@@ -104,7 +104,7 @@ function goToTraining() {
     </view>
 
     <!-- ── 加载骨架 ─────────────────────────────────────────── -->
-    <view v-if="loading" class="skeleton-card">
+    <view v-if="loading" class="skeleton-card" :style="hl('skeleton')">
       <view class="skel-block skel-block--radar" />
       <view class="skel-lines">
         <view v-for="i in 5" :key="i" class="skel-line" />
@@ -112,7 +112,7 @@ function goToTraining() {
     </view>
 
     <!-- ── 无画像空态 ──────────────────────────────────────── -->
-    <view v-else-if="!fivePower?.has_profile" class="no-profile-card">
+    <view v-else-if="!fivePower?.has_profile" class="no-profile-card" :style="hl('no-profile')">
       <view class="no-profile-icon"><SvgIcon name="atom" :size="64" /></view>
       <text class="no-profile-title">尚未完成五力测试</text>
       <text class="no-profile-desc">完成测试后，这里将展示你的五力认知画像</text>
@@ -141,7 +141,7 @@ function goToTraining() {
       </view>
 
       <!-- ── 五力雷达图 ──────────────────────────────────── -->
-      <view class="radar-card">
+      <view class="radar-card" :style="hl('radar')">
         <text class="card-title">五力分布图</text>
         <view class="radar-wrap">
           <RadarChart
@@ -196,7 +196,7 @@ function goToTraining() {
       </view>
 
       <!-- ── AI 分析文本 ──────────────────────────────────── -->
-      <view v-if="fivePower?.profile?.ai_analysis_text" class="ai-analysis-card">
+      <view v-if="fivePower?.profile?.ai_analysis_text" class="ai-analysis-card" :style="hl('ai-analysis')">
         <view class="ai-analysis-header">
           <view class="ai-icon"><SvgIcon name="sparkles" :size="32" /></view>
           <text class="card-title">AI 画像分析</text>
@@ -206,7 +206,7 @@ function goToTraining() {
     </template>
 
     <!-- ── 外观主题 ──────────────────────────────────────── -->
-    <view class="theme-card">
+    <view class="theme-card" :style="hl('theme')">
       <text class="card-title">外观</text>
       <view class="theme-seg">
         <view
@@ -246,15 +246,13 @@ function goToTraining() {
 
 // 用户头部卡
 .user-header {
+  @include glass-panel;
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: $space-4;
   padding: $space-4;
-  background: $bg-surface;
   border: 1rpx solid $border;
-  border-radius: $r-xl;
-  box-shadow: $shadow-sm;
 }
 
 .user-info {
@@ -310,12 +308,10 @@ function goToTraining() {
 
 // 骨架屏
 .skeleton-card {
-  background: $bg-surface;
+  @include glass-panel(false);
   border: 1rpx solid $border;
-  border-radius: $r-xl;
   padding: $space-4;
   margin-bottom: $space-4;
-  box-shadow: $shadow-sm;
 }
 
 .skel-block {
@@ -345,11 +341,9 @@ function goToTraining() {
 
 // 无画像
 .no-profile-card {
-  background: $bg-surface;
+  @include glass-panel;
   border: 1rpx solid $border;
-  border-radius: $r-xl;
   padding: $space-6;
-  box-shadow: $shadow-sm;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -454,12 +448,10 @@ function goToTraining() {
 .dimension-card,
 .trend-card,
 .ai-analysis-card {
-  background: $bg-surface;
+  @include glass-panel;
   border: 1rpx solid $border;
-  border-radius: $r-xl;
   padding: $space-4;
   margin-bottom: $space-4;
-  box-shadow: $shadow-sm;
 }
 
 .card-title {
@@ -627,10 +619,8 @@ function goToTraining() {
 }
 
 .theme-card {
-  background: $bg-surface;
+  @include glass-panel;
   border: 1rpx solid $border;
-  border-radius: $r-xl;
-  box-shadow: $shadow-sm;
   padding: $space-4;
   margin-bottom: $space-4;
   display: flex;

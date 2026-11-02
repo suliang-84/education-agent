@@ -35,6 +35,13 @@ page {
   --glass-edge: rgba(255,255,255,0.9);
   --glow-1: rgba(94,141,249,0.10);
   --glow-2: rgba(94,141,249,0.06);
+  // 玻璃面板（亮色版，同后台）
+  --panel-bg: radial-gradient(360rpx circle at 8% -25%, rgba(94,141,249,0.12), transparent 62%), radial-gradient(420rpx circle at 104% 125%, rgba(124,112,255,0.07), transparent 62%), rgba(255,255,255,0.74);
+  --panel-shadow: 0 2rpx 6rpx rgba(30,41,59,0.04), 0 4rpx 16rpx rgba(94,141,249,0.05), inset 0 1rpx 0 rgba(255,255,255,0.9);
+  --panel-edge: rgba(94,141,249,0.55);
+  --panel-shine-mid: rgba(255,255,255,0.28);
+  --panel-shine-peak: rgba(255,255,255,0.55);
+  --panel-shine-anim: none;   // 亮色不扫光（同后台）
   background-color: $bg-page;
   background-image:
     radial-gradient(900rpx circle at 100% 0%, var(--glow-1), transparent 60%),
@@ -64,6 +71,16 @@ button {
   background-color: transparent;
 
   &::after { border: none; }
+}
+
+// 玻璃面板定时扫光（同后台 panel-shine）：光带斜扫一次后长时间停顿
+// 页面里通过 @include glass-panel 引用；keyframes 放全局，避免每个页面各复制一份
+@keyframes panel-shine {
+  0%   { transform: translate(-120%, -120%); opacity: 0; }
+  5%   { opacity: 1; }
+  70%  { transform: translate(120%, 120%); opacity: 1; }
+  78%  { opacity: 0; }
+  100% { transform: translate(120%, 120%); opacity: 0; }
 }
 
 // ── 通用工具类 ────────────────────────────────────────────────────────────
@@ -96,12 +113,10 @@ button {
 .px-3 { padding-left: $space-3; padding-right: $space-3; }
 .py-2 { padding-top: $space-2; padding-bottom: $space-2; }
 
-// 卡片：白底 + 淡蓝描边 + 柔和投影（同后台 .surface）
+// 卡片：玻璃面板（同后台二级页面子模块）
 .card {
-  background: $bg-surface;
+  @include glass-panel;
   border: 1rpx solid $border;
-  border-radius: $r-xl;
-  box-shadow: $shadow-sm;
   padding: $space-4;
 }
 

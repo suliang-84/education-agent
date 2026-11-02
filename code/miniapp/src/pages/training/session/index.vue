@@ -9,7 +9,7 @@ import { formatSeconds } from '@/utils'
 import SvgIcon from '@/components/SvgIcon.vue'
 
 
-const { pageStyle } = useTheme()
+const { pageStyle, hl } = useTheme()
 const trainingStore = useTrainingStore()
 const { ragContent, staticSolution, status: ragStatus, canRetry, startPolling, retry, stop: stopRag } = useRagPoller()
 
@@ -270,7 +270,7 @@ onUnmounted(() => {
       </view>
 
       <!-- ── 题目正文 ────────────────────────────────────────────── -->
-      <view class="question-card">
+      <view class="question-card" :style="hl('question')">
         <text class="question-stem">{{ question.stem }}</text>
         <image
           v-if="question.image_url"
@@ -281,7 +281,7 @@ onUnmounted(() => {
       </view>
 
       <!-- ── 答题区域 ───────────────────────────────────────────── -->
-      <view class="answer-area" :class="{ 'answer-area--submitted': submitted }">
+      <view class="answer-area" :style="hl('answer')" :class="{ 'answer-area--submitted': submitted }">
         <textarea
           v-if="!submitted"
           v-model="studentAnswer"
@@ -312,7 +312,7 @@ onUnmounted(() => {
       <!-- ── RAG 解析卡（答错后） ────────────────────────────────── -->
       <view v-if="submitted && !isCorrect" class="rag-section">
         <!-- 加载骨架屏 -->
-        <view v-if="ragStatus === 'pending'" class="rag-skeleton">
+        <view v-if="ragStatus === 'pending'" class="rag-skeleton" :style="hl('rag-skel')">
           <view class="rag-skeleton__header">
             <text class="rag-skeleton__title">AI 正在生成解析...</text>
           </view>
@@ -322,7 +322,7 @@ onUnmounted(() => {
         </view>
 
         <!-- RAG 内容 -->
-        <view v-else-if="ragStatus === 'completed' && ragContent" class="rag-card">
+        <view v-else-if="ragStatus === 'completed' && ragContent" class="rag-card" :style="hl('rag')">
           <view class="rag-card__header">
             <text class="rag-icon">🤖</text>
             <text class="rag-card__title">AI 个性化解析</text>
@@ -331,7 +331,7 @@ onUnmounted(() => {
         </view>
 
         <!-- 降级：静态解析 -->
-        <view v-else-if="ragStatus === 'degraded'" class="rag-card rag-card--static">
+        <view v-else-if="ragStatus === 'degraded'" class="rag-card rag-card--static" :style="hl('rag-static')">
           <view class="rag-card__header">
             <text class="rag-icon">📖</text>
             <text class="rag-card__title">参考解析</text>
@@ -568,12 +568,10 @@ onUnmounted(() => {
 
 // ── 题目卡 ────────────────────────────────────────────────────────────────
 .question-card {
+  @include glass-panel;
   margin: $space-3 $space-4;
-  background: $bg-surface;
-  border-radius: $r-xl;
   padding: $space-4;
   border: 1rpx solid $border;
-  box-shadow: $shadow-sm;
 }
 
 .question-stem {
@@ -591,11 +589,9 @@ onUnmounted(() => {
 
 // ── 答题区 ────────────────────────────────────────────────────────────────
 .answer-area {
+  @include glass-panel;
   margin: 0 $space-4 $space-3;
-  background: $bg-surface;
-  border-radius: $r-xl;
   padding: $space-3;
-  box-shadow: $shadow-sm;
   border: 1rpx solid $border;
   transition: $transition-base;
 
@@ -690,11 +686,9 @@ onUnmounted(() => {
 }
 
 .rag-skeleton {
-  background: $bg-surface;
-  border-radius: $r-xl;
+  @include glass-panel(false);
   padding: $space-4;
   border: 1rpx solid $border;
-  box-shadow: $shadow-sm;
 }
 
 .rag-skeleton__header {
@@ -720,11 +714,9 @@ onUnmounted(() => {
 }
 
 .rag-card {
-  background: $bg-surface;
-  border-radius: $r-xl;
+  @include glass-panel;
   padding: $space-4;
   border: 1rpx solid $border;
-  box-shadow: $shadow-sm;
 
   &--static {
     background: $bg-surface;

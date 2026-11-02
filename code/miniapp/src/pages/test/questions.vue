@@ -8,7 +8,7 @@ import { formatSeconds } from '@/utils'
 import type { CogQuestion } from '@/api/test'
 
 
-const { pageStyle } = useTheme()
+const { pageStyle, hl } = useTheme()
 // ── 页面参数（session_id, resume标志） ───────────────────────────────────
 const sessionId = ref<number>(0)
 const questions = ref<CogQuestion[]>([])
@@ -228,7 +228,7 @@ onUnmounted(() => {
       </scroll-view>
 
       <!-- ── 题目卡片 ─────────────────────────────────────────────── -->
-      <view class="question-wrap">
+      <view class="question-wrap" :style="hl('question-wrap')">
         <!-- 参考用时 -->
         <view class="time-hint">
           <view class="time-hint__icon"><SvgIcon name="calendar" :size="28" /></view>
@@ -253,6 +253,7 @@ onUnmounted(() => {
           v-for="opt in currentQuestion.answers"
           :key="opt.key"
           class="option-card"
+          :style="hl('opt-' + opt.key)"
           :class="{
             'option-card--selected': currentAnswer === opt.key,
           }"
@@ -402,12 +403,10 @@ onUnmounted(() => {
 
 // 题目区
 .question-wrap {
+  @include glass-panel;
   margin: 0 $space-4 $space-3;
-  background: $bg-surface;
-  border-radius: $r-xl;
   padding: $space-4;
   border: 1rpx solid $border;
-  box-shadow: $shadow-sm;
 }
 
 .time-hint {
@@ -458,13 +457,11 @@ onUnmounted(() => {
 }
 
 .option-card {
-  background: $bg-surface;
-  border-radius: $r-lg;
+  @include glass-panel(false);
   padding: $space-3 $space-4;
   display: flex;
   align-items: center;
   gap: $space-3;
-  box-shadow: $shadow-sm;
   border: 1rpx solid $border;
   transition: $transition-base;
 

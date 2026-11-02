@@ -16,12 +16,30 @@ export function applyChrome(isDark: boolean) {
   })
 }
 
+/** 随机取一个落在面板边框上的高亮点（百分比），写成 CSS 变量 */
+function randomEdgePoint(): string {
+  const t = Math.round(Math.random() * 100)
+  const side = Math.floor(Math.random() * 4)
+  const [x, y] = side === 0 ? [t, 0] : side === 1 ? [100, t] : side === 2 ? [t, 100] : [0, t]
+  return `--hl-x:${x}%;--hl-y:${y}%`
+}
+
 export function useTheme() {
   const theme = useThemeStore()
   const pageStyle = computed(() => (theme.isDark ? DARK_STYLE : ''))
 
+  // 每个玻璃面板各自随机的高亮边位置：模板里 :style="hl('唯一key')"。
+  // 同一页面实例内，同一个 key 的结果保持不变（重渲染不闪烁）；页面每次打开 / 重新渲染都会重新随机。
+  const hlCache = new Map<string, string>()
+  const hl = (key: string | number) => {
+    const k = String(key)
+    let v = hlCache.get(k)
+    if (!v) { v = randomEdgePoint(); hlCache.set(k, v) }
+    return v
+  }
+
   onShow(() => applyChrome(theme.isDark))
   watch(() => theme.isDark, (v) => applyChrome(v))
 
-  return { theme, isDark: computed(() => theme.isDark), pageStyle }
+  return { theme, isDark: computed(() => theme.isDark), pageStyle, hl }
 }

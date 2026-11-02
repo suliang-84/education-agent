@@ -9,7 +9,7 @@ import type { ChatMessage } from '@/api/assistant'
 import type { FivePowerProfile } from '@/api/profile'
 
 
-const { pageStyle } = useTheme()
+const { pageStyle, hl } = useTheme()
 // ── 页面参数 ──────────────────────────────────────────────────────────────
 const sessionId = ref('')
 const sessionMode = ref('')
@@ -164,7 +164,7 @@ const weakestPowers = computed(() => {
     </view>
 
     <!-- ── 五力状态折叠卡 ──────────────────────────────────── -->
-    <view class="power-mini-card" @tap="showPowerCard = !showPowerCard">
+    <view class="power-mini-card" :style="hl('power-mini')" @tap="showPowerCard = !showPowerCard">
       <view class="power-mini-header">
         <view class="power-mini-title-row">
           <SvgIcon name="brain" :size="28" />
@@ -388,12 +388,10 @@ const weakestPowers = computed(() => {
 
 // 五力迷你卡
 .power-mini-card {
-  background: $bg-surface;
+  @include glass-panel;
   margin: $space-3 $space-4 0;
   padding: $space-3 $space-4;
   border: 1rpx solid $border;
-  border-radius: $r-xl;
-  box-shadow: $shadow-sm;
   flex-shrink: 0;
 }
 

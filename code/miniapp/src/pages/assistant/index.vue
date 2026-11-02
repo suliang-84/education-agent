@@ -7,7 +7,7 @@ import { fromNow } from '@/utils'
 import type { ChatMessage } from '@/api/assistant'
 
 
-const { pageStyle } = useTheme()
+const { pageStyle, hl } = useTheme()
 const sessionId = ref('')
 const messages = ref<ChatMessage[]>([])
 const loading = ref(true)

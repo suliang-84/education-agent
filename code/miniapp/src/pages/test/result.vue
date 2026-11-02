@@ -10,7 +10,7 @@ import RadarChart from '@/components/charts/RadarChart.vue'
 import SvgIcon from '@/components/SvgIcon.vue'
 
 
-const { pageStyle } = useTheme()
+const { pageStyle, hl } = useTheme()
 const authStore = useAuthStore()
 
 // ── 数据状态 ──────────────────────────────────────────────────────────────
@@ -78,7 +78,7 @@ function goToAssistant() { uni.switchTab({ url: PAGES.ASSISTANT_HOME }) }
     </view>
 
     <!-- ── Section 1: 雷达图 ─────────────────────────────── -->
-    <view class="radar-card">
+    <view class="radar-card" :style="hl('radar')">
       <text class="card-title">五力雷达图</text>
       <view class="radar-wrap">
         <RadarChart
@@ -121,7 +121,7 @@ function goToAssistant() { uni.switchTab({ url: PAGES.ASSISTANT_HOME }) }
     </view>
 
     <!-- ── Section 2: AI 分析卡 ──────────────────────────── -->
-    <view class="ai-card">
+    <view class="ai-card" :style="hl('ai')">
       <view class="ai-card__header">
         <view class="ai-card__icon"><SvgIcon name="brain" :size="32" /></view>
         <text class="card-title">AI 个性化分析</text>
@@ -187,12 +187,10 @@ function goToAssistant() { uni.switchTab({ url: PAGES.ASSISTANT_HOME }) }
 // 通用卡片
 .radar-card,
 .ai-card {
-  background: $bg-surface;
-  border-radius: $r-xl;
+  @include glass-panel;
   padding: $space-4;
   margin-bottom: $space-4;
   border: 1rpx solid $border;
-  box-shadow: $shadow-sm;
 }
 
 .card-title {

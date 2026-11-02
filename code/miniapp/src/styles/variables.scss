@@ -79,3 +79,62 @@ $on-primary-dim:  var(--on-primary-dim);
 $on-primary-line: var(--on-primary-line);
 $mask:            var(--mask);
 $mask-surface:    var(--mask-surface);
+
+// ── 玻璃面板（同后台二级页面子模块 .surface / .section-block）──────────────
+// 半透明云晕底 + 10px 圆角 + 顶部内高光 + 渐变高亮边 + 定时扫光（仅暗色 + 大面板）。
+// 取值全部来自 --panel-* 变量，亮 / 暗主题各自在 global.scss / theme.ts 里定义。
+// 高亮边用 border-image 实现（不依赖 mask-composite，小程序各端更稳）；
+// --hl-x / --hl-y 由模板里 :style="hl('key')"（useTheme 提供）按面板各自随机写入（落在边框上），未写入时回退到左上角。
+// 注意：为了让扫光 / 高亮边被圆角裁剪，面板会 overflow:hidden，面板内容不要依赖溢出显示。
+$r-panel: 20rpx; // 10px
+
+@mixin glass-panel($shine: true) {
+  position: relative;
+  overflow: hidden;
+  background: var(--panel-bg);
+  border-radius: $r-panel;
+  box-shadow: var(--panel-shadow);
+
+  // 高亮边框
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border: 1rpx solid transparent;
+    border-image: radial-gradient(
+      840rpx circle at var(--hl-x, 0%) var(--hl-y, 0%),
+      var(--panel-edge),
+      rgba(255, 255, 255, 0.10) 38%,
+      rgba(255, 255, 255, 0.02) 70%
+    ) 1;
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  // 定时反光：仅大面板保留（$shine: true），列表项 / 小卡片不加，避免同屏多个动画；
+  // 动画本身由 --panel-shine-anim 控制：暗色为扫光，亮色为 none（同后台：亮色不扫光）
+  @if $shine {
+    &::after {
+      content: '';
+      position: absolute;
+      top: -100%;
+      left: -100%;
+      width: 300%;
+      height: 300%;
+      background: linear-gradient(
+        125deg,
+        transparent 42%,
+        var(--panel-shine-mid) 48%,
+        var(--panel-shine-peak) 50%,
+        var(--panel-shine-mid) 52%,
+        transparent 58%
+      );
+      animation: var(--panel-shine-anim);
+      pointer-events: none;
+      z-index: 2;
+    }
+  }
+}
