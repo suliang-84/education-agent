@@ -2334,15 +2334,85 @@ html[data-theme] .el-table .el-table__body-wrapper tr.hover-row > td.el-table-fi
   background-color: var(--el-table-row-hover-bg-color) !important;
 }
 
+// 固定列实色底：固定列要用不透明的底色（不然滚到下面的内容会透出来），而玻璃表格面板是半透明 + 云晕光，
+// 各处颜色略有深浅，单个纯色不可能和它处处一致，操作列就会成为单独的一块。
+// 解决：有横向滚动的表格，面板本身也用同一个纯色（见下方 .surface--table:has(...)），两边底色相同，
+// 悬停渐变叠上去的结果也相同。无横向滚动的表格不受影响，保持玻璃效果。
+html[data-theme="dark"]  { --fixed-col-bg: #14161B; }
+html[data-theme="light"] { --fixed-col-bg: #FCFDFF; }
+
+html[data-theme] .surface--table:has(.el-table:not(.is-scrolling-none)) {
+  background: var(--fixed-col-bg) !important;
+}
+
 html[data-theme] .el-table:not(.is-scrolling-none) .el-table__body-wrapper tr td.el-table-fixed-column--left,
 html[data-theme] .el-table:not(.is-scrolling-none) .el-table__body-wrapper tr td.el-table-fixed-column--right {
-  background-color: var(--bg-surface);
+  background-color: var(--fixed-col-bg, var(--bg-surface));
   background-image: linear-gradient(var(--fixed-hover, transparent), var(--fixed-hover, transparent));
 }
+// 注意要同时覆盖 :hover 和 .hover-row：EP 用 JS 给悬停行加 .hover-row，与 CSS 的 :hover 不同步；
+// 上面「悬停行固定列取悬停色（暗色为透明）」的规则对 .hover-row 也生效，如果这里只覆盖 :hover，
+// 鼠标划过时 .hover-row 单独存在的那一瞬间固定列会变透明，被滚到下面的文字就闪出来
 html[data-theme] .el-table:not(.is-scrolling-none) .el-table__body-wrapper tr:hover > td.el-table-fixed-column--left,
-html[data-theme] .el-table:not(.is-scrolling-none) .el-table__body-wrapper tr:hover > td.el-table-fixed-column--right {
+html[data-theme] .el-table:not(.is-scrolling-none) .el-table__body-wrapper tr:hover > td.el-table-fixed-column--right,
+html[data-theme] .el-table:not(.is-scrolling-none) .el-table__body-wrapper tr.hover-row > td.el-table-fixed-column--left,
+html[data-theme] .el-table:not(.is-scrolling-none) .el-table__body-wrapper tr.hover-row > td.el-table-fixed-column--right {
   --fixed-hover: var(--el-table-row-hover-bg-color);
-  background-color: var(--bg-surface) !important;
+  background-color: var(--fixed-col-bg, var(--bg-surface)) !important;
+}
+
+// 悬停行高亮（有横向滚动的表格）：整行只画一份，盖在最上面。
+//   固定列实色底会盖住 tr 上的渐变（高亮在固定列边界处断开），固定列自己再画一份渐变又很难与整行精确对齐，
+//   所以此时 tr 自身不画渐变，改由 utils/rowSpotlight.ts 维护的浮层 .row-spot 覆盖整行（含固定列）。
+//   浮层 pointer-events:none，不影响点击和悬停；渐变与下方「暗色 / 亮色表格行悬停」同一套取值
+html[data-theme] .el-table .el-scrollbar__view { position: relative; }
+
+html[data-theme] .el-table .row-spot {
+  display: none;
+  position: absolute;
+  z-index: 10;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+  background-size: 100% 1px, 100% 1px, 100% 100%;
+  background-position: 0 0, 0 100%, 0 0;
+  background-repeat: no-repeat;
+}
+html[data-theme] .el-table:not(.is-scrolling-none) .row-spot { display: block; }
+
+// 有横向滚动时 tr 自身不画渐变（改用浮层）
+html[data-theme] .el-table:not(.is-scrolling-none) .el-table__body-wrapper tr:hover,
+html[data-theme] .el-table:not(.is-scrolling-none) .el-table__body-wrapper tr.hover-row {
+  background-image: none !important;
+}
+
+html[data-theme="dark"] .el-table .row-spot {
+  background-image:
+    linear-gradient(90deg, rgba(169, 190, 255, 0.11), rgba(169, 190, 255, 0.11) calc(var(--mx, 50%) - 300px), rgba(169, 190, 255, 0.70) var(--mx, 50%), rgba(169, 190, 255, 0.11) calc(var(--mx, 50%) + 300px), rgba(169, 190, 255, 0.11)),
+    linear-gradient(90deg, rgba(169, 190, 255, 0.11), rgba(169, 190, 255, 0.11) calc(var(--mx, 50%) - 300px), rgba(169, 190, 255, 0.70) var(--mx, 50%), rgba(169, 190, 255, 0.11) calc(var(--mx, 50%) + 300px), rgba(169, 190, 255, 0.11)),
+    linear-gradient(90deg, rgba(94, 141, 249, 0.04), rgba(94, 141, 249, 0.04) calc(var(--mx, 50%) - 360px), rgba(94, 141, 249, 0.22) var(--mx, 50%), rgba(94, 141, 249, 0.04) calc(var(--mx, 50%) + 360px), rgba(94, 141, 249, 0.04));
+}
+html[data-theme="light"] .el-table .row-spot {
+  background-image:
+    linear-gradient(90deg, rgba(94, 141, 249, 0.12), rgba(94, 141, 249, 0.12) calc(var(--mx, 50%) - 300px), rgba(94, 141, 249, 0.65) var(--mx, 50%), rgba(94, 141, 249, 0.12) calc(var(--mx, 50%) + 300px), rgba(94, 141, 249, 0.12)),
+    linear-gradient(90deg, rgba(94, 141, 249, 0.12), rgba(94, 141, 249, 0.12) calc(var(--mx, 50%) - 300px), rgba(94, 141, 249, 0.65) var(--mx, 50%), rgba(94, 141, 249, 0.12) calc(var(--mx, 50%) + 300px), rgba(94, 141, 249, 0.12)),
+    linear-gradient(90deg, rgba(94, 141, 249, 0.025), rgba(94, 141, 249, 0.025) calc(var(--mx, 50%) - 360px), rgba(94, 141, 249, 0.11) var(--mx, 50%), rgba(94, 141, 249, 0.025) calc(var(--mx, 50%) + 360px), rgba(94, 141, 249, 0.025));
+}
+
+// 有横向滚动时，固定列取消背景色过渡：EP 的 .el-table--enable-row-transition 给所有 td 加了 0.25s 背景色渐变，
+// 悬停切换时固定列的底色会在渐变期间透出下面的内容
+html[data-theme] .el-table:not(.is-scrolling-none) .el-table__body-wrapper tr td.el-table-fixed-column--left,
+html[data-theme] .el-table:not(.is-scrolling-none) .el-table__body-wrapper tr td.el-table-fixed-column--right {
+  transition: none !important;
+}
+
+// 有横向滚动时，固定列的「表头」也要实色底：暗色下表头底色是半透明（--el-table-header-bg-color = 白 3%），
+// 固定表头（sticky）会让左边滚过来的表头文字透出来，和「操作」叠在一起。
+// 做法：底色用不透明的 --bg-surface，再在上面叠一层表头色，视觉上与普通表头一致
+html[data-theme] .el-table:not(.is-scrolling-none) .el-table__header-wrapper tr th.el-table-fixed-column--left,
+html[data-theme] .el-table:not(.is-scrolling-none) .el-table__header-wrapper tr th.el-table-fixed-column--right {
+  background-color: var(--fixed-col-bg, var(--bg-surface)) !important;
+  background-image: linear-gradient(var(--el-table-header-bg-color), var(--el-table-header-bg-color)) !important;
 }
 
 
