@@ -1,16 +1,60 @@
 <script setup lang="ts">
 import { useTheme } from '@/hooks/useTheme'
 import { ref } from 'vue'
+import { onReady, onShow } from '@dcloudio/uni-app'
 import { authApi } from '@/api'
 import { useAuthStore } from '@/store'
 import { PAGES } from '@/constants'
 import { http } from '@/utils/request'
 import SvgIcon from '@/components/SvgIcon.vue'
+import bgVideoPkgPath from '@/assets/login-background.mp4'
 
 
 const { pageStyle } = useTheme()
 const authStore = useAuthStore()
 const loading = ref(false)
+
+// ── 背景视频 ─────────────────────────────────────────────────
+// 微信 <video> 的 src 只支持网络地址 / 本地临时文件 / 云文件 ID，不支持代码包内的文件（/assets/xxx.mp4）。
+// 所以运行时先把包内视频复制到用户数据目录，再用复制后的路径播放（不依赖网络）。
+const BG_VIDEO_ID = 'bgVideo'
+const bgVideoSrc = ref('')
+const videoFailed = ref(false)
+
+function prepareBgVideo() {
+  const fs = uni.getFileSystemManager()
+  // 文件名带内容哈希（来自编译产物文件名），视频更新后自动换新文件
+  const name = bgVideoPkgPath.split('/').pop() || 'login-background.mp4'
+  const dest = `${(uni as unknown as { env: { USER_DATA_PATH: string } }).env.USER_DATA_PATH}/${name}`
+  const use = () => { bgVideoSrc.value = dest }
+  fs.access({
+    path: dest,
+    success: use,                                     // 已复制过，直接用
+    fail: () => fs.copyFile({
+      srcPath: bgVideoPkgPath,
+      destPath: dest,
+      success: use,
+      fail: (e: { errMsg?: string }) => {
+        videoFailed.value = true                      // 复制失败 → 退回静态封面
+        console.error('[login] 背景视频复制失败：', e?.errMsg)
+      },
+    }),
+  })
+}
+prepareBgVideo()
+
+// 仅依赖 autoplay 不稳：部分机型不会自动起播，从后台返回页面后也不会恢复，这里显式 play()
+function playBgVideo() {
+  if (bgVideoSrc.value) uni.createVideoContext(BG_VIDEO_ID)?.play()
+}
+onReady(playBgVideo)
+onShow(() => setTimeout(playBgVideo, 100))   // 稍作延迟，等原生组件挂载完成
+
+function onBgVideoError(e: Event) {
+  videoFailed.value = true
+  const detail = (e as unknown as { detail?: { errMsg?: string } }).detail
+  console.error('[login] 背景视频加载失败：', detail?.errMsg || e)
+}
 
 // 开发模式：是否显示开发登录入口
 const IS_DEV = import.meta.env.VITE_APP_ENV === 'development'
@@ -94,13 +138,18 @@ async function handleWxLogin() {
   <view class="login-page">
     <!-- 全屏循环背景视频 + 压暗遮罩 -->
     <view class="bg-stage">
+    <!-- 视频下方的静态封面：视频正常渲染时被盖住；视频未渲染（兼容性 / 加载失败）时仍能看到画面 -->
+    <image class="bg-poster" src="../../assets/login-background-poster.jpg" mode="aspectFill" />
     <video
+      v-if="bgVideoSrc && !videoFailed"
+      :id="BG_VIDEO_ID"
       class="bg-video"
-      src="../../assets/login-background-h264.mp4"
+      :src="bgVideoSrc"
       autoplay
       loop
       muted
       :controls="false"
+      :show-loading="false"
       :show-center-play-btn="false"
       :show-play-btn="false"
       :show-fullscreen-btn="false"
@@ -108,9 +157,11 @@ async function handleWxLogin() {
       :enable-progress-gesture="false"
       :show-mute-btn="false"
       object-fit="cover"
+      @error="onBgVideoError"
     />
     </view>
     <view class="bg-mask" />
+
 
     <!-- 登录按钮区 -->
     <view class="btn-area">
@@ -159,6 +210,7 @@ async function handleWxLogin() {
 
 .login-page {
   position: relative;
+  height: 100vh;
   min-height: 100vh;
   background: #000011;
   display: flex;
@@ -169,28 +221,41 @@ async function handleWxLogin() {
   padding: 0 $space-5 120rpx;
 }
 
-// 视频为 9:16 竖屏，机器人位于水平正中、垂直约 53% 处；
-// 铺满整屏（fixed + 显式宽高，避免 video 高度回落到默认 225px），cover 裁切后机器人仍居中
+// 视频已转为 720×1280（9:16）H.264 无音轨 30fps（H.265 在部分安卓微信中无法播放，背景视频也不需要声音）；
+// 机器人位于水平正中、垂直约 53% 处，占宽约 56%；
+// 铺满整屏（absolute 相对 .login-page + 显式宽高，避免 video 高度回落到默认 225px；
+// 不用 fixed，原生组件放在 fixed 容器内在部分机型上不渲染），cover 在 9:19.5 的长屏上左右各裁约 9%，机器人仍完整居中
 .bg-stage {
-  position: fixed;
+  position: absolute;
   top: 0;
   left: 0;
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  height: 100%;
   z-index: 0;
 }
 
+.bg-poster {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
 .bg-video {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
 }
 
 .bg-mask {
-  position: fixed;
+  position: absolute;
   top: 0;
   left: 0;
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  height: 100%;
   z-index: 1;
   background: rgba(0, 0, 17, 0.2);
   pointer-events: none;
