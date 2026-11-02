@@ -404,7 +404,7 @@ onUnmounted(() => {
             <text class="rag-icon">🤖</text>
             <text class="rag-card__title">AI 参考解析</text>
           </view>
-          <text class="rag-card__content" user-select>{{ analysis.content }}</text>
+          <text class="rag-card__content" :class="{ 'rag-card__content--dark': isDark }" user-select>{{ analysis.content }}</text>
         </view>
 
         <!-- 降级：静态解析（大模型不可用时），可重新生成 -->
@@ -413,7 +413,7 @@ onUnmounted(() => {
             <text class="rag-icon">📖</text>
             <text class="rag-card__title">参考解析</text>
           </view>
-          <text class="rag-card__content">{{ analysis.staticSolution || '暂无解析' }}</text>
+          <text class="rag-card__content" :class="{ 'rag-card__content--dark': isDark }">{{ analysis.staticSolution || '暂无解析' }}</text>
           <button class="retry-btn" @tap="askAi(true)">重新生成 AI 解析</button>
         </view>
       </view>
@@ -809,6 +809,9 @@ onUnmounted(() => {
     font-size: $font-size-base;
     color: $text-2;
     line-height: 1.8;
+
+    // 暗色下正文用白色（次要文字色在深色底上偏暗，长段解析不好读）；亮色保持原样
+    &--dark { color: #ffffff; }
   }
 }
 
