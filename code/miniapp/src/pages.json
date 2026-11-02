@@ -2,7 +2,7 @@
   "pages": [
     { "path": "pages/auth/login",         "style": { "navigationBarTitleText": "登录" } },
     { "path": "pages/auth/bind-phone",     "style": { "navigationBarTitleText": "绑定手机号" } },
-    { "path": "pages/training/index",      "style": { "navigationBarTitleText": "个性化训练", "navigationBarBackgroundColor": "#ffffff" } },
+    { "path": "pages/training/index",      "style": { "navigationBarTitleText": "个性化训练" } },
     { "path": "pages/training/session/index", "style": { "navigationBarTitleText": "训练中", "navigationStyle": "custom" } },
     { "path": "pages/test/index",          "style": { "navigationBarTitleText": "五力认知测试" } },
     { "path": "pages/test/questions",      "style": { "navigationBarTitleText": "测试答题", "navigationStyle": "custom" } },
@@ -14,10 +14,10 @@
     { "path": "pages/wrong-answers/index", "style": { "navigationBarTitleText": "错题集" } }
   ],
   "tabBar": {
-    "color": "#94A3B8",
-    "selectedColor": "#5E8DF9",
-    "backgroundColor": "#ffffff",
-    "borderStyle": "white",
+    "color": "@tabText",
+    "selectedColor": "@tabSel",
+    "backgroundColor": "@tabBg",
+    "borderStyle": "@tabBorder",
     "list": [
       {
         "pagePath": "pages/training/index",
@@ -40,10 +40,12 @@
     ]
   },
   "globalStyle": {
-    "navigationBarTextStyle": "black",
+    "navigationBarTextStyle": "@navTxt",
     "navigationBarTitleText": "MESH",
-    "navigationBarBackgroundColor": "#ffffff",
-    "backgroundColor": "#F3F5FB",
+    "navigationBarBackgroundColor": "@navBg",
+    "backgroundColor": "@pageBg",
+    "backgroundColorTop": "@pageBg",
+    "backgroundColorBottom": "@pageBg",
     "backgroundTextStyle": "light"
   }
 }

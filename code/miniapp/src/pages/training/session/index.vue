@@ -818,11 +818,14 @@ onUnmounted(() => {
   right: 0;
   padding: $space-3 $space-4;
   padding-bottom: calc($space-3 + env(safe-area-inset-bottom));
-  background: $bg-surface;
+  background: $bg-surface;   // 不透明实色底
   border-top: 1rpx solid $border;
   display: flex;
   gap: $space-3;
   align-items: center;
+  // 必须设置层级：玻璃面板的高亮边 / 扫光伪元素是 z-index: 2，底部栏没有 z-index 时会被它们压在下面，
+  // 滚到底部栏下面的卡片边框就会从底部栏上「透」出来。100 高于面板伪元素，低于弹窗遮罩（200）
+  z-index: 100;
 }
 
 .submit-btn {

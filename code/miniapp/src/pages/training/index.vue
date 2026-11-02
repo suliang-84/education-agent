@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useTheme } from '@/hooks/useTheme'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import { onShow, onHide } from '@dcloudio/uni-app'
 import SvgIcon from '@/components/SvgIcon.vue'
 import { trainingApi } from '@/api'
 import { useTrainingStore } from '@/store'
@@ -25,6 +26,27 @@ const interruptRecord = ref<InterruptRecord | null>(null)
 const showResumeDialog = ref(false)
 const pendingDimension = ref<TrainingDimension | null>(null)
 const checkingInterrupt = ref(false)
+
+// ── 进入答题页期间的遮罩 ───────────────────────────────────────────────────
+// 遮罩要从点击一直盖到答题页真正出现：检查中断记录、创建会话、以及 navigateTo 之后答题页加载的那一小段时间。
+// 以前遮罩只在「创建会话」请求期间显示，请求一结束就关掉，而 navigateTo 是异步的、答题页还要加载约 1 秒，
+// 这期间用户会看到个性化训练页「回来了」，然后才切到答题页。
+const navigating = ref(false)
+const busy = computed(() => checkingInterrupt.value || creatingSession.value || navigating.value)
+let navTimer: ReturnType<typeof setTimeout> | null = null
+
+function goSession() {
+  navigating.value = true
+  if (navTimer) clearTimeout(navTimer)
+  navTimer = setTimeout(() => { navigating.value = false }, 5000)   // 兜底：跳转异常时 5 秒后撤掉遮罩，避免卡死
+  uni.navigateTo({ url: PAGES.TRAINING_SESSION, fail: () => { navigating.value = false } })
+}
+function clearNavigating() {
+  navigating.value = false
+  if (navTimer) { clearTimeout(navTimer); navTimer = null }
+}
+onHide(clearNavigating)   // 本页被答题页盖住后，遮罩已经完成使命
+onShow(clearNavigating)   // 从答题页返回时，确保遮罩不残留
 
 // ── 训练维度配置 ───────────────────────────────────────────────────────────
 const dimensions: Array<{
@@ -91,7 +113,7 @@ async function doCreateSession(dim: TrainingDimension) {
       subject_code: selectedSubject.value!,
     })
     trainingStore.initSession(resp, selectedSubject.value!)
-    uni.navigateTo({ url: PAGES.TRAINING_SESSION })
+    goSession()
   } catch {
     uni.showToast({ title: '创建训练失败，请重试', icon: 'none' })
   } finally {
@@ -103,7 +125,7 @@ async function handleResume() {
   showResumeDialog.value = false
   if (!interruptRecord.value) return
   trainingStore.restoreFromInterrupt(interruptRecord.value)
-  uni.navigateTo({ url: PAGES.TRAINING_SESSION })
+  goSession()
 }
 
 async function handleStartNew() {
@@ -180,7 +202,7 @@ async function handleStartNew() {
     </view>
 
     <!-- 全屏创建中遮罩 -->
-    <view v-if="creatingSession" class="creating-mask">
+    <view v-if="busy" class="creating-mask">
       <view class="creating-inner">
         <view class="spinner" />
         <text class="creating-text">正在准备训练题目...</text>

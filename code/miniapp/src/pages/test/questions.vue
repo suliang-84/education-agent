@@ -524,9 +524,10 @@ onUnmounted(() => {
   gap: $space-3;
   padding: $space-3 $space-4;
   padding-bottom: calc($space-3 + env(safe-area-inset-bottom));
-  background: $bg-surface;
+  background: $bg-surface;   // 不透明实色底
   border-top: 1rpx solid $border;
   box-shadow: 0 -8rpx 30rpx rgba(94,141,249,0.10);
+  z-index: 100;   // 高于玻璃面板的高亮边 / 扫光伪元素（z-index: 2），否则卡片边框会从底部栏上透出来
 }
 
 .answered-count {
