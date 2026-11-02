@@ -2,7 +2,7 @@
   <canvas
     type="2d"
     :id="canvasId"
-    :style="{ width: size + 'px', height: size + 'px', display: 'block' }"
+    :style="{ width: size + 'px', height: (height ?? size) + 'px', display: 'block' }"
   />
 </template>
 
@@ -11,7 +11,7 @@
  * 五力雷达图 —— 外观对齐后台「训练题管理 → 详情 → 五力训练权重」的 ECharts 雷达图：
  *   · 5 圈同心多边形，相邻两圈交替淡填充（主色 2% / 6%），网格线主色 22%，轴线主色 30%
  *   · 数据区：主色 2px 描边 + 主色 25% 填充，顶点实心圆点（直径 6）
- *   · 轴标签：主色文字，前面是该维度颜色的小圆点，后面带分数（“洞察力  82”）
+ *   · 轴标签：前面是该维度颜色的小圆点，后面带分数（“洞察力  82”）；文字亮色下为主色、暗色下为白色
  * 用 2D canvas 自绘（按设备像素比放大，保证清晰），不依赖 uCharts。
  */
 import { getCurrentInstance, onMounted, watch } from 'vue'
@@ -22,11 +22,15 @@ const props = withDefaults(defineProps<{
   scores: number[]      // 0–100
   labels: string[]
   colors?: string[]     // 各维度颜色（标签前的小圆点）
-  size?: number
+  size?: number         // 画布宽（px）
+  height?: number       // 画布高（px），默认等于 size
+  showValue?: boolean   // 标签里是否带分数（页面下方已有分数列表时可关掉，标签更窄，图能画得更大）
 }>(), {
   canvasId: 'radarChart',
   colors: () => ['#0D9488', '#E11D48', '#0EA5E9', '#D97706', '#7C3AED'],
   size: 300,
+  height: undefined,
+  showValue: true,
 })
 
 const instance = getCurrentInstance()
@@ -58,13 +62,13 @@ function paint(ctx: any, w: number, h: number) {
   ctx.textBaseline = 'middle'
 
   // 每个标签：文字 = “名称  分数”，总宽 = 圆点 + 间距 + 文字
-  const texts = props.labels.map((l, i) => `${l}  ${props.scores[i] ?? 0}`)
+  const texts = props.labels.map((l, i) => (props.showValue ? `${l}  ${props.scores[i] ?? 0}` : l))
   const textW = texts.map((t) => ctx.measureText(t).width as number)
   const labelW = textW.map((tw) => DOT + DOT_GAP + tw)
 
   // 半径：从大到小试，直到所有标签都完整落在画布内（左右两侧的标签最容易溢出）
-  const LABEL_OFFSET = 12
-  let R = Math.min(w, h) * 0.34
+  const LABEL_OFFSET = 10
+  let R = Math.min(w, h) * 0.42
   for (; R > 30; R -= 2) {
     let fit = true
     for (let i = 0; i < n && fit; i++) {
@@ -73,6 +77,10 @@ function paint(ctx: any, w: number, h: number) {
       if (c > 0.2 && lx + labelW[i] > w - 4) fit = false
       else if (c < -0.2 && lx - labelW[i] < 4) fit = false
       else if (Math.abs(c) <= 0.2 && Math.abs(lx - cx) + labelW[i] / 2 > w / 2 - 4) fit = false
+      // 上下方向：标签文字不能超出画布
+      const sn = Math.sin(ang(i))
+      const ly0 = cy + (R + LABEL_OFFSET) * sn + (sn < -0.9 ? -4 : 0) + (sn > 0.6 ? 4 : 0)
+      if (ly0 - FONT / 2 < 2 || ly0 + FONT / 2 > h - 2) fit = false
     }
     if (fit) break
   }
@@ -154,7 +162,7 @@ function paint(ctx: any, w: number, h: number) {
     ctx.arc(startX + DOT / 2, ly, DOT / 2, 0, Math.PI * 2)
     ctx.fill()
 
-    ctx.fillStyle = primary
+    ctx.fillStyle = theme.isDark ? '#FFFFFF' : primary   // 暗色下标签文字用白色
     ctx.textAlign = 'left'
     ctx.fillText(texts[i], startX + DOT + DOT_GAP, ly)
   }
@@ -170,7 +178,7 @@ function draw() {
       const canvas = r.node
       const dpr = uni.getSystemInfoSync().pixelRatio || 1
       const w = r.width || props.size
-      const h = r.height || props.size
+      const h = r.height || (props.height ?? props.size)
       canvas.width = w * dpr      // 重设宽高会清空画布，同时按设备像素比放大保证清晰
       canvas.height = h * dpr
       const ctx = canvas.getContext('2d')

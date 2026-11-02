@@ -62,7 +62,7 @@ async function loadFivePower() {
 // ── 发送消息 ──────────────────────────────────────────────────────────────
 async function sendMessage() {
   const content = inputText.value.trim()
-  if (!content || sending.value || sessionEnded.value) return
+  if (sending.value || sessionEnded.value) return   // 空内容也可以发送，不做拦截和提示
   sending.value = true
   inputText.value = ''
 
@@ -295,8 +295,6 @@ const weakestPowers = computed(() => {
         />
         <button
           class="send-btn"
-          :class="{ 'send-btn--disabled': !inputText.trim() || sending }"
-          :disabled="!inputText.trim() || sending"
           @tap="sendMessage"
         >
           <text class="send-btn__icon">{{ sending ? '…' : '▶' }}</text>
@@ -723,16 +721,9 @@ const weakestPowers = computed(() => {
 
   &::after { border: none; }
 
-  &--disabled {
-    background: $bg-muted;
-    box-shadow: none;
-  }
-
   &__icon {
     font-size: 32rpx;
     color: $on-primary;
-
-    .send-btn--disabled & { color: $text-3; }
   }
 }
 

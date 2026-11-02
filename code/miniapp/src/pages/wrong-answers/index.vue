@@ -208,7 +208,6 @@ function truncate(text: string, len = 60): string {
               v-else
               class="review-btn"
               :class="{ 'review-btn--loading': startingReview === item.wrong_id }"
-              :disabled="!!startingReview"
               @tap="startReview(item)"
             >
               <view v-if="startingReview === item.wrong_id" class="spinner" />

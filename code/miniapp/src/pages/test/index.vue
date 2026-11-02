@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useTheme } from '@/hooks/useTheme'
 import type { FivePower } from '@/constants'
+import { FIVE_POWERS, FIVE_POWER_LABELS, FIVE_POWER_META } from '@/constants'
 import { ref, onMounted } from 'vue'
 import { testApi } from '@/api'
 import { PAGES } from '@/constants'
@@ -8,6 +9,9 @@ import SvgIcon from '@/components/SvgIcon.vue'
 
 
 const { pageStyle, hl, isDark, powerColors } = useTheme()
+
+// 五力预览列表（图标 / 简介与测试结果页共用）
+const powerPreviewList = FIVE_POWERS.map((key) => ({ key, name: FIVE_POWER_LABELS[key], ...FIVE_POWER_META[key] }))
 // ── 检查是否有未完成的测试（本地存储） ───────────────────────────────────
 const hasInProgress = ref(false)
 const inProgressSessionId = ref<number | null>(null)
@@ -124,13 +128,7 @@ function clearAndStart() {
       <text class="powers-title">测试将评估以下五力</text>
       <view class="powers-list">
         <view
-          v-for="(item, idx) in [
-            { key: 'INSIGHT', name: '洞察力', icon: 'target', desc: '感知题目关键信息' },
-            { key: 'CONSTRUCT', name: '建构力', icon: 'ruler', desc: '搭建解题框架' },
-            { key: 'DEDUCE', name: '推演力', icon: 'branch', desc: '逻辑推导能力' },
-            { key: 'ADAPT', name: '调适力', icon: 'repeat', desc: '灵活调整策略' },
-            { key: 'MIGRATE', name: '迁移力', icon: 'rocket', desc: '跨情境应用' },
-          ]"
+          v-for="(item, idx) in powerPreviewList"
           :key="idx"
           class="power-preview-item"
         >
@@ -160,7 +158,6 @@ function clearAndStart() {
       <button
         class="start-btn"
         :class="{ 'start-btn--loading': starting }"
-        :disabled="starting"
         @tap="hasInProgress ? clearAndStart() : startNewTest()"
       >
         <view v-if="starting" class="spinner" />

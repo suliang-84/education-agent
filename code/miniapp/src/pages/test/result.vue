@@ -3,14 +3,13 @@ import { useTheme } from '@/hooks/useTheme'
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { testApi } from '@/api'
 import { useAuthStore } from '@/store'
-import { PAGES, FIVE_POWER_LABELS, FIVE_POWERS } from '@/constants'
-import { getPowerLevel } from '@/utils'
+import { PAGES, FIVE_POWER_LABELS, FIVE_POWERS, FIVE_POWER_META } from '@/constants'
 import type { TestProfile } from '@/api/test'
 import RadarChart from '@/components/charts/RadarChart.vue'
 import SvgIcon from '@/components/SvgIcon.vue'
 
 
-const { pageStyle, hl, powerColors } = useTheme()
+const { pageStyle, hl, powerColors, isDark } = useTheme()
 const authStore = useAuthStore()
 
 // ── 数据状态 ──────────────────────────────────────────────────────────────
@@ -28,6 +27,16 @@ const scores = computed(() =>
     ? FIVE_POWERS.map((p) => Math.round(profile.value!.forces[p]?.final ?? 0))
     : [0, 0, 0, 0, 0]
 )
+
+// 分数列表：按分数由高到低排序（分数相同保持五力原有顺序）；雷达图本身仍按固定的五力顺序排列
+const powerRows = computed(() =>
+  FIVE_POWERS.map((key, i) => ({ key, label: FIVE_POWER_LABELS[key], score: scores.value[i] }))
+    .sort((a, b) => b.score - a.score)
+)
+
+// 雷达图尺寸：占满卡片内宽（页面左右各 16px + 卡片内边距各 16px），高度略小于宽度以减少上下空白
+const chartW = Math.min(uni.getSystemInfoSync().windowWidth - 64, 420)
+const chartH = Math.round(chartW * 0.9)
 
 // ── 数据加载 ──────────────────────────────────────────────────────────────
 onMounted(() => {
@@ -86,36 +95,23 @@ function goToAssistant() { uni.switchTab({ url: PAGES.ASSISTANT_HOME }) }
           :scores="scores"
           :labels="FIVE_POWERS.map(p => FIVE_POWER_LABELS[p])"
           :colors="FIVE_POWERS.map(p => powerColors[p])"
-          :size="300"
+          :size="chartW"
+          :height="chartH"
+          :show-value="false"
         />
       </view>
 
-      <!-- 分数列表 -->
-      <view class="score-list">
-        <view
-          v-for="(power, idx) in FIVE_POWERS"
-          :key="power"
-          class="score-row"
-          :style="{ '--pc': powerColors[power] }"
-        >
-          <view class="score-row__left">
-            <view class="color-dot" :style="{ background: powerColors[power] }" />
-            <text class="score-row__name">{{ FIVE_POWER_LABELS[power] }}</text>
+      <!-- 分数列表：样式同测试首页「测试将评估以下五力」，按分数由高到低排序 -->
+      <view class="power-list">
+        <view v-for="row in powerRows" :key="row.key" class="power-row">
+          <view class="power-row__icon" :style="{ background: powerColors[row.key] + '1A' }">
+            <SvgIcon :name="FIVE_POWER_META[row.key].icon" :size="32" :color="powerColors[row.key]" />
           </view>
-          <view class="score-row__right">
-            <text class="score-value">{{ profile ? scores[idx] : '--' }}</text>
-            <view
-              v-if="profile"
-              class="level-tag"
-              :style="{
-                background: getPowerLevel(scores[idx]).color + '20',
-                color: getPowerLevel(scores[idx]).color,
-              }"
-            >
-              <text class="level-tag__text">{{ getPowerLevel(scores[idx]).label }}</text>
-            </view>
-            <view v-else class="skel-block" />
+          <view class="power-row__info">
+            <text class="power-row__name" :style="{ color: powerColors[row.key] }">{{ row.label }}</text>
+            <text class="power-row__desc" :class="{ 'power-row__desc--dark': isDark }">{{ FIVE_POWER_META[row.key].desc }}</text>
           </view>
+          <text class="power-row__score" :style="{ color: powerColors[row.key] }">{{ profile ? row.score : '--' }}</text>
         </view>
       </view>
     </view>
@@ -208,76 +204,62 @@ function goToAssistant() { uni.switchTab({ url: PAGES.ASSISTANT_HOME }) }
 .radar-wrap {
   display: flex;
   justify-content: center;
-  margin-bottom: $space-4;
+  margin-bottom: $space-2;
 }
 
 
-// 分数列表
-.score-list {
+// 分数列表：同测试首页五力预览（图标块 + 彩色名称 + 简介），行间用分割线；分数在最右
+.power-list {
   display: flex;
   flex-direction: column;
-  gap: $space-2;
 }
 
-.score-row {
+.power-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: $space-2 $space-3;
-  border-radius: $r-lg;
-  background: $bg-muted;
-  border: 1rpx solid $border;
-
-  &__left {
-    display: flex;
-    align-items: center;
-    gap: $space-2;
-  }
-
-  &__right {
-    display: flex;
-    align-items: center;
-    gap: $space-2;
-  }
+  gap: $space-3;
+  padding: 28rpx 0;
+  border-top: 1rpx solid $border;   // 第一行的上边线同时把列表与雷达图隔开
 }
 
-.color-dot {
-  width: 16rpx;
-  height: 16rpx;
-  border-radius: 50%;
+.power-row__icon {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: $r-md;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
 }
 
-.score-row__name {
-  font-size: $font-size-sm;
-  color: $text-2;
-  font-weight: 500;
+.power-row__info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: $space-2;
 }
 
-.score-value {
+.power-row__name {
+  font-size: $font-size-sm;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.power-row__desc {
+  font-size: $font-size-xs;
+  color: $text-3;
+
+  // 暗色下用白色，亮色保持浅灰（同测试首页）
+  &--dark { color: #ffffff; }
+}
+
+.power-row__score {
   font-size: $font-size-lg;
   font-weight: 800;
-  color: var(--pc, $text-1);
   min-width: 60rpx;
   text-align: right;
-}
-
-.level-tag {
-  padding: 4rpx 16rpx;
-  border-radius: $r-pill;
-
-  &__text {
-    font-size: $font-size-xs;
-    font-weight: 600;
-  }
-}
-
-.skel-block {
-  width: 80rpx;
-  height: 32rpx;
-  background: $bg-muted;
-  border-radius: $r-pill;
-  animation: shimmer 1.2s ease-in-out infinite;
+  flex-shrink: 0;
 }
 
 // AI 卡

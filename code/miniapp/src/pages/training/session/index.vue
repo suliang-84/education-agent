@@ -56,7 +56,7 @@ function useHint() {
 
 // ── 提交答案 ──────────────────────────────────────────────────────────────
 async function submitAnswer() {
-  if (submitting.value || !question.value || !studentAnswer.value.trim()) return
+  if (submitting.value || !question.value) return
   submitting.value = true
   stopTimer()
 
@@ -65,7 +65,7 @@ async function submitAnswer() {
       session_id: trainingStore.sessionId!,
       question_id: question.value.question_id,
       question_index: question.value.question_index,
-      student_answer: studentAnswer.value.trim(),
+      student_answer: studentAnswer.value.trim() || undefined,   // 未输入也可提交（后端按未作答判错）
       time_spent_sec: elapsed.value,
       hint_level_used: hintsUsed.value > 0 ? hintsUsed.value : undefined,
     })
@@ -253,12 +253,6 @@ onUnmounted(() => {
     </view>
 
     <template v-else>
-      <!-- ── 借强补弱提示横幅（仅首题且有 tips 时展示） ──────── -->
-      <view v-if="currentIndex === 0 && trainingStore.tipsHint" class="tips-banner">
-        <view class="tips-banner__icon"><SvgIcon name="sparkles" :size="28" /></view>
-        <text class="tips-banner__text">{{ trainingStore.tipsHint }}</text>
-      </view>
-
       <!-- ── 题目元信息 ────────────────────────────────────────── -->
       <view class="question-meta">
         <view
@@ -294,7 +288,7 @@ onUnmounted(() => {
         />
         <view v-else class="student-answer-display">
           <text class="student-answer-label">你的答案</text>
-          <text class="student-answer-text">{{ studentAnswer }}</text>
+          <text class="student-answer-text">{{ studentAnswer.trim() || '（未作答）' }}</text>
         </view>
       </view>
 
@@ -350,12 +344,7 @@ onUnmounted(() => {
             <view class="hint-btn__icon"><SvgIcon name="bulb" :size="32" color="#D97706" /></view>
             <text class="hint-btn__text">提示{{ hintsUsed > 0 ? `(${hintsUsed})` : '' }}</text>
           </button>
-          <button
-            class="submit-btn"
-            :class="{ 'submit-btn--disabled': !studentAnswer.trim() || submitting }"
-            :disabled="!studentAnswer.trim() || submitting"
-            @tap="submitAnswer"
-          >
+          <button class="submit-btn" @tap="submitAnswer">
             <view v-if="submitting" class="spinner" />
             <text class="submit-btn__text">{{ submitting ? '提交中...' : '提交答案' }}</text>
           </button>
@@ -385,7 +374,7 @@ onUnmounted(() => {
         <text class="dialog__desc">当前训练进度将自动保存，下次可继续</text>
         <view class="dialog__btns">
           <button class="dialog-btn dialog-btn--cancel" @tap="cancelExit">继续训练</button>
-          <button class="dialog-btn dialog-btn--confirm" :disabled="savingInterrupt" @tap="confirmExit">
+          <button class="dialog-btn dialog-btn--confirm" @tap="confirmExit">
             {{ savingInterrupt ? '保存中...' : '退出并保存' }}
           </button>
         </view>
@@ -590,15 +579,11 @@ onUnmounted(() => {
 
 // ── 答题区 ────────────────────────────────────────────────────────────────
 .answer-area {
-  @include glass-panel;
+  @include glass-panel(true, false);   // 输入类组件：不要渐变高亮边，聚焦时也不换边框色
   margin: 0 $space-4 $space-3;
   padding: $space-3;
   border: 1rpx solid $border;
   transition: $transition-base;
-
-  &:focus-within {
-    border-color: $primary-border;
-  }
 
   &--submitted {
     border-color: $border;
@@ -807,17 +792,10 @@ onUnmounted(() => {
 
   &::after { border: none; }
 
-  &--disabled {
-    background: $bg-muted;
-    box-shadow: none;
-  }
-
   &__text {
     font-size: $font-size-lg;
     color: $on-primary;
     font-weight: 700;
-
-    .submit-btn--disabled & { color: $text-3; }
   }
 }
 
@@ -901,32 +879,6 @@ onUnmounted(() => {
   50% { opacity: 0.5; }
 }
 
-// ── 借强补弱提示横幅 ──────────────────────────────────────────────────────
-.tips-banner {
-  margin: $space-3 $space-4 0;
-  padding: $space-3 $space-4;
-  background: $primary-light;
-  border: 1rpx solid $primary-border;
-  border-radius: $r-lg;
-  display: flex;
-  align-items: flex-start;
-  gap: $space-2;
-
-  &__icon {
-    display: flex;
-    align-items: center;
-    flex-shrink: 0;
-    margin-top: 4rpx;
-  }
-
-  &__text {
-    font-size: $font-size-sm;
-    color: $primary;
-    line-height: 1.7;
-    flex: 1;
-  }
-}
-
 // ── 退出确认弹窗 ──────────────────────────────────────────────────────────
 .dialog-mask {
   position: fixed;
@@ -991,10 +943,6 @@ onUnmounted(() => {
     background: $cta-gradient;
     box-shadow: $shadow-cta;
     color: $on-primary;
-
-    &[disabled] {
-      opacity: 0.7;
-    }
   }
 }
 

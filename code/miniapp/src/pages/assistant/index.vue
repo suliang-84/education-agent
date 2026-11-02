@@ -31,7 +31,7 @@ onMounted(async () => {
 
 async function sendMessage() {
   const content = inputText.value.trim()
-  if (!content || sending.value) return
+  if (sending.value) return   // 空内容也可以发送，不做拦截和提示
   sending.value = true
   inputText.value = ''
 
@@ -155,8 +155,6 @@ function scrollToBottom() {
       />
       <button
         class="send-btn"
-        :class="{ 'send-btn--disabled': !inputText.trim() || sending }"
-        :disabled="!inputText.trim() || sending"
         @tap="sendMessage"
       >
         <text class="send-btn__icon">{{ sending ? '…' : '▶' }}</text>
@@ -363,8 +361,7 @@ function scrollToBottom() {
   flex-shrink: 0;
 
   &::after { border: none; }
-  &--disabled { background: $bg-muted; box-shadow: none; }
-  &__icon { font-size: 28rpx; color: $on-primary; .send-btn--disabled & { color: $text-3; } }
+  &__icon { font-size: 28rpx; color: $on-primary; }
 }
 
 @keyframes shimmer {

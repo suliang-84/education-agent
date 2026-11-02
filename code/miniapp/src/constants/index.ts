@@ -26,6 +26,15 @@ export const FIVE_POWER_COLORS: Record<FivePower, string> = {
   MIGRATE: '#7C3AED',
 }
 
+// 五力的图标和一句话简介：测试首页的「测试将评估以下五力」与测试结果页的分数列表共用
+export const FIVE_POWER_META: Record<FivePower, { icon: string; desc: string }> = {
+  INSIGHT: { icon: 'target', desc: '感知题目关键信息' },
+  CONSTRUCT: { icon: 'ruler', desc: '搭建解题框架' },
+  DEDUCE: { icon: 'branch', desc: '逻辑推导能力' },
+  ADAPT: { icon: 'repeat', desc: '灵活调整策略' },
+  MIGRATE: { icon: 'rocket', desc: '跨情境应用' },
+}
+
 // 暗色主题下的五力颜色：提亮一档（同后台暗色 --power-*），在近黑底上不发暗
 export const FIVE_POWER_COLORS_DARK: Record<FivePower, string> = {
   INSIGHT: '#2DD4BF',

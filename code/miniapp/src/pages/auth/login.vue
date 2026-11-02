@@ -217,7 +217,6 @@ async function handleWxLogin() {
         <button
           class="submit-btn"
           :class="{ 'submit-btn--loading': loading }"
-          :disabled="loading"
           @tap="handleWxLogin"
         >
           <view class="btn-inner">
@@ -245,7 +244,7 @@ async function handleWxLogin() {
                 placeholder-style="color: rgba(255,255,255,0.35)"
               />
             </view>
-            <button class="dev-btn" :disabled="loading" @tap="handleDevLogin">快速登录</button>
+            <button class="dev-btn" @tap="handleDevLogin">快速登录</button>
           </view>
           <text class="dev-hint">跳过微信授权 · 仅本地开发使用</text>
         </view>
@@ -402,7 +401,6 @@ async function handleWxLogin() {
   &::after { border: none; }
   &:active { transform: scale(0.98); }
   &--loading { opacity: 0.65; }
-  &[disabled] { background: linear-gradient(to right, #cadbf3 0%, #a9beff 100%); }
 }
 
 .btn-inner {
