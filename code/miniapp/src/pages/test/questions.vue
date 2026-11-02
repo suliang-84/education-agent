@@ -110,7 +110,7 @@ async function goNext() {
   if (!q) return
   const selected = answers.value[currentIndex.value]
   if (!selected) {
-    uni.showToast({ title: '请先选择一个选项', icon: 'none' })
+    uni.showToast({ title: '请先选择答案', icon: 'none' })
     return
   }
 
@@ -233,7 +233,7 @@ onUnmounted(() => {
         <view class="time-hint">
           <view class="time-hint__icon"><SvgIcon name="calendar" :size="28" /></view>
           <text class="time-hint__text">参考用时：{{ currentQuestion.reference_time_sec }}秒</text>
-          <text class="time-hint__elapsed">已用：{{ formatSeconds(elapsed) }}</text>
+          <text class="time-hint__elapsed">已用：{{ elapsed }}秒</text>
         </view>
 
         <text class="question-stem">{{ currentQuestion.stem }}</text>
@@ -253,7 +253,6 @@ onUnmounted(() => {
           v-for="opt in currentQuestion.answers"
           :key="opt.key"
           class="option-card"
-          :style="hl('opt-' + opt.key)"
           :class="{
             'option-card--selected': currentAnswer === opt.key,
           }"
@@ -276,8 +275,6 @@ onUnmounted(() => {
 
         <button
           class="next-btn"
-          :class="{ 'next-btn--disabled': !currentAnswer || submittingAnswer }"
-          :disabled="!currentAnswer || submittingAnswer"
           @tap="goNext"
         >
           <view v-if="submittingAnswer" class="spinner" />
@@ -414,9 +411,6 @@ onUnmounted(() => {
   align-items: center;
   gap: $space-2;
   margin-bottom: $space-3;
-  padding: $space-2 $space-3;
-  background: $primary-light;
-  border-radius: $r-md;
 }
 
 .time-hint__icon {
@@ -432,7 +426,7 @@ onUnmounted(() => {
 
 .time-hint__elapsed {
   font-size: $font-size-xs;
-  color: $text-3;
+  color: $primary;
 }
 
 .question-stem {
@@ -457,7 +451,7 @@ onUnmounted(() => {
 }
 
 .option-card {
-  @include glass-panel(false);
+  @include glass-panel(false, false);   // 无扫光、无高亮边：默认态只有普通描边，选中态才是主色边框
   padding: $space-3 $space-4;
   display: flex;
   align-items: center;
@@ -555,17 +549,10 @@ onUnmounted(() => {
 
   &::after { border: none; }
 
-  &--disabled {
-    background: $bg-muted;
-    box-shadow: none;
-  }
-
   &__text {
     font-size: $font-size-lg;
     color: $on-primary;
     font-weight: 700;
-
-    .next-btn--disabled & { color: $text-3; }
   }
 }
 

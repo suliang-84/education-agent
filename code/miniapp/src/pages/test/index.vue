@@ -6,7 +6,7 @@ import { PAGES } from '@/constants'
 import SvgIcon from '@/components/SvgIcon.vue'
 
 
-const { pageStyle, hl } = useTheme()
+const { pageStyle, hl, isDark } = useTheme()
 // ── 检查是否有未完成的测试（本地存储） ───────────────────────────────────
 const hasInProgress = ref(false)
 const inProgressSessionId = ref<number | null>(null)
@@ -136,7 +136,7 @@ function clearAndStart() {
           <view class="power-preview-icon" :style="{ background: item.color + '1A' }"><SvgIcon :name="item.icon" :size="32" :color="item.color" /></view>
           <view class="power-preview-info">
             <text class="power-preview-name" :style="{ color: item.color }">{{ item.name }}</text>
-            <text class="power-preview-desc">{{ item.desc }}</text>
+            <text class="power-preview-desc" :class="{ 'power-preview-desc--dark': isDark }">{{ item.desc }}</text>
           </view>
         </view>
       </view>
@@ -220,7 +220,7 @@ function clearAndStart() {
 // 说明卡
 .info-card {
   @include glass-panel;
-  padding: $space-4;
+  padding: 0;
   margin-bottom: $space-4;
   border: 1rpx solid $border;
 }
@@ -229,7 +229,7 @@ function clearAndStart() {
   display: flex;
   align-items: center;
   gap: $space-3;
-  padding: $space-2 0;
+  padding: 28rpx 20rpx;   // 左右 10px；面板自身无内边距，上下留 28rpx 与下方五力模块的行高一致
 }
 
 .info-icon {
@@ -264,7 +264,7 @@ function clearAndStart() {
 .divider {
   height: 1rpx;
   background: $border;
-  margin: 4rpx 0;
+  margin: 0;
 }
 
 // 五力预览：面板自身不留内边距，标题行 / 每个维度行各自带内边距，行与行之间用通栏分割线分隔
@@ -324,6 +324,9 @@ function clearAndStart() {
 .power-preview-desc {
   font-size: $font-size-xs;
   color: $text-3;
+
+  // 暗色下用白色，亮色保持原来的浅灰
+  &--dark { color: #ffffff; }
 }
 
 // 中断恢复卡

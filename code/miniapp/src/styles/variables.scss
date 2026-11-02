@@ -88,30 +88,32 @@ $mask-surface:    var(--mask-surface);
 // 注意：为了让扫光 / 高亮边被圆角裁剪，面板会 overflow:hidden，面板内容不要依赖溢出显示。
 $r-panel: 20rpx; // 10px
 
-@mixin glass-panel($shine: true) {
+@mixin glass-panel($shine: true, $edge: true) {
   position: relative;
   overflow: hidden;
   background: var(--panel-bg);
   border-radius: $r-panel;
   box-shadow: var(--panel-shadow);
 
-  // 高亮边框
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    border: 1rpx solid transparent;
-    border-image: radial-gradient(
-      840rpx circle at var(--hl-x, 0%) var(--hl-y, 0%),
-      var(--panel-edge),
-      rgba(255, 255, 255, 0.10) 38%,
-      rgba(255, 255, 255, 0.02) 70%
-    ) 1;
-    pointer-events: none;
-    z-index: 2;
+  // 高亮边框（$edge: false 时不生成，如默认态的选项卡片）
+  @if $edge {
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      border: 1rpx solid transparent;
+      border-image: radial-gradient(
+        840rpx circle at var(--hl-x, 0%) var(--hl-y, 0%),
+        var(--panel-edge),
+        rgba(255, 255, 255, 0.10) 38%,
+        rgba(255, 255, 255, 0.02) 70%
+      ) 1;
+      pointer-events: none;
+      z-index: 2;
+    }
   }
 
   // 定时反光：仅大面板保留（$shine: true），列表项 / 小卡片不加，避免同屏多个动画；
