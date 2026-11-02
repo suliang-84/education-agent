@@ -4,6 +4,7 @@ import uuid
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Query
+from loguru import logger
 from pydantic import BaseModel
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,6 +19,7 @@ from app.models.student import (
 from app.models.training import TrainingAnswerRecord, TrainingDimensionConfig, TrainingSession, TrainingInterrupt
 from app.models.question import Question
 from app.models.knowledge import KnowledgePoint, Chapter, Semester, Subject
+from app.services.training_analysis import generate_analysis
 from app.services.answer_judge import (
     SINGLE_CHOICE, MULTIPLE_CHOICE,
     blank_count_of, judge_answer, question_type_of, split_stem_options,
@@ -266,7 +268,7 @@ async def submit_answer(
         time_spent_sec=body.time_spent_sec,
         hint_level_used=body.hint_level_used,
         rag_generated=False,
-        generation_status="pending" if not is_correct else None,
+        generation_status=None,   # 解析改为学生点击「智能解答」时才生成，答错也不再立即触发
         answered_at=datetime.now(UTC),
         created_at=datetime.now(UTC),
     )
@@ -290,39 +292,81 @@ async def submit_answer(
     return ok_response({
         "answer_record_id": record.id,
         "is_correct": is_correct,
-        "rag_status": "pending" if not is_correct else None,
+        "rag_status": None,
         "proactive_trigger": False,
     })
 
 
-@router.get("/rag-status/{answer_record_id}", summary="查询RAG生成状态")
-async def get_rag_status(
-    answer_record_id: int,
+class AnalysisReq(BaseModel):
+    session_id: str
+    question_id: int
+    regenerate: bool = False   # True：忽略已生成的解析，重新调用大模型
+
+
+@router.post("/analysis", summary="智能解答：按需生成参考解析（调用大模型）")
+async def generate_question_analysis(
+    body: AnalysisReq,
     student: Student = Depends(get_current_student),
     db: AsyncSession = Depends(get_db),
 ):
-    """Mock: 固定返回 degraded（占位实现）"""
+    """学生在答题页点击「智能解答」时才调用大模型，得出该题的参考解析。
+
+    - 必须是本人的训练会话、并且已作答该题（按 session_id + question_id 取最近一条答题记录）
+    - 已生成过的解析直接返回缓存（`cached=true`），不重复调用大模型；`regenerate=true` 时强制重新生成
+    - 大模型不可用（未配置 / 超时 / 报错）时不报 500，降级返回题库里的静态参考解析（`status=degraded`），前端可再点重试
+    """
+    session = (
+        await db.execute(
+            select(TrainingSession).where(
+                TrainingSession.id == body.session_id,
+                TrainingSession.student_id == student.id,
+            )
+        )
+    ).scalar_one_or_none()
+    if not session:
+        raise AppException("训练会话不存在", 404)
+
     record = (
-        await db.execute(select(TrainingAnswerRecord).where(TrainingAnswerRecord.id == answer_record_id))
+        await db.execute(
+            select(TrainingAnswerRecord)
+            .where(
+                TrainingAnswerRecord.session_id == body.session_id,
+                TrainingAnswerRecord.question_id == body.question_id,
+            )
+            .order_by(TrainingAnswerRecord.id.desc())
+            .limit(1)
+        )
     ).scalar_one_or_none()
     if not record:
-        raise AppException("答题记录不存在", 404)
-    return ok_response({
-        "rag_status": "degraded",
-        "rag_content": None,
-        "static_solution": "（AI解析功能尚未开通，请查阅参考资料）",
-        "retry_count": 0,
-        "can_retry": False,
-    })
+        raise AppException("请先完成该题作答，再使用智能解答", 400)
 
+    question = (
+        await db.execute(select(Question).where(Question.id == body.question_id))
+    ).scalar_one_or_none()
+    if not question:
+        raise AppException("题目不存在", 404)
 
-@router.post("/rag-retry", summary="重新生成RAG")
-async def rag_retry(
-    answer_record_id: int,
-    student: Student = Depends(get_current_student),
-):
-    """Mock 占位"""
-    return ok_response({"rag_status": "pending", "retry_count": 1, "can_retry": False})
+    if record.rag_content and not body.regenerate:
+        return ok_response({"status": "completed", "content": record.rag_content, "static_solution": None, "cached": True})
+
+    try:
+        content = await generate_analysis(question, record.student_answer, record.is_correct)
+    except Exception as e:  # 未配置密钥 / 超时 / 网络 / 返回异常：降级，不影响学生继续答题
+        logger.warning("智能解答生成失败 record={} {}: {}", record.id, type(e).__name__, e)
+        record.generation_status = "failed"
+        await db.commit()
+        return ok_response({
+            "status": "degraded",
+            "content": None,
+            "static_solution": question.solution or "暂无参考解析",
+            "cached": False,
+        })
+
+    record.rag_content = content
+    record.rag_generated = True
+    record.generation_status = "completed"
+    await db.commit()
+    return ok_response({"status": "completed", "content": content, "static_solution": None, "cached": False})
 
 
 @router.post("/complete", summary="完成训练会话")

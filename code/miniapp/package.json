@@ -4,6 +4,7 @@
   "description": "MESH AI助教微信小程序 - uni-app + Vue3",
   "scripts": {
     "dev:mp-weixin": "uni -p mp-weixin",
+    "dev:mp-weixin:lan": "node scripts/dev-lan.mjs",
     "build:mp-weixin": "uni build -p mp-weixin",
     "lint": "eslint src --ext .vue,.js,.ts --fix",
     "format": "prettier --write \"src/**/*.{vue,js,ts,scss}\"",

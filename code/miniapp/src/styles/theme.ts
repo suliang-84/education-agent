@@ -52,6 +52,11 @@ export const DARK_VARS: Record<string, string> = {
   // 选项选中态（同后台下拉框选中项）：蓝色横向渐变 + 白字
   '--option-on-bg': 'linear-gradient(90deg, rgba(94,141,249,0.24), rgba(94,141,249,0.07))',
   '--option-on-text': '#ffffff',
+  // 答题卡对错底色 / 边框（背景较透明、边框较实）
+  '--result-ok-bg': 'rgba(74,222,128,0.05)',
+  '--result-ok-border': 'rgba(74,222,128,0.40)',
+  '--result-bad-bg': 'rgba(248,113,113,0.05)',
+  '--result-bad-border': 'rgba(248,113,113,0.40)',
 }
 
 export function toStyleString(vars: Record<string, string>): string {

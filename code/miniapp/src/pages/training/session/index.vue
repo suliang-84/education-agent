@@ -4,7 +4,6 @@ import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { onReady } from '@dcloudio/uni-app'
 import { useTrainingStore } from '@/store'
 import { trainingApi } from '@/api'
-import { useRagPoller } from '@/hooks/useRagPoller'
 import { PAGES, QUESTION_TYPE_META } from '@/constants'
 import { formatSeconds } from '@/utils'
 import SvgIcon from '@/components/SvgIcon.vue'
@@ -12,15 +11,20 @@ import AnswerPanel from '@/components/training/AnswerPanel.vue'
 import { answerMode, answerText, buildSubmit, emptyAnswer, restoreAnswer, type AnswerState } from '@/utils/answer'
 
 
-const { pageStyle, hl, typeColors } = useTheme()
+const { pageStyle, hl, typeColors, isDark } = useTheme()
 const trainingStore = useTrainingStore()
-const { ragContent, staticSolution, status: ragStatus, canRetry, startPolling, retry, stop: stopRag } = useRagPoller()
 
 // ── 当前题目状态 ───────────────────────────────────────────────────────────
 const question = computed(() => trainingStore.currentQuestion())
 const currentIndex = computed(() => trainingStore.currentIndex)
 const totalQuestions = computed(() => trainingStore.questions.length)
 const isLast = computed(() => trainingStore.isLastQuestion())
+
+// 作答结果（对 / 错）：答题框变色 + 右上角图标，不再单独弹出提示框
+// 底部分段按钮中间一段（智能解答）的文字 / 图标色：与「选中态」一致，暗色白、亮色深蓝，在渐变中段上清晰可读
+const midBtnColor = computed(() => (isDark.value ? '#FFFFFF' : '#2F5FD6'))
+
+const resultColor = computed(() => (isCorrect.value ? (isDark.value ? '#4ADE80' : '#10B981') : (isDark.value ? '#F87171' : '#EF4444')))
 
 // 题目类型（标签用）
 const typeKey = computed(() => String(question.value?.question_type || '').toUpperCase())
@@ -88,7 +92,6 @@ function measureLimit() {
 const submitting = ref(false)
 const submitted = ref(false)
 const isCorrect = ref<boolean | null>(null)
-const answerRecordId = ref<number | null>(null)
 const wrongCount = ref(0) // 累计答错次数（用于触发 AI 主动介入）
 const showAiBar = ref(false)
 
@@ -105,18 +108,6 @@ function stopTimer() {
   if (timer) { clearInterval(timer); timer = null }
 }
 
-// ── 提示功能 ──────────────────────────────────────────────────────────────
-const hintsUsed = ref(0)
-const hintContent = ref('')
-const showHint = ref(false)
-
-function useHint() {
-  hintsUsed.value++
-  // 简单提示文本（实际应由后端提供）
-  hintContent.value = `提示 ${hintsUsed.value}：请仔细审题，注意题目中的关键条件。`
-  showHint.value = true
-}
-
 // ── 提交答案 ──────────────────────────────────────────────────────────────
 async function submitAnswer() {
   if (submitting.value || !question.value) return
@@ -130,7 +121,6 @@ async function submitAnswer() {
       question_index: question.value.question_index,
       ...buildSubmit(mode.value, answerState.value),   // 未作答也可提交（后端按未作答判错）
       time_spent_sec: elapsed.value,
-      hint_level_used: hintsUsed.value > 0 ? hintsUsed.value : undefined,
     })
 
     submitted.value = true
@@ -139,11 +129,7 @@ async function submitAnswer() {
 
     if (!resp.is_correct) {
       wrongCount.value++
-      // 答错后立刻轮询 RAG 生成
-      if (resp.answer_record_id) {
-        answerRecordId.value = resp.answer_record_id
-        startPolling(resp.answer_record_id)
-      }
+      // 注意：答错后不再自动生成解析，学生点击「智能解答」才调用大模型（见 askAi）
       // 连续答错 ≥2 次，显示 AI 主动介入提示
       if (wrongCount.value >= 2) {
         showAiBar.value = true
@@ -157,9 +143,44 @@ async function submitAnswer() {
   }
 }
 
+// ── 智能解答 ──────────────────────────────────────────────────────────────
+// 作答后点击「智能解答」才调用大模型，得出该题的参考解析（不是答错后立即触发）。
+// 按题号缓存：来回切题不丢；已生成过的再点只滚动到解析卡片，不重复调用；失败时在卡片里显示静态解析并可「重新生成」
+type AnalysisState = { status: 'loading' | 'completed' | 'degraded'; content: string | null; staticSolution: string | null }
+const analyses = ref<Record<number, AnalysisState>>({})
+const analysis = computed<AnalysisState | null>(() => analyses.value[currentIndex.value] ?? null)
+
+async function askAi(regenerate = false) {
+  const q = question.value
+  if (!q || !submitted.value) return
+  const idx = currentIndex.value
+  const cur = analyses.value[idx]
+  if (cur?.status === 'loading') return
+  if (cur?.status === 'completed' && !regenerate) {
+    uni.pageScrollTo({ selector: '.rag-section', duration: 200 })
+    return
+  }
+  analyses.value = { ...analyses.value, [idx]: { status: 'loading', content: null, staticSolution: null } }
+  nextTick(() => uni.pageScrollTo({ selector: '.rag-section', duration: 200 }))
+  try {
+    const res = await trainingApi.generateAnalysis({ session_id: trainingStore.sessionId!, question_id: q.question_id, regenerate })
+    analyses.value = { ...analyses.value, [idx]: { status: res.status, content: res.content, staticSolution: res.static_solution } }
+  } catch {
+    analyses.value = { ...analyses.value, [idx]: { status: 'degraded', content: null, staticSolution: '网络异常，暂时无法生成解析，请稍后重试' } }
+  }
+}
+
+// ── 上一题 ────────────────────────────────────────────────────────────────
+function goPrev() {
+  if (currentIndex.value <= 0) {
+    uni.showToast({ title: '已经是第一题了', icon: 'none' })
+    return
+  }
+  jumpToQuestion(currentIndex.value - 1)
+}
+
 // ── 下一题 / 完成 ─────────────────────────────────────────────────────────
 async function nextOrComplete() {
-  stopRag()
   if (isLast.value) {
     // 最后一题 → 完成会话
     try {
@@ -178,9 +199,8 @@ async function nextOrComplete() {
       uni.switchTab({ url: PAGES.TRAINING_HOME })
     }
   } else {
-    // 切换下一题，重置答题状态
-    trainingStore.nextQuestion()
-    resetQuestion()
+    // 切到下一题：已答过的（比如先点了「上一题」回看）显示只读作答，没答过的重置为未作答
+    jumpToQuestion(currentIndex.value + 1)
   }
 }
 
@@ -188,13 +208,6 @@ function resetQuestion() {
   answerState.value = emptyAnswer(question.value?.blank_count ?? 0)
   submitted.value = false
   isCorrect.value = null
-  answerRecordId.value = null
-  hintsUsed.value = 0
-  hintContent.value = ''
-  showHint.value = false
-  ragContent.value = null
-  staticSolution.value = null
-  ragStatus.value = 'idle'
   startTimer()
 }
 
@@ -215,7 +228,6 @@ async function confirmExit() {
   if (savingInterrupt.value) return
   savingInterrupt.value = true
   stopTimer()
-  stopRag()
 
   try {
     await trainingApi.saveInterrupt({
@@ -264,9 +276,6 @@ function jumpToQuestion(index: number) {
     answerState.value = restoreAnswer(question.value, snap.student_answer)
     submitted.value = true
     isCorrect.value = snap.is_correct
-    ragContent.value = null
-    staticSolution.value = null
-    ragStatus.value = 'idle'
     stopTimer()
   } else {
     resetQuestion()
@@ -283,7 +292,6 @@ onMounted(() => {
 
 onUnmounted(() => {
   stopTimer()
-  stopRag()
 })
 </script>
 
@@ -352,7 +360,7 @@ onUnmounted(() => {
         id="answer-area"
         class="answer-area"
         :style="hl('answer')"
-        :class="{ 'answer-area--submitted': submitted }"
+        :class="{ 'answer-area--submitted': submitted, 'answer-area--correct': submitted && isCorrect === true, 'answer-area--wrong': submitted && isCorrect === false }"
         @tap="onAreaTap"
       >
         <!-- 标题行 -->
@@ -360,6 +368,10 @@ onUnmounted(() => {
           <view class="answer-head__icon"><SvgIcon name="book" :size="30" /></view>
           <text class="answer-head__title">{{ submitted ? '你的答案' : '我的解答' }}</text>
           <text v-if="!submitted" class="answer-head__tip">{{ answerTip }}</text>
+          <!-- 作答结果图标：在标题行最右侧，与左侧图标、标题同在一条居中线上，大小与左侧图标一致 -->
+          <view v-if="submitted && isCorrect !== null" class="answer-head__result">
+            <SvgIcon :name="isCorrect ? 'result_correct' : 'result_wrong'" :size="30" :color="resultColor" />
+          </view>
         </view>
 
         <!-- 按题型切换的作答组件 -->
@@ -374,47 +386,35 @@ onUnmounted(() => {
         </view>
       </view>
 
-      <!-- ── 提示内容 ────────────────────────────────────────────── -->
-      <view v-if="showHint" class="hint-card">
-        <view class="hint-icon"><SvgIcon name="bulb" :size="32" color="#D97706" /></view>
-        <text class="hint-text">{{ hintContent }}</text>
-      </view>
-
-      <!-- ── 答题结果反馈 ─────────────────────────────────────────── -->
-      <view v-if="submitted" class="result-feedback" :class="isCorrect ? 'result-feedback--correct' : 'result-feedback--wrong'">
-        <text class="result-icon">{{ isCorrect ? '🎉' : '❌' }}</text>
-        <text class="result-text">{{ isCorrect ? '回答正确！继续保持！' : '答案有误，查看AI解析' }}</text>
-      </view>
-
-      <!-- ── RAG 解析卡（答错后） ────────────────────────────────── -->
-      <view v-if="submitted && !isCorrect" class="rag-section">
-        <!-- 加载骨架屏 -->
-        <view v-if="ragStatus === 'pending'" class="rag-skeleton" :style="hl('rag-skel')">
+      <!-- ── 智能解答：参考解析卡（点击「智能解答」后出现，答对答错都可以看） ── -->
+      <view v-if="submitted && analysis" class="rag-section">
+        <!-- 生成中 -->
+        <view v-if="analysis.status === 'loading'" class="rag-skeleton" :style="hl('rag-skel')">
           <view class="rag-skeleton__header">
-            <text class="rag-skeleton__title">AI 正在生成解析...</text>
+            <text class="rag-skeleton__title">AI 正在生成解析，请稍候...</text>
           </view>
           <view class="skel-lines">
             <view v-for="i in 4" :key="i" class="skel-line" :style="{ width: `${85 - i * 8}%` }" />
           </view>
         </view>
 
-        <!-- RAG 内容 -->
-        <view v-else-if="ragStatus === 'completed' && ragContent" class="rag-card" :style="hl('rag')">
+        <!-- 大模型生成的参考解析 -->
+        <view v-else-if="analysis.status === 'completed' && analysis.content" class="rag-card" :style="hl('rag')">
           <view class="rag-card__header">
             <text class="rag-icon">🤖</text>
-            <text class="rag-card__title">AI 个性化解析</text>
+            <text class="rag-card__title">AI 参考解析</text>
           </view>
-          <text class="rag-card__content">{{ ragContent }}</text>
+          <text class="rag-card__content" user-select>{{ analysis.content }}</text>
         </view>
 
-        <!-- 降级：静态解析 -->
-        <view v-else-if="ragStatus === 'degraded'" class="rag-card rag-card--static" :style="hl('rag-static')">
+        <!-- 降级：静态解析（大模型不可用时），可重新生成 -->
+        <view v-else class="rag-card rag-card--static" :style="hl('rag-static')">
           <view class="rag-card__header">
             <text class="rag-icon">📖</text>
             <text class="rag-card__title">参考解析</text>
           </view>
-          <text class="rag-card__content">{{ staticSolution || '暂无解析' }}</text>
-          <button v-if="canRetry" class="retry-btn" @tap="retry(answerRecordId!)">重新生成 AI 解析</button>
+          <text class="rag-card__content">{{ analysis.staticSolution || '暂无解析' }}</text>
+          <button class="retry-btn" @tap="askAi(true)">重新生成 AI 解析</button>
         </view>
       </view>
 
@@ -422,10 +422,6 @@ onUnmounted(() => {
       <view class="action-bar">
         <!-- 未提交状态 -->
         <template v-if="!submitted">
-          <button class="hint-btn" @tap="useHint">
-            <view class="hint-btn__icon"><SvgIcon name="bulb" :size="32" color="#D97706" /></view>
-            <text class="hint-btn__text">提示{{ hintsUsed > 0 ? `(${hintsUsed})` : '' }}</text>
-          </button>
           <button class="submit-btn" @tap="submitAnswer">
             <view v-if="submitting" class="spinner" />
             <text class="submit-btn__text">{{ submitting ? '提交中...' : '提交答案' }}</text>
@@ -434,9 +430,20 @@ onUnmounted(() => {
 
         <!-- 已提交状态 -->
         <template v-else>
-          <button class="next-btn" @tap="nextOrComplete">
-            <text class="next-btn__text">{{ isLast ? '完成训练' : '下一题 ›' }}</text>
-          </button>
+          <!-- 三个按钮组成一个整体：两端按钮靠边侧是圆角，相邻的内侧是直角 -->
+          <view class="action-group">
+            <button class="seg-btn seg-btn--prev" @tap="goPrev">
+              <text class="seg-btn__text">‹ 上一题</text>
+            </button>
+            <button class="seg-btn seg-btn--ai" @tap="askAi()">
+              <view v-if="analysis?.status === 'loading'" class="seg-spinner" />
+              <SvgIcon v-else name="sparkles" :size="32" :color="midBtnColor" />
+              <text class="seg-btn__text">{{ analysis?.status === 'loading' ? '生成中...' : '智能解答' }}</text>
+            </button>
+            <button class="seg-btn seg-btn--next" @tap="nextOrComplete">
+              <text class="seg-btn__text">{{ isLast ? '完成训练' : '下一题 ›' }}</text>
+            </button>
+          </view>
         </template>
       </view>
     </template>
@@ -685,6 +692,16 @@ onUnmounted(() => {
   padding: $space-3;
   border: 1rpx solid $border;
   transition: $transition-base;
+
+  // 提交后按对错变色：极淡的同色底（亮色 4% / 暗色 5%，只做淡淡的底，不遮住作答内容）+ 较实的同色描边（40%）；取值见 --result-*
+  &--correct {
+    background: var(--result-ok-bg);
+    border-color: var(--result-ok-border);
+  }
+  &--wrong {
+    background: var(--result-bad-bg);
+    border-color: var(--result-bad-border);
+  }
 }
 
 // 标题行：小图标 + “我的解答” + 右侧按题型给出的一句格式提示
@@ -695,12 +712,27 @@ onUnmounted(() => {
   margin-bottom: $space-2;
   padding: 0 $space-1;
 
-  &__icon { display: flex; align-items: center; }
+  // 标题行里的三个元素（左图标 / 标题文字 / 右侧结果图标）都放进同样高度（30rpx）的盒子里并垂直居中，才能真正对齐：
+  // 图标是自定义组件，外层元素里是 inline-block 图片，会被行高撑高导致图标偏上；文字也固定行高与盒高一致
+  &__icon,
+  &__result {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30rpx;
+    height: 30rpx;
+    line-height: 0;
+    flex-shrink: 0;
+  }
+
+  &__result { margin-left: auto; }
 
   &__title {
     font-size: $font-size-sm;
     font-weight: 700;
     color: $text-1;
+    line-height: 30rpx;
+    height: 30rpx;
   }
 
   &__tip {
@@ -716,59 +748,7 @@ onUnmounted(() => {
 }
 
 // ── 提示卡 ────────────────────────────────────────────────────────────────
-.hint-card {
-  margin: 0 $space-4 $space-3;
-  background: $warning-light;
-  border: 1rpx solid rgba(245, 158, 11, 0.2);
-  border-radius: $r-lg;
-  padding: $space-3;
-  display: flex;
-  gap: $space-2;
-  align-items: flex-start;
-}
-
-.hint-icon {
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-}
-
-.hint-text {
-  font-size: $font-size-sm;
-  color: $text-2;
-  line-height: 1.6;
-}
-
 // ── 结果反馈 ─────────────────────────────────────────────────────────────
-.result-feedback {
-  margin: 0 $space-4 $space-3;
-  border-radius: $r-lg;
-  padding: $space-3;
-  display: flex;
-  align-items: center;
-  gap: $space-2;
-
-  &--correct {
-    background: $success-light;
-    border: 1rpx solid rgba(16, 185, 129, 0.2);
-  }
-
-  &--wrong {
-    background: $danger-light;
-    border: 1rpx solid rgba(239, 68, 68, 0.2);
-  }
-}
-
-.result-icon {
-  font-size: 36rpx;
-}
-
-.result-text {
-  font-size: $font-size-base;
-  color: $text-1;
-  font-weight: 600;
-}
-
 // ── RAG 解析区 ────────────────────────────────────────────────────────────
 .rag-section {
   margin: 0 $space-4 $space-3;
@@ -864,23 +844,6 @@ onUnmounted(() => {
   align-items: center;
 }
 
-.hint-btn {
-  flex-shrink: 0;
-  height: 88rpx;
-  padding: 0 $space-3;
-  background: $warning-light;
-  border: 1rpx solid rgba(245, 158, 11, 0.3);
-  border-radius: $r-pill;
-  display: flex;
-  align-items: center;
-  gap: $space-1;
-
-  &::after { border: none; }
-
-  &__icon { display: flex; align-items: center; }
-  &__text { font-size: $font-size-sm; color: #D97706; font-weight: 600; }
-}
-
 .submit-btn {
   flex: 1;
   height: 88rpx;
@@ -902,21 +865,64 @@ onUnmounted(() => {
   }
 }
 
-.next-btn {
+// 已提交后的操作栏：上一题 | 智能解答 | 下一题，组成一个整体的分段按钮
+// 外层容器是胶囊（圆角 + overflow:hidden），所以只有两端靠边侧是圆角，按钮之间的内侧是直角；按钮之间留 2px（4rpx）间距。
+// 渐变：三个按钮合起来是一条「从左到右」的连续渐变（灰底 → 主色淡 → 主色）。因为按钮之间有间距，不能再把渐变画在容器上，
+// 而是每个按钮各画一份同样的渐变，大小都设成整个按钮组的宽度、再按各自的偏移错开，拼起来就是连续的一条。
+// 整个按钮组的宽度固定：操作栏左右内边距各 32rpx（$space-4），所以 = 750rpx − 64rpx = 686rpx；三个按钮平分剩余宽度：(686 − 2×4) / 3 = 226rpx；第 2 / 3 个按钮的渐变偏移 = 前面所有按钮的宽度加间距 = 230rpx / 460rpx
+$group-w: 686rpx;
+$seg-gap: 4rpx;
+
+.action-group {
   flex: 1;
+  display: flex;
+  gap: $seg-gap;
   height: 88rpx;
-  background: $cta-gradient;
-  box-shadow: $shadow-cta;
   border-radius: $r-pill;
+  overflow: hidden;
+}
+
+.seg-btn {
+  flex: 1;
+  height: 100%;
   border: none;
+  border-radius: 0;
+  padding: 0;
+  background-color: $bg-muted;
+  background-image: linear-gradient(90deg, rgba(0, 0, 0, 0) 0%, $primary-border 50%, $primary 100%);
+  background-size: $group-w 100%;
+  background-repeat: no-repeat;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: $space-1;
 
   &::after { border: none; }
 
   &__text {
-    font-size: $font-size-lg;
-    color: $on-primary;
-    font-weight: 700;
+    font-size: $font-size-base;
+    font-weight: 600;
   }
+
+  // 上一题：渐变最左段（灰底），次要文字色
+  &--prev { background-position: 0 0; }
+  &--prev .seg-btn__text { color: $text-2; }
+  // 智能解答：渐变中段，文字色同「选中态」（暗色白 / 亮色深蓝）
+  &--ai { background-position: -230rpx 0; }
+  &--ai .seg-btn__text { color: var(--option-on-text); }
+  // 下一题：渐变最右段（主色），主按钮文字色
+  &--next { background-position: -460rpx 0; }
+  &--next .seg-btn__text { color: $on-primary; font-weight: 700; }
+}
+
+// 智能解答生成中的小转圈（主色）
+.seg-spinner {
+  width: 30rpx;
+  height: 30rpx;
+  border-radius: 50%;
+  border: 4rpx solid $primary-border;
+  border-top-color: $primary;
+  animation: spin 0.7s linear infinite;
 }
 
 // ── AI 主动介入浮动条 ─────────────────────────────────────────────────────

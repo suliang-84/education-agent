@@ -47,6 +47,11 @@ page {
   // 选项选中态（同后台下拉框选中项）：蓝色横向渐变 + 深蓝字
   --option-on-bg: linear-gradient(90deg, rgba(94,141,249,0.20), rgba(94,141,249,0.05));
   --option-on-text: #2F5FD6;
+  // 答题卡对错底色 / 边框（背景较透明、边框较实）
+  --result-ok-bg: rgba(16,185,129,0.04);
+  --result-ok-border: rgba(16,185,129,0.40);
+  --result-bad-bg: rgba(239,68,68,0.04);
+  --result-bad-border: rgba(239,68,68,0.40);
   background-color: $bg-page;
   background-image:
     radial-gradient(900rpx circle at 100% 0%, var(--glow-1), transparent 60%),

@@ -86,19 +86,18 @@ export const trainingApi = {
       proactive_trigger: boolean
     }>('/training/answer', data),
 
-  /** 查询 RAG 生成状态（前端轮询，≤15次） */
-  getRagStatus: (answer_record_id: number) =>
-    http.get<{
-      rag_status: 'pending' | 'completed' | 'degraded'
-      rag_content: string | null
+  /**
+   * 智能解答：点击「智能解答」时才调用大模型，得出该题的参考解析（见接口设计说明书 §5.3）。
+   * 大模型耗时较长，请求超时放宽到 90 秒；失败时服务端降级返回静态解析（status = degraded），不会抛错。
+   * silent：失败不弹全局 toast，由页面在解析卡片里提示。
+   */
+  generateAnalysis: (data: { session_id: string; question_id: number; regenerate?: boolean }) =>
+    http.post<{
+      status: 'completed' | 'degraded'
+      content: string | null
       static_solution: string | null
-      retry_count: number
-      can_retry: boolean
-    }>(`/training/rag-status/${answer_record_id}`),
-
-  /** 重试 RAG 生成 */
-  retryRag: (answer_record_id: number) =>
-    http.post('/training/rag-retry', { answer_record_id }),
+      cached: boolean
+    }>('/training/analysis', data, { timeout: 90000, silent: true } as never),
 
   /** 完成训练会话 */
   completeSession: (session_id: string) =>
