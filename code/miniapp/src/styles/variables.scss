@@ -83,7 +83,7 @@ $mask-surface:    var(--mask-surface);
 // ── 玻璃面板（同后台二级页面子模块 .surface / .section-block）──────────────
 // 半透明云晕底 + 10px 圆角 + 顶部内高光 + 渐变高亮边 + 定时扫光（仅暗色 + 大面板）。
 // 取值全部来自 --panel-* 变量，亮 / 暗主题各自在 global.scss / theme.ts 里定义。
-// 高亮边用 border-image 实现（不依赖 mask-composite，小程序各端更稳）；
+// 高亮边用 mask 挖空的渐变圈实现（与圆角完全贴合，设备不支持时自动不显示）；
 // --hl-x / --hl-y 由模板里 :style="hl('key')"（useTheme 提供）按面板各自随机写入（落在边框上），未写入时回退到左上角。
 // 注意：为了让扫光 / 高亮边被圆角裁剪，面板会 overflow:hidden，面板内容不要依赖溢出显示。
 $r-panel: 20rpx; // 10px
@@ -96,23 +96,37 @@ $r-panel: 20rpx; // 10px
   box-shadow: var(--panel-shadow);
 
   // 高亮边框（$edge: false 时不生成，如默认态的选项卡片）
+  // 做法同后台：伪元素铺满面板 + 圆角继承 + 渐变背景，再用 mask 把中间挖空，只留 1rpx 的一圈，
+  // 这样高亮边和面板圆角完全贴合（border-image 不跟随 border-radius，圆角处会断开，所以不用它）。
+  // 默认 display:none；只有设备支持 mask-composite 时才显示，
+  // 避免不支持的机型上渐变被当成整块填充染到面板里。
   @if $edge {
     &::before {
       content: '';
+      display: none;
       position: absolute;
       top: 0;
       left: 0;
       right: 0;
       bottom: 0;
-      border: 1rpx solid transparent;
-      border-image: radial-gradient(
+      padding: 1rpx;
+      border-radius: inherit;
+      background: radial-gradient(
         840rpx circle at var(--hl-x, 0%) var(--hl-y, 0%),
         var(--panel-edge),
         rgba(255, 255, 255, 0.10) 38%,
         rgba(255, 255, 255, 0.02) 70%
-      ) 1;
+      );
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
       pointer-events: none;
       z-index: 2;
+    }
+
+    @supports ((-webkit-mask-composite: xor) or (mask-composite: exclude)) {
+      &::before { display: block; }
     }
   }
 

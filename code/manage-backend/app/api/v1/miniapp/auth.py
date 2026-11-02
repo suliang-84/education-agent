@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 from fastapi import APIRouter, Depends
+from loguru import logger
 from pydantic import BaseModel, Field
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -85,11 +86,21 @@ async def _get_wx_openid(code: str) -> tuple[str, str]:
         "js_code": code,
         "grant_type": "authorization_code",
     }
-    async with httpx.AsyncClient(timeout=10) as client:
-        resp = await client.get(url, params=params)
-    data = resp.json()
-    if "errcode" in data and data["errcode"] != 0:
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(url, params=params)
+        data = resp.json()
+    except (httpx.HTTPError, ValueError) as e:
+        # 网络超时 / 连接失败 / 返回非 JSON：属于上游（微信）不可用，不是我们的业务错误，也不应该是 500
+        logger.warning("调用微信 jscode2session 失败：{}: {}", type(e).__name__, e)
+        raise AppException("微信服务暂时不可用，请稍后重试", 502) from e
+    if data.get("errcode", 0) != 0:
+        # 如 40029 code 无效/已使用、40013 appid 错误、40125 secret 错误
+        logger.warning("微信 jscode2session 返回错误：{} {}", data.get("errcode"), data.get("errmsg"))
         raise AppException(f"微信登录失败: {data.get('errmsg', '未知错误')}", 400)
+    if "openid" not in data:
+        logger.warning("微信 jscode2session 返回缺少 openid：{}", list(data.keys()))
+        raise AppException("微信登录失败，请重试", 502)
     return data["openid"], data.get("session_key", "")
 
 
