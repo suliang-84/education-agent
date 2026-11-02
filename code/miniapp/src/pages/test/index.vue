@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { useTheme } from '@/hooks/useTheme'
+import type { FivePower } from '@/constants'
 import { ref, onMounted } from 'vue'
 import { testApi } from '@/api'
 import { PAGES } from '@/constants'
 import SvgIcon from '@/components/SvgIcon.vue'
 
 
-const { pageStyle, hl, isDark } = useTheme()
+const { pageStyle, hl, isDark, powerColors } = useTheme()
 // ── 检查是否有未完成的测试（本地存储） ───────────────────────────────────
 const hasInProgress = ref(false)
 const inProgressSessionId = ref<number | null>(null)
@@ -124,18 +125,18 @@ function clearAndStart() {
       <view class="powers-list">
         <view
           v-for="(item, idx) in [
-            { name: '洞察力', color: '#0D9488', icon: 'target', desc: '感知题目关键信息' },
-            { name: '建构力', color: '#E11D48', icon: 'ruler', desc: '搭建解题框架' },
-            { name: '推演力', color: '#5E8DF9', icon: 'branch', desc: '逻辑推导能力' },
-            { name: '调适力', color: '#D97706', icon: 'repeat', desc: '灵活调整策略' },
-            { name: '迁移力', color: '#7C3AED', icon: 'rocket', desc: '跨情境应用' },
+            { key: 'INSIGHT', name: '洞察力', icon: 'target', desc: '感知题目关键信息' },
+            { key: 'CONSTRUCT', name: '建构力', icon: 'ruler', desc: '搭建解题框架' },
+            { key: 'DEDUCE', name: '推演力', icon: 'branch', desc: '逻辑推导能力' },
+            { key: 'ADAPT', name: '调适力', icon: 'repeat', desc: '灵活调整策略' },
+            { key: 'MIGRATE', name: '迁移力', icon: 'rocket', desc: '跨情境应用' },
           ]"
           :key="idx"
           class="power-preview-item"
         >
-          <view class="power-preview-icon" :style="{ background: item.color + '1A' }"><SvgIcon :name="item.icon" :size="32" :color="item.color" /></view>
+          <view class="power-preview-icon" :style="{ background: powerColors[item.key as FivePower] + '1A' }"><SvgIcon :name="item.icon" :size="32" :color="powerColors[item.key as FivePower]" /></view>
           <view class="power-preview-info">
-            <text class="power-preview-name" :style="{ color: item.color }">{{ item.name }}</text>
+            <text class="power-preview-name" :style="{ color: powerColors[item.key as FivePower] }">{{ item.name }}</text>
             <text class="power-preview-desc" :class="{ 'power-preview-desc--dark': isDark }">{{ item.desc }}</text>
           </view>
         </view>

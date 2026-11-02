@@ -5,6 +5,7 @@ import { computed, watch } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { useThemeStore } from '@/store/theme'
 import { CHROME, DARK_STYLE } from '@/styles/theme'
+import { FIVE_POWER_COLORS, FIVE_POWER_COLORS_DARK } from '@/constants'
 
 export function applyChrome(isDark: boolean) {
   const c = isDark ? CHROME.dark : CHROME.light
@@ -28,6 +29,9 @@ export function useTheme() {
   const theme = useThemeStore()
   const pageStyle = computed(() => (theme.isDark ? DARK_STYLE : ''))
 
+  // 五力颜色：暗色下用提亮的一套
+  const powerColors = computed(() => (theme.isDark ? FIVE_POWER_COLORS_DARK : FIVE_POWER_COLORS))
+
   // 每个玻璃面板各自随机的高亮边位置：模板里 :style="hl('唯一key')"。
   // 同一页面实例内，同一个 key 的结果保持不变（重渲染不闪烁）；页面每次打开 / 重新渲染都会重新随机。
   const hlCache = new Map<string, string>()
@@ -41,5 +45,5 @@ export function useTheme() {
   onShow(() => applyChrome(theme.isDark))
   watch(() => theme.isDark, (v) => applyChrome(v))
 
-  return { theme, isDark: computed(() => theme.isDark), pageStyle, hl }
+  return { theme, isDark: computed(() => theme.isDark), pageStyle, hl, powerColors }
 }

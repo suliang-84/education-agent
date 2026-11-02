@@ -17,12 +17,22 @@ export const FIVE_POWER_LABELS: Record<FivePower, string> = {
   MIGRATE: '迁移力',
 }
 
+// 亮色主题下的五力颜色；页面里请通过 useTheme().powerColors 取值（会随亮 / 暗主题切换），不要直接用这个常量
 export const FIVE_POWER_COLORS: Record<FivePower, string> = {
   INSIGHT: '#0D9488',
   CONSTRUCT: '#E11D48',
-  DEDUCE: '#5E8DF9',
+  DEDUCE: '#0EA5E9',   // 天蓝：与系统主色（柔蓝紫）拉开色相，避免混淆
   ADAPT: '#D97706',
   MIGRATE: '#7C3AED',
+}
+
+// 暗色主题下的五力颜色：提亮一档（同后台暗色 --power-*），在近黑底上不发暗
+export const FIVE_POWER_COLORS_DARK: Record<FivePower, string> = {
+  INSIGHT: '#2DD4BF',
+  CONSTRUCT: '#F87171',
+  DEDUCE: '#38BDF8',
+  ADAPT: '#FCD34D',
+  MIGRATE: '#A78BFA',
 }
 
 // ── 训练维度 ─────────────────────────────────────────────────────────────

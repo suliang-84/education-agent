@@ -88,7 +88,7 @@ const barRef   = ref<HTMLElement>()
 let radarChart: echarts.ECharts | undefined
 let barChart:   echarts.ECharts | undefined
 
-const POWER_COLORS: Record<string, string> = { INSIGHT: '#0D9488', CONSTRUCT: '#E11D48', DEDUCE: '#4F46E5', ADAPT: '#D97706', MIGRATE: '#7C3AED' }
+const POWER_COLORS: Record<string, string> = { INSIGHT: '#0D9488', CONSTRUCT: '#E11D48', DEDUCE: '#0EA5E9', ADAPT: '#D97706', MIGRATE: '#7C3AED' }
 const CHART_TEXT = '#94A3B8'
 
 async function loadData() {

@@ -3,14 +3,14 @@ import { useTheme } from '@/hooks/useTheme'
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { testApi } from '@/api'
 import { useAuthStore } from '@/store'
-import { PAGES, FIVE_POWER_LABELS, FIVE_POWER_COLORS, FIVE_POWERS } from '@/constants'
+import { PAGES, FIVE_POWER_LABELS, FIVE_POWERS } from '@/constants'
 import { getPowerLevel } from '@/utils'
 import type { TestProfile } from '@/api/test'
 import RadarChart from '@/components/charts/RadarChart.vue'
 import SvgIcon from '@/components/SvgIcon.vue'
 
 
-const { pageStyle, hl } = useTheme()
+const { pageStyle, hl, powerColors } = useTheme()
 const authStore = useAuthStore()
 
 // ── 数据状态 ──────────────────────────────────────────────────────────────
@@ -85,7 +85,7 @@ function goToAssistant() { uni.switchTab({ url: PAGES.ASSISTANT_HOME }) }
           canvas-id="radarChart"
           :scores="scores"
           :labels="FIVE_POWERS.map(p => FIVE_POWER_LABELS[p])"
-          :colors="FIVE_POWERS.map(p => FIVE_POWER_COLORS[p])"
+          :colors="FIVE_POWERS.map(p => powerColors[p])"
           :size="300"
         />
       </view>
@@ -96,10 +96,10 @@ function goToAssistant() { uni.switchTab({ url: PAGES.ASSISTANT_HOME }) }
           v-for="(power, idx) in FIVE_POWERS"
           :key="power"
           class="score-row"
-          :style="{ '--pc': FIVE_POWER_COLORS[power] }"
+          :style="{ '--pc': powerColors[power] }"
         >
           <view class="score-row__left">
-            <view class="color-dot" :style="{ background: FIVE_POWER_COLORS[power] }" />
+            <view class="color-dot" :style="{ background: powerColors[power] }" />
             <text class="score-row__name">{{ FIVE_POWER_LABELS[power] }}</text>
           </view>
           <view class="score-row__right">

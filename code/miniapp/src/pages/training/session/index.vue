@@ -1,15 +1,16 @@
 <script setup lang="ts">
 import { useTheme } from '@/hooks/useTheme'
+import type { FivePower } from '@/constants'
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useTrainingStore } from '@/store'
 import { trainingApi } from '@/api'
 import { useRagPoller } from '@/hooks/useRagPoller'
-import { FIVE_POWER_LABELS, FIVE_POWER_COLORS, PAGES } from '@/constants'
+import { FIVE_POWER_LABELS, PAGES } from '@/constants'
 import { formatSeconds } from '@/utils'
 import SvgIcon from '@/components/SvgIcon.vue'
 
 
-const { pageStyle, hl } = useTheme()
+const { pageStyle, hl, powerColors } = useTheme()
 const trainingStore = useTrainingStore()
 const { ragContent, staticSolution, status: ragStatus, canRetry, startPolling, retry, stop: stopRag } = useRagPoller()
 
@@ -262,7 +263,7 @@ onUnmounted(() => {
       <view class="question-meta">
         <view
           class="power-badge"
-          :style="{ background: FIVE_POWER_COLORS[question.power_type as keyof typeof FIVE_POWER_COLORS] + '20', color: FIVE_POWER_COLORS[question.power_type as keyof typeof FIVE_POWER_COLORS] }"
+          :style="{ background: powerColors[question.power_type as FivePower] + '20', color: powerColors[question.power_type as FivePower] }"
         >
           <text class="power-badge__text">{{ FIVE_POWER_LABELS[question.power_type as keyof typeof FIVE_POWER_LABELS] || question.power_type }}</text>
         </view>

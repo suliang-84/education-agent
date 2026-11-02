@@ -46,10 +46,15 @@ $teal:        #0D9488;
 $teal-dim:    #F0FDFA;
 $teal-border: rgba(13, 148, 136, 0.22);
 
+// 推演力专用天蓝（与主色 #5e8df9 拉开色相，避免混淆）
+$sky:        #0EA5E9;
+$sky-dim:    rgba(14, 165, 233, 0.10);
+$sky-border: rgba(14, 165, 233, 0.25);
+
 // 五力颜色
 $power-insight:   $teal;
 $power-construct: #E11D48;
-$power-deduce:    $indigo;
+$power-deduce:    $sky;
 $power-adapt:     $amber;
 $power-migrate:   $purple;
 
@@ -297,7 +302,7 @@ $t-slow:   350ms;
   // 五力颜色（深色版）
   --power-insight:   #2DD4BF;
   --power-construct: #F87171;
-  --power-deduce:    #818CF8;
+  --power-deduce:    #38BDF8;
   --power-adapt:     #FCD34D;
   --power-migrate:   #A78BFA;
 
@@ -1404,7 +1409,7 @@ $form-height:       30px;
 
   &--INSIGHT   { @include badge-color($teal-dim,    $power-insight,   $teal-border); }
   &--CONSTRUCT { @include badge-color($red-dim,     $power-construct, $red-border); }
-  &--DEDUCE    { @include badge-color($indigo-light,$power-deduce,    $indigo-border); }
+  &--DEDUCE    { @include badge-color($sky-dim,     $power-deduce,    $sky-border); }
   &--ADAPT     { @include badge-color($amber-dim,   $power-adapt,     $amber-border); }
   &--MIGRATE   { @include badge-color($purple-dim,  $power-migrate,   $purple-border); }
 }

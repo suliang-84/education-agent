@@ -25,7 +25,7 @@ const props = withDefaults(defineProps<{
   size?: number
 }>(), {
   canvasId: 'radarChart',
-  colors: () => ['#0D9488', '#E11D48', '#5E8DF9', '#D97706', '#7C3AED'],
+  colors: () => ['#0D9488', '#E11D48', '#0EA5E9', '#D97706', '#7C3AED'],
   size: 300,
 })
 

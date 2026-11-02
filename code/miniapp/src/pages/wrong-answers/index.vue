@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { useTheme } from '@/hooks/useTheme'
+import type { FivePower } from '@/constants'
 import { ref, computed, onMounted } from 'vue'
 import SvgIcon from '@/components/SvgIcon.vue'
 import { wrongAnswerApi, assistantApi } from '@/api'
-import { PAGES, FIVE_POWER_COLORS, FIVE_POWER_LABELS, WRONG_STATUS_LABELS, DIFFICULTY_LABELS } from '@/constants'
+import { PAGES, FIVE_POWER_LABELS, WRONG_STATUS_LABELS, DIFFICULTY_LABELS } from '@/constants'
 import { fromNow } from '@/utils'
 import type { WrongAnswer } from '@/api/profile'
 
 
-const { pageStyle, hl } = useTheme()
+const { pageStyle, hl, powerColors } = useTheme()
 // ── 标签定义 ──────────────────────────────────────────────────────────────
 const tabs = [
   { key: '', label: '全部' },
@@ -156,8 +157,8 @@ function truncate(text: string, len = 60): string {
           <view
             class="power-tag"
             :style="{
-              background: (FIVE_POWER_COLORS[item.question.primary_power as keyof typeof FIVE_POWER_COLORS] || '#64748B') + '18',
-              color: FIVE_POWER_COLORS[item.question.primary_power as keyof typeof FIVE_POWER_COLORS] || '#64748B',
+              background: (powerColors[item.question.primary_power as FivePower] || '#64748B') + '18',
+              color: powerColors[item.question.primary_power as FivePower] || '#64748B',
             }"
           >
             <text class="power-tag__text">

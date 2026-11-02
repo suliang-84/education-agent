@@ -4,7 +4,7 @@ export const USER_KEY = 'mesh_admin_user'
 export const FIVE_POWER_COLORS: Record<string, string> = {
   INSIGHT: '#52c41a',
   CONSTRUCT: '#f5222d',
-  DEDUCE: '#1890ff',
+  DEDUCE: '#0EA5E9',
   ADAPT: '#faad14',
   MIGRATE: '#722ed1',
 }

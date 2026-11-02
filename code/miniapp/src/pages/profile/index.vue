@@ -3,14 +3,14 @@ import { useTheme } from '@/hooks/useTheme'
 import { ref, computed, onMounted } from 'vue'
 import { profileApi } from '@/api'
 import { useAuthStore } from '@/store'
-import { PAGES, FIVE_POWERS, FIVE_POWER_LABELS, FIVE_POWER_COLORS } from '@/constants'
+import { PAGES, FIVE_POWERS, FIVE_POWER_LABELS } from '@/constants'
 import { getPowerLevel, formatDate } from '@/utils'
 import type { FivePowerProfile } from '@/api/profile'
 import RadarChart from '@/components/charts/RadarChart.vue'
 import SvgIcon from '@/components/SvgIcon.vue'
 
 
-const { pageStyle, theme, hl } = useTheme()
+const { pageStyle, theme, hl, powerColors } = useTheme()
 
 const themeOptions = [
   { value: 'system', label: '跟随系统' },
@@ -40,7 +40,7 @@ const dimensionRows = computed(() =>
   FIVE_POWERS.map((power, idx) => ({
     power,
     label: FIVE_POWER_LABELS[power],
-    color: FIVE_POWER_COLORS[power],
+    color: powerColors.value[power],
     score: scores.value[idx],
     level: getPowerLevel(scores.value[idx]),
     abilityScore: fivePower.value?.profile
@@ -148,7 +148,7 @@ function goToTraining() {
             canvas-id="profileRadar"
             :scores="scores"
             :labels="FIVE_POWERS.map(p => FIVE_POWER_LABELS[p])"
-            :colors="FIVE_POWERS.map(p => FIVE_POWER_COLORS[p])"
+            :colors="FIVE_POWERS.map(p => powerColors[p])"
             :size="300"
           />
         </view>

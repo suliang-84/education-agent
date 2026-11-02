@@ -1,15 +1,16 @@
 <script setup lang="ts">
 import { useTheme } from '@/hooks/useTheme'
+import type { FivePower } from '@/constants'
 import SvgIcon from '@/components/SvgIcon.vue'
 import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { assistantApi, profileApi } from '@/api'
-import { PAGES, FIVE_POWER_LABELS, FIVE_POWER_COLORS, SESSION_MODE_LABELS } from '@/constants'
+import { PAGES, FIVE_POWER_LABELS, SESSION_MODE_LABELS } from '@/constants'
 import { fromNow } from '@/utils'
 import type { ChatMessage } from '@/api/assistant'
 import type { FivePowerProfile } from '@/api/profile'
 
 
-const { pageStyle, hl } = useTheme()
+const { pageStyle, hl, powerColors } = useTheme()
 // ── 页面参数 ──────────────────────────────────────────────────────────────
 const sessionId = ref('')
 const sessionMode = ref('')
@@ -184,11 +185,11 @@ const weakestPowers = computed(() => {
           >
             <view
               class="power-mini-bar"
-              :style="{ width: `${p.score}%`, background: FIVE_POWER_COLORS[p.key as keyof typeof FIVE_POWER_COLORS] }"
+              :style="{ width: `${p.score}%`, background: powerColors[p.key as FivePower] }"
             />
           </view>
           <text class="power-mini-name">{{ FIVE_POWER_LABELS[p.key as keyof typeof FIVE_POWER_LABELS] }}</text>
-          <text class="power-mini-score" :style="{ color: FIVE_POWER_COLORS[p.key as keyof typeof FIVE_POWER_COLORS] }">{{ p.score }}</text>
+          <text class="power-mini-score" :style="{ color: powerColors[p.key as FivePower] }">{{ p.score }}</text>
         </view>
       </view>
     </view>
