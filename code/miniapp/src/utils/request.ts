@@ -65,10 +65,11 @@ function redirectToLogin() {
  * 核心请求函数
  */
 export function request<T = unknown>(
-  options: UniApp.RequestOptions & { skipAuth?: boolean }
+  options: UniApp.RequestOptions & { skipAuth?: boolean; silent?: boolean }
 ): Promise<T> {
   return new Promise((resolve, reject) => {
-    const { skipAuth = false, ...restOptions } = options
+    // silent：失败时不弹全局 toast，由调用方自行提示（如在表单项下方显示错误）
+    const { skipAuth = false, silent = false, ...restOptions } = options
 
     const doRequest = (token?: string) => {
       uni.request({
@@ -107,7 +108,7 @@ export function request<T = unknown>(
           }
 
           if (body.code !== 200) {
-            uni.showToast({ title: body.msg || '请求失败', icon: 'none', duration: 2000 })
+            if (!silent) uni.showToast({ title: body.msg || '请求失败', icon: 'none', duration: 2000 })
             reject(new Error(body.msg))
             return
           }
@@ -115,8 +116,8 @@ export function request<T = unknown>(
           resolve(body.data)
         },
         fail(err) {
-          uni.showToast({ title: '网络异常，请检查连接', icon: 'none', duration: 2000 })
-          reject(err)
+          if (!silent) uni.showToast({ title: '网络异常，请检查连接', icon: 'none', duration: 2000 })
+          reject(silent ? new Error('网络异常，请检查连接') : err)
         },
       })
     }

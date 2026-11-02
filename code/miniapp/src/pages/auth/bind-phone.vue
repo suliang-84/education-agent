@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useTheme } from '@/hooks/useTheme'
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { authApi } from '@/api'
 import { useAuthStore } from '@/store'
 import { PAGES } from '@/constants'
@@ -44,13 +44,35 @@ const countdown = ref(0)
 let countdownTimer: ReturnType<typeof setInterval> | null = null
 
 // ── 表单校验 ──────────────────────────────────────────────────────────────
+// 按钮始终可点；点击后校验，错误信息显示在对应输入框下方
+const phoneError = ref('')
+const codeError = ref('')
+
 const phoneValid = computed(() => /^1[3-9]\d{9}$/.test(phone.value))
-const canSubmit = computed(() => phoneValid.value && smsCode.value.length === 6 && !submitting.value)
-const canSendCode = computed(() => phoneValid.value && countdown.value === 0 && !sendingCode.value)
+
+/** 校验手机号，返回错误文案（通过则返回空串） */
+function checkPhone(): string {
+  if (!phone.value) return '请输入手机号'
+  if (!phoneValid.value) return '请输入正确的11位手机号'
+  return ''
+}
+
+/** 校验验证码，返回错误文案（通过则返回空串） */
+function checkCode(): string {
+  if (!smsCode.value) return '请输入验证码'
+  if (!/^\d{6}$/.test(smsCode.value)) return '验证码为6位数字'
+  return ''
+}
+
+// 用户重新输入时清掉对应的错误提示
+watch(phone, () => { phoneError.value = '' })
+watch(smsCode, () => { codeError.value = '' })
 
 // ── 发送验证码 + 60 秒倒计时 ─────────────────────────────────────────────
 async function sendSmsCode() {
-  if (!canSendCode.value) return
+  if (countdown.value > 0 || sendingCode.value) return
+  phoneError.value = checkPhone()
+  if (phoneError.value) return
   sendingCode.value = true
   try {
     await authApi.sendSms(phone.value, 'BIND_PHONE')
@@ -64,8 +86,8 @@ async function sendSmsCode() {
         countdownTimer = null
       }
     }, 1000)
-  } catch {
-    uni.showToast({ title: '发送失败，请重试', icon: 'none' })
+  } catch (err: unknown) {
+    phoneError.value = err instanceof Error && err.message ? err.message : '发送失败，请重试'
   } finally {
     sendingCode.value = false
   }
@@ -73,7 +95,10 @@ async function sendSmsCode() {
 
 // ── 提交绑定 ──────────────────────────────────────────────────────────────
 async function handleSubmit() {
-  if (!canSubmit.value) return
+  if (submitting.value) return
+  phoneError.value = checkPhone()
+  codeError.value = phoneError.value ? '' : checkCode()   // 手机号有误时先只提示手机号
+  if (phoneError.value || codeError.value) return
   submitting.value = true
   try {
     const resp = await authApi.bindPhone(
@@ -96,8 +121,9 @@ async function handleSubmit() {
     setTimeout(() => {
       uni.reLaunch({ url: PAGES.TEST_HOME })
     }, 800)
-  } catch {
-    uni.showToast({ title: '绑定失败，请检查验证码', icon: 'none' })
+  } catch (err: unknown) {
+    // 服务端返回的错误（验证码错误 / 过期等）显示在验证码输入框下方
+    codeError.value = err instanceof Error && err.message ? err.message : '绑定失败，请检查验证码'
   } finally {
     submitting.value = false
   }
@@ -155,7 +181,7 @@ onUnmounted(() => {
       <!-- 手机号输入 -->
       <view class="form-section">
         <text class="form-label">手机号</text>
-        <view class="input-wrap">
+        <view class="input-wrap" :class="{ 'input-wrap--error': phoneError }">
           <text class="input-prefix">+86</text>
           <input
             v-model="phone"
@@ -166,15 +192,16 @@ onUnmounted(() => {
             placeholder-class="input-placeholder"
           />
           <view v-if="phone.length > 0" class="input-status">
-            <text class="status-icon">{{ phoneValid ? '✓' : '✗' }}</text>
+            <text class="status-icon" :class="{ 'status-icon--error': !phoneValid }">{{ phoneValid ? '✓' : '✗' }}</text>
           </view>
         </view>
+        <text v-if="phoneError" class="error-text">{{ phoneError }}</text>
       </view>
 
       <!-- 验证码输入 -->
       <view class="form-section">
         <text class="form-label">验证码</text>
-        <view class="input-wrap">
+        <view class="input-wrap" :class="{ 'input-wrap--error': codeError }">
           <input
             v-model="smsCode"
             class="form-input form-input--code"
@@ -183,28 +210,19 @@ onUnmounted(() => {
             placeholder="6位验证码"
             placeholder-class="input-placeholder"
           />
-          <button
-            class="send-code-btn"
-            :class="{ 'send-code-btn--disabled': !canSendCode }"
-            :disabled="!canSendCode"
-            @tap="sendSmsCode"
-          >
+          <button class="send-code-btn" @tap="sendSmsCode">
             <text class="send-code-text">
               {{ sendingCode ? '发送中...' : countdown > 0 ? `${countdown}s后重发` : '获取验证码' }}
             </text>
           </button>
         </view>
+        <text v-if="codeError" class="error-text">{{ codeError }}</text>
         <text class="hint-text">开发环境验证码固定为 123456</text>
       </view>
     </view>
 
     <!-- 提交按钮 -->
-    <button
-      class="submit-btn"
-      :class="{ 'submit-btn--disabled': !canSubmit }"
-      :disabled="!canSubmit"
-      @tap="handleSubmit"
-    >
+    <button class="submit-btn" @tap="handleSubmit">
       <view v-if="submitting" class="spinner" />
       <text class="submit-btn__text">{{ submitting ? '提交中...' : '完成绑定，开始学习' }}</text>
     </button>
@@ -349,6 +367,13 @@ onUnmounted(() => {
     border-color: $primary;
     box-shadow: 0 0 0 6rpx rgba(94, 141, 249, 0.18);
   }
+
+  // 校验失败：红色边框（优先于聚焦样式）
+  &--error,
+  &--error:focus-within {
+    border-color: $danger;
+    box-shadow: none;
+  }
 }
 
 .input-prefix {
@@ -377,6 +402,8 @@ onUnmounted(() => {
 
   .status-icon {
     color: $success;
+
+    &--error { color: $danger; }
   }
 }
 
@@ -394,21 +421,19 @@ onUnmounted(() => {
   &::after { border: none; }
   &:active { transform: scale(0.98); }
 
-  &--disabled {
-    background: $bg-muted;
-    box-shadow: none;
-  }
-
   &-text,
   .send-code-text {
     font-size: $font-size-xs;
     color: #1a2a3a;
     font-weight: 500;
-
-    .send-code-btn--disabled & {
-      color: $text-3;
-    }
   }
+}
+
+// 输入框下方的错误提示
+.error-text {
+  font-size: $font-size-xs;
+  color: $danger;
+  line-height: 1.4;
 }
 
 .hint-text {
@@ -433,20 +458,11 @@ onUnmounted(() => {
   &::after { border: none; }
   &:active { transform: scale(0.98); }
 
-  &--disabled {
-    background: $bg-muted;
-    box-shadow: none;
-  }
-
   &__text {
     font-size: $font-size-lg;
     color: #1a2a3a;
     font-weight: 600;
     letter-spacing: 0.04em;
-
-    .submit-btn--disabled & {
-      color: $text-3;
-    }
   }
 }
 

@@ -38,13 +38,14 @@ export const authApi = {
 
   /** 发送短信验证码（开发固定 123456） */
   sendSms: (phone: string, purpose: string) =>
-    http.post('/auth/sms/send', { phone, purpose }, { skipAuth: true } as never),
+    http.post('/auth/sms/send', { phone, purpose }, { skipAuth: true, silent: true } as never),
 
   /** 绑定手机号完成注册（携带 temp_token） */
   bindPhone: (data: { phone: string; sms_code: string; grade?: string; semester?: string }, tempToken: string) =>
     http.post<TokenResp>('/auth/bind-phone-with-token', data, {
       header: { Authorization: `Bearer ${tempToken}` },
       skipAuth: true,
+      silent: true,
     } as never),
 
   /** 刷新 Token */
