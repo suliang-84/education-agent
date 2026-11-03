@@ -29,7 +29,7 @@
     <div v-if="question">
 
       <!-- ── 题目内容（编辑态结构与训练题管理-编辑页一致）── -->
-      <div class="surface section-block stem-block" :class="{ 'section-block--no-glow': !isEditable }">
+      <div class="surface section-block stem-block">
         <div class="section-hd">
           <span class="section-title"><SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />题目内容</span>
         </div>
@@ -782,7 +782,10 @@ async function handleReject() {
   border-radius: 4px !important;
   box-shadow: none !important;
   border: 1px solid rgba(96, 141, 248, 0.15) !important;
+}
 
+// 编辑态（可修改）暗色下用实色底；详情（只读）态不覆盖，沿用全局玻璃面板的云晕底
+.page-root:not(.is-detail) .section-block {
   [data-theme="dark"] & {
     background: #1a1a1a !important;
     border-color: #202020 !important;
@@ -1142,10 +1145,10 @@ async function handleReject() {
 
 // ── 详情（只读）模式：文档式排版，与编辑态的输入框外观明确区分 ──
 .is-detail {
+  // 子模块沿用全局玻璃面板：云晕底 + 随机位置的边框高亮（每次渲染各子模块各自随机，见 utils/edgeHighlight.ts）。
+  // 原先这里有一条固定在左侧的 3px 主色边框，会让高亮位置固定，已去掉
   .section-block {
     position: relative;
-    border-left: 3px solid var(--color-primary) !important;
-    padding-left: 18px;
   }
 
   .stem-display {
@@ -1218,5 +1221,23 @@ async function handleReject() {
       padding: 0 !important;
     }
   }
+}
+</style>
+
+<style>
+/* 详情页子模块的云晕：全局玻璃面板的云晕是固定像素大小（约 360~420px）的两团光，一个子模块很高（如「题目详情」）时
+   只有左上和右下两个角有光，中间一大片是平的。这里改成按子模块自身大小等比缩放，高矮不同的子模块看起来一致。
+   不加 scoped：选择器要从 html / .content-area 开头，才压得过 style.scss 里的全局规则。 */
+html[data-theme="dark"] .content-area .page-root.is-detail .section-block {
+  background:
+    radial-gradient(ellipse 80% 45% at 6% -6%, rgba(94, 141, 249, 0.22), transparent 72%),
+    radial-gradient(ellipse 80% 45% at 104% 106%, rgba(124, 112, 255, 0.15), transparent 72%),
+    rgba(14, 17, 22, 0.60) !important;
+}
+html[data-theme="light"] .content-area .page-root.is-detail .section-block {
+  background:
+    radial-gradient(ellipse 80% 45% at 6% -6%, rgba(94, 141, 249, 0.15), transparent 72%),
+    radial-gradient(ellipse 80% 45% at 104% 106%, rgba(124, 112, 255, 0.10), transparent 72%),
+    rgba(255, 255, 255, 0.74) !important;
 }
 </style>

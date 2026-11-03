@@ -1,5 +1,5 @@
 <template>
-  <div class="page-root">
+  <div class="page-root" v-loading="loading">
     <div class="form-topbar">
       <el-button size="small" class="btn-back" @click="$router.push('/students')">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="margin-right:4px">
@@ -8,14 +8,17 @@
         返回
       </el-button>
       <div style="flex:1" />
-      <el-button @click="handleRegenerate" :loading="regenerating">重新生成学习摘要</el-button>
+      <el-button @click="handleRegenerate" :loading="regenerating">
+        <SvgIcon v-if="!regenerating" name="analyse" :size="14" style="margin-right:4px" />
+        重新生成学习摘要
+      </el-button>
       <button class="btn-pink" type="button" @click="handleSave" :disabled="saving || loading">
         <SvgIcon name="save" :size="13" style="margin-right:4px" />
         保存
       </button>
     </div>
 
-    <div v-loading="loading">
+    <div>
 
       <!-- 📚 学习信息摘要（只读） -->
       <div class="surface section-block">
@@ -257,10 +260,16 @@ onMounted(loadAll)
   word-break: break-word;
 }
 
+// 只读文本框：与训练题管理详情页的只读文本（stem-display）同样的底色和字色
 .readonly-text {
   background: var(--bg-muted);
   border-radius: 4px;
   padding: 14px 16px;
+
+  [data-theme="dark"] & {
+    background: #282b31;
+    color: #ffffff;
+  }
 }
 
 .empty-tip {
@@ -292,6 +301,8 @@ onMounted(loadAll)
   border-radius: 4px;
   padding: 14px 16px;
   cursor: default;
+
+  [data-theme="dark"] & { background: #282b31; }
 }
 
 // ── 洞察条目历史 ─────────────────────────────────────────────

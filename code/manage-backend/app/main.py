@@ -1,9 +1,11 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.config import get_settings
@@ -73,6 +75,11 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 # 注册路由
 from app.api.v1.admin import router as admin_router  # noqa: E402
 from app.api.v1.miniapp import router as miniapp_router  # noqa: E402
+
+# 用户上传的文件（AI 助教图片提问）：文件名是随机 UUID，不可枚举；目录已被 .gitignore 忽略
+UPLOAD_DIR = Path(__file__).resolve().parent.parent / "uploads"
+(UPLOAD_DIR / "assistant").mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 app.include_router(admin_router, prefix="/api/v1/admin")
 app.include_router(miniapp_router, prefix="/api/v1")

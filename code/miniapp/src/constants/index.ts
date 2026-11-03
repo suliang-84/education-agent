@@ -122,7 +122,6 @@ export const PAGES = {
   TEST_QUESTIONS: '/pages/test/questions',
   TEST_RESULT: '/pages/test/result',
   ASSISTANT_HOME: '/pages/assistant/index',
-  ASSISTANT_CHAT: '/pages/assistant/chat',
   PROFILE_HOME: '/pages/profile/index',
   WRONG_ANSWERS: '/pages/wrong-answers/index',
   FAVORITES: '/pages/favorites/index',

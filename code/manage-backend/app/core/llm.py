@@ -1,8 +1,33 @@
 """LLM 调用封装 — OpenAI-compatible 接口（当前：DeepSeek）"""
+import asyncio
 import json
 import httpx
 
 from app.core.config import get_settings
+
+
+RETRY_STATUS = {429, 500, 502, 503, 504}
+RETRY_DELAYS = (1.0, 2.5, 5.0)   # 第 1、2、3 次重试前等待的秒数（共最多 4 次请求）
+
+
+async def _post(url: str, headers: dict, payload: dict, timeout: float = 120) -> httpx.Response:
+    """向大模型服务发请求：上游繁忙（429 / 5xx）、网络抖动、超时时自动重试，其它错误（400 / 401 等）不重试直接抛出"""
+    last: Exception | None = None
+    for i in range(len(RETRY_DELAYS) + 1):
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                resp = await client.post(url, headers=headers, json=payload)
+            if resp.status_code in RETRY_STATUS and i < len(RETRY_DELAYS):
+                last = httpx.HTTPStatusError(f"{resp.status_code}", request=resp.request, response=resp)
+            else:
+                resp.raise_for_status()
+                return resp
+        except (httpx.ConnectError, httpx.ReadTimeout, httpx.ConnectTimeout, httpx.RemoteProtocolError) as e:
+            last = e
+            if i >= len(RETRY_DELAYS):
+                raise
+        await asyncio.sleep(RETRY_DELAYS[i])
+    raise last  # type: ignore[misc]
 
 
 async def chat(system_prompt: str, user_content: str) -> str:
@@ -23,26 +48,58 @@ async def chat(system_prompt: str, user_content: str) -> str:
         ],
     }
 
-    async with httpx.AsyncClient(timeout=120) as client:
-        resp = await client.post(
-            f"{settings.LLM_BASE_URL}/chat/completions",
-            headers={
-                "Authorization": f"Bearer {settings.LLM_API_KEY}",
-                "Content-Type": "application/json",
-            },
-            json=payload,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        choice = data["choices"][0]
-        if choice.get("finish_reason") == "length":
-            raise RuntimeError("LLM 输出被截断（max_tokens 不足），请增大 LLM_MAX_TOKENS")
-        msg = choice["message"]
-        # DeepSeek 推理模型有时将答案放在 reasoning_content，content 为空
-        content = (msg.get("content") or "").strip()
-        if not content:
-            content = (msg.get("reasoning_content") or "").strip()
-        return content
+    resp = await _post(
+        f"{settings.LLM_BASE_URL}/chat/completions",
+        {"Authorization": f"Bearer {settings.LLM_API_KEY}", "Content-Type": "application/json"},
+        payload,
+    )
+    data = resp.json()
+    choice = data["choices"][0]
+    if choice.get("finish_reason") == "length":
+        raise RuntimeError("LLM 输出被截断（max_tokens 不足），请增大 LLM_MAX_TOKENS")
+    msg = choice["message"]
+    # DeepSeek 推理模型有时将答案放在 reasoning_content，content 为空
+    content = (msg.get("content") or "").strip()
+    if not content:
+        content = (msg.get("reasoning_content") or "").strip()
+    return content
+
+
+async def chat_messages(messages: list[dict], max_tokens: int | None = None, temperature: float | None = None) -> dict:
+    """多轮对话：messages 为 OpenAI 格式（system / user / assistant）。
+    返回 {"text": 回复文本, "usage": {"prompt_tokens", "completion_tokens", "total_tokens"}, "model": 模型名}"""
+    settings = get_settings()
+    if not settings.LLM_API_KEY:
+        raise RuntimeError("LLM_API_KEY 未配置")
+
+    payload: dict = {
+        "model": settings.LLM_MODEL,
+        "max_tokens": max_tokens or settings.LLM_MAX_TOKENS,
+        "messages": messages,
+    }
+    if temperature is not None:
+        payload["temperature"] = temperature
+
+    resp = await _post(
+        f"{settings.LLM_BASE_URL}/chat/completions",
+        {"Authorization": f"Bearer {settings.LLM_API_KEY}", "Content-Type": "application/json"},
+        payload,
+    )
+    data = resp.json()
+    choice = data["choices"][0]
+    msg = choice["message"]
+    content = (msg.get("content") or "").strip() or (msg.get("reasoning_content") or "").strip()
+    usage = data.get("usage") or {}
+    return {
+        "text": content,
+        "truncated": choice.get("finish_reason") == "length",
+        "usage": {
+            "prompt_tokens": int(usage.get("prompt_tokens") or 0),
+            "completion_tokens": int(usage.get("completion_tokens") or 0),
+            "total_tokens": int(usage.get("total_tokens") or 0),
+        },
+        "model": settings.LLM_MODEL,
+    }
 
 
 async def chat_vision(image_base64: str, image_media_type: str = "image/jpeg") -> str:

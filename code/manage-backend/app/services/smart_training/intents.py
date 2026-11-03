@@ -74,7 +74,7 @@ async def refresh(db: AsyncSession, student: Student) -> bool:
     msgs = (await db.execute(
         select(AiChatMessage.content, AiChatMessage.created_at)
         .join(AiChatSession, AiChatSession.id == AiChatMessage.session_id)
-        .where(AiChatSession.student_id == student.id, AiChatMessage.role == "student",
+        .where(AiChatSession.student_id == student.id, AiChatMessage.role == "student", AiChatMessage.content != "",
                AiChatMessage.created_at > now - timedelta(days=CHAT_WINDOW_DAYS))
         .order_by(AiChatMessage.created_at.desc()).limit(MAX_MESSAGES)
     )).all()

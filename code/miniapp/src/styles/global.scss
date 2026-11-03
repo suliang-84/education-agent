@@ -38,6 +38,8 @@ page {
   --glow-2: rgba(94,141,249,0.06);
   // 玻璃面板（亮色版，同后台）
   --panel-bg: radial-gradient(360rpx circle at 8% -25%, rgba(94,141,249,0.12), transparent 62%), radial-gradient(420rpx circle at 104% 125%, rgba(124,112,255,0.07), transparent 62%), rgba(255,255,255,0.74);
+  // AI 助教聊天气泡的底：云晕按气泡自身大小等比缩放（--panel-bg 的云晕是固定 rpx 大小，气泡一长，中间就是一片平的底）
+  --bubble-bg: radial-gradient(ellipse 100% 75% at 6% -8%, rgba(94,141,249,0.14), transparent 70%), radial-gradient(ellipse 100% 80% at 104% 118%, rgba(124,112,255,0.09), transparent 70%), rgba(255,255,255,0.74);
   --panel-shadow: 0 2rpx 6rpx rgba(30,41,59,0.04), 0 4rpx 16rpx rgba(94,141,249,0.05), inset 0 1rpx 0 rgba(255,255,255,0.9);
   --panel-edge: rgba(94,141,249,0.95);
   --panel-edge-mid: rgba(94,141,249,0.30);   // 亮色白底上白色光晕看不见，改用蓝色

@@ -45,6 +45,16 @@ async def list_students(
     return ok_response(data)
 
 
+@router.get("/students/{student_id}", summary="学生详情（画像 / 摘要 / 知识点统计页共用）")
+async def get_student_detail(
+    student_id: int,
+    date_range: str | None = Query(None),   # 保留参数：统计范围（暂未使用）
+    db: AsyncSession = Depends(get_db),
+    _: AdminUser = Depends(get_current_admin),
+):
+    return ok_response(await users_service.get_student_detail(db, student_id))
+
+
 @router.post("/students/{student_id}/bind-parent", summary="管理员绑定家长到学生")
 async def bind_parent(
     student_id: int,

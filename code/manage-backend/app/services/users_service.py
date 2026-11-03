@@ -135,6 +135,80 @@ async def get_student_list(
     return {'list': items, 'total': total, 'page': page, 'limit': limit, 'total_pages': total_pages}
 
 
+# ── 学生详情（画像页 / 摘要页 / 知识点统计页共用）─────────────────────
+
+async def get_student_detail(db: AsyncSession, student_id: int):
+    """学生基础信息 + 五力得分 + 训练概况 + 已绑定家长。
+    学生管理里的「画像」「摘要」「知识点统计」三个页面都先请求本接口取学生信息，缺了它这三个页面都会报 404。"""
+    from app.models.knowledge import Subject
+    from app.models.question import Question
+    from app.models.training import TrainingAnswerRecord, TrainingSession
+
+    s = (await db.execute(
+        select(Student).where(Student.id == student_id, Student.user_type == 'STUDENT', Student.deleted_at.is_(None))
+    )).scalar_one_or_none()
+    if not s:
+        raise AppException('学生不存在', 404)
+
+    prof = (await db.execute(
+        select(FivePowerProfile).where(FivePowerProfile.student_id == student_id, FivePowerProfile.is_latest == True)
+    )).scalar_one_or_none()
+
+    training_count = (await db.execute(
+        select(func.count()).select_from(TrainingSession).where(TrainingSession.student_id == student_id)
+    )).scalar_one()
+    total_answers, correct = (await db.execute(
+        select(func.count(), func.count().filter(TrainingAnswerRecord.is_correct == True))
+        .select_from(TrainingAnswerRecord)
+        .join(TrainingSession, TrainingSession.id == TrainingAnswerRecord.session_id)
+        .where(TrainingSession.student_id == student_id)
+    )).one()
+    subjects = (await db.execute(
+        select(Subject.name).distinct()
+        .join(Question, Question.subject_id == Subject.id)
+        .join(TrainingAnswerRecord, TrainingAnswerRecord.question_id == Question.id)
+        .join(TrainingSession, TrainingSession.id == TrainingAnswerRecord.session_id)
+        .where(TrainingSession.student_id == student_id)
+    )).scalars().all()
+
+    bindings = (await db.execute(
+        select(ParentStudentBinding, Student)
+        .join(Student, Student.id == ParentStudentBinding.parent_id)
+        .where(ParentStudentBinding.student_id == student_id, ParentStudentBinding.bind_status == 'active',
+               ParentStudentBinding.deleted_at.is_(None))
+        .order_by(ParentStudentBinding.created_at)
+    )).all()
+
+    return {
+        'id': s.id,
+        'nickname': s.nickname,
+        'grade': s.grade,
+        'semester': s.semester,
+        'subjects': list(subjects),
+        'phone_masked': s.phone_masked,
+        'is_minor': s.is_minor,
+        'has_profile': prof is not None,
+        'weakest_power': prof.primary_weakness if prof else None,
+        'training_count': training_count,
+        'last_login_at': s.last_login_at,
+        'created_at': s.created_at,
+        'bound_parents_count': len(bindings),
+        'five_power_scores': {
+            'INSIGHT': prof.insight_final, 'CONSTRUCT': prof.construct_final, 'DEDUCE': prof.deduce_final,
+            'ADAPT': prof.adapt_final, 'MIGRATE': prof.migrate_final,
+        } if prof else None,
+        'ai_analysis': prof.ai_analysis_text if prof else None,
+        'profile_updated_at': prof.created_at if prof else None,
+        'total_answers': total_answers,
+        'accuracy_rate': round(correct / total_answers, 4) if total_answers else 0,
+        'parents': [
+            {'id': p.id, 'nickname': p.nickname, 'phone_masked': p.phone_masked, 'bind_method': b.bind_method,
+             'bind_status': b.bind_status, 'bound_at': b.created_at}
+            for b, p in bindings
+        ],
+    }
+
+
 # ── 家长列表 ──────────────────────────────────────────────────
 
 async def get_parent_list(

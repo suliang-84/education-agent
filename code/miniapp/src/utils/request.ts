@@ -6,6 +6,13 @@ import { STORAGE_KEYS } from '@/constants'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL as string
 
+/** 服务端返回的相对资源路径（如 /uploads/...）补全成完整地址：把接口地址里的 /api/... 去掉就是服务器根 */
+export function assetUrl(path: string | null | undefined): string {
+  if (!path) return ''
+  if (/^https?:\/\//.test(path) || path.startsWith('wxfile://') || path.startsWith('http')) return path
+  return BASE_URL.replace(/\/api\/.*$/, '') + path
+}
+
 // 是否正在刷新 Token（防并发）
 let isRefreshing = false
 let pendingQueue: Array<(token: string) => void> = []

@@ -6,6 +6,14 @@ import { ICON_COLORS } from '@/styles/theme'
 // 线性图标（24x24, stroke 1.8），用法：<SvgIcon name="target" :size="40" />
 // color 可为命名色 primary / muted / on-primary（随深浅色主题切换），或任意十六进制色
 const ICONS: Record<string, string> = {
+  copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>',
+  thumb_up: '<path d="M7 11v9H4a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1z"/><path d="M7 11l4-7a2 2 0 0 1 2 2v3h5.5a2 2 0 0 1 2 2.3l-1.2 6.4A2 2 0 0 1 17.3 20H7"/>',
+  thumb_down: '<path d="M17 13V4h3a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1z"/><path d="M17 13l-4 7a2 2 0 0 1-2-2v-3H5.5a2 2 0 0 1-2-2.3l1.2-6.4A2 2 0 0 1 6.7 4H17"/>',
+  refresh: '<path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/>',
+  camera: '<path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/>',
+  send: '<path d="M21 3L10 14"/><path d="M21 3l-7 18-4-7-7-4z"/>',
+  volume_off: '<path d="M11 5L6 9H3v6h3l5 4z"/><path d="M22 9l-6 6M16 9l6 6"/>',
+  chevron_down: '<path d="M6 9l6 6 6-6"/>',
   sparkle: '<path d="M11 3l2 5.4L18.4 10.4 13 12.4 11 17.8 9 12.4 3.6 10.4 9 8.4z"/><path d="M19 15.5l.8 2.1 2.1.8-2.1.8L19 21.3l-.8-2.1-2.1-.8 2.1-.8z"/>',
   star: '<path d="M12 3.2l2.7 5.5 6 .9-4.35 4.25 1.03 6-5.38-2.84-5.38 2.84 1.03-6L3.3 9.6l6-.9z"/>',
   star_fill: '<path d="M12 3.2l2.7 5.5 6 .9-4.35 4.25 1.03 6-5.38-2.84-5.38 2.84 1.03-6L3.3 9.6l6-.9z" fill="__C__"/>',
