@@ -104,10 +104,10 @@ async function startTraining(dim: TrainingDimension) {
   await enterDimension(dim)
 }
 
-// 按知识点：先去选知识点（选定后才创建训练）；其余维度直接创建训练
+// 按知识点 / 按单元：先去选知识点或单元（选定后才创建训练）；其余维度直接创建训练
 async function enterDimension(dim: TrainingDimension) {
-  if (dim === 'KNOWLEDGE_POINT') {
-    uni.navigateTo({ url: `${PAGES.TRAINING_KNOWLEDGE}?subject=${selectedSubject.value}` })
+  if (dim === 'KNOWLEDGE_POINT' || dim === 'UNIT') {
+    uni.navigateTo({ url: `${PAGES.TRAINING_KNOWLEDGE}?subject=${selectedSubject.value}&mode=${dim === 'UNIT' ? 'unit' : 'point'}` })
     return
   }
   await doCreateSession(dim)

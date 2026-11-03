@@ -1,6 +1,9 @@
 <script setup lang="ts">
 /**
- * 按知识点训练 · 选择知识点
+ * 按知识点 / 按单元训练 · 选择知识点或单元（mode=point | unit）
+ *
+ * 按单元与按知识点共用本页：范围判断、补充年级学期弹窗、创建中遮罩都一样，
+ * 区别只在于：按单元只列出当前学期的单元（不展开知识点），点单元直接创建训练，从该单元下所有知识点的已启用题目里抽题。
  *
  * 流程：先按学生资料里的年级 / 学期取当前学期的单元与知识点；缺年级或学期时弹窗让学生补充；
  * 知识点按单元分组（默认全部展开，点单元标题可收起 / 展开）；点某个知识点才创建训练并进入答题页，
@@ -10,7 +13,7 @@ import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { useTheme } from '@/hooks/useTheme'
 import { knowledgeApi, trainingApi, profileApi } from '@/api'
-import type { Outline, OutlinePoint } from '@/api/knowledge'
+import type { Outline, OutlinePoint, OutlineChapter } from '@/api/knowledge'
 import { useTrainingStore, useAuthStore } from '@/store'
 import { PAGES, SUBJECT_LABELS } from '@/constants'
 
@@ -19,6 +22,7 @@ const trainingStore = useTrainingStore()
 const authStore = useAuthStore()
 
 const subject = ref('MATH')
+const unitMode = ref(false)   // true：按单元训练，只选单元
 const loading = ref(true)
 const loadFailed = ref(false)
 const outline = ref<Outline | null>(null)
@@ -42,6 +46,8 @@ const pointTotal = computed(() => (outline.value?.chapters ?? []).reduce((n, c) 
 
 onLoad((query) => {
   subject.value = (query?.subject as string) || 'MATH'
+  unitMode.value = query?.mode === 'unit'
+  uni.setNavigationBarTitle({ title: unitMode.value ? '选择单元' : '选择知识点' })
   load()
 })
 
@@ -97,20 +103,22 @@ function toggle(id: number) {
   collapsed.value = { ...collapsed.value, [id]: !collapsed.value[id] }
 }
 
-// ── 选定知识点，创建训练 ──────────────────────────────────────────────────
-async function startPoint(p: OutlinePoint) {
+// ── 选定知识点 / 单元，创建训练 ───────────────────────────────────────────
+function startPoint(p: OutlinePoint) {
+  start(p.question_count, '该知识点暂无题目', { training_dimension: 'KNOWLEDGE_POINT', knowledge_point_id: p.id })
+}
+function startChapter(ch: OutlineChapter) {
+  start(ch.question_count, '该单元暂无题目', { training_dimension: 'UNIT', chapter_id: ch.id })
+}
+async function start(count: number, emptyTip: string, scope: { training_dimension: 'KNOWLEDGE_POINT' | 'UNIT'; knowledge_point_id?: number; chapter_id?: number }) {
   if (creating.value) return
-  if (p.question_count <= 0) {
-    uni.showToast({ title: '该知识点暂无题目', icon: 'none' })
+  if (count <= 0) {
+    uni.showToast({ title: emptyTip, icon: 'none' })
     return
   }
   creating.value = true
   try {
-    const resp = await trainingApi.createSession({
-      training_dimension: 'KNOWLEDGE_POINT',
-      knowledge_point_id: p.id,
-      subject_code: subject.value,
-    })
+    const resp = await trainingApi.createSession({ ...scope, subject_code: subject.value })
     trainingStore.initSession(resp, subject.value)
     uni.navigateTo({ url: PAGES.TRAINING_SESSION, complete: () => { setTimeout(() => { creating.value = false }, 800) } })
   } catch {
@@ -127,7 +135,7 @@ async function startPoint(p: OutlinePoint) {
     <view v-if="outline && !outline.need_profile" class="kp-head" :style="hl('kp-head')">
       <view class="kp-head__info">
         <text class="kp-head__title">{{ subjectLabel }} · {{ gradeSemesterText }}</text>
-        <text class="kp-head__sub">共 {{ outline.chapters.length }} 个单元 · {{ pointTotal }} 个知识点</text>
+        <text class="kp-head__sub">共 {{ outline.chapters.length }} 个单元{{ unitMode ? '' : ' · ' + pointTotal + ' 个知识点' }}</text>
       </view>
       <view class="kp-head__edit" @tap="openProfile(false)"><text>修改</text></view>
     </view>
@@ -144,7 +152,20 @@ async function startPoint(p: OutlinePoint) {
       <view class="kp-state__btn" @tap="openProfile(false)"><text>修改年级学期</text></view>
     </view>
 
-    <!-- 单元 + 知识点 -->
+    <!-- 按单元：只列单元，点单元直接开始 -->
+    <template v-else-if="outline && !outline.need_profile && unitMode">
+      <view v-for="ch in outline.chapters" :key="ch.id" class="chapter" :style="hl('ch-' + ch.id)">
+        <view class="chapter__head" @tap="startChapter(ch)">
+          <view class="chapter__info">
+            <text class="chapter__name" :class="{ 'point__name--empty': ch.question_count <= 0 }">{{ ch.name }}</text>
+            <text class="chapter__count">{{ ch.points.length }} 个知识点 · {{ ch.question_count > 0 ? ch.question_count + ' 题' : '暂无题目' }}</text>
+          </view>
+          <text class="point__arrow">›</text>
+        </view>
+      </view>
+    </template>
+
+    <!-- 按知识点：单元 + 知识点 -->
     <template v-else-if="outline && !outline.need_profile">
       <view v-for="ch in outline.chapters" :key="ch.id" class="chapter" :style="hl('ch-' + ch.id)">
         <view class="chapter__head" @tap="toggle(ch.id)">
@@ -257,6 +278,7 @@ async function startPoint(p: OutlinePoint) {
     gap: $space-2;
     padding: $space-3 $space-4;
   }
+  &__info { flex: 1; display: flex; flex-direction: column; gap: 6rpx; }
   &__name { flex: 1; font-size: $font-size-base; font-weight: 700; color: $text-1; }
   &__count { font-size: $font-size-xs; color: $text-3; }
   &__arrow {

@@ -216,6 +216,10 @@ async def create_session(
         )).scalar_one_or_none()
         if kp:
             scope_info = {"knowledge_point_id": kp.id, "name": kp.name}
+    elif body.training_dimension == "UNIT" and body.chapter_id:
+        ch = (await db.execute(select(Chapter).where(Chapter.id == body.chapter_id))).scalar_one_or_none()
+        if ch:
+            scope_info = {"chapter_id": ch.id, "name": ch.name}
 
     session_id = str(uuid.uuid4())
     snapshot = {

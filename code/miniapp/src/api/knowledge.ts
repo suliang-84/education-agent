@@ -25,7 +25,7 @@ export interface KnowledgePoint {
 }
 
 export interface OutlinePoint { id: number; name: string; question_count: number }
-export interface OutlineChapter { id: number; name: string; points: OutlinePoint[] }
+export interface OutlineChapter { id: number; name: string; question_count: number; points: OutlinePoint[] }
 export interface Outline {
   need_profile: boolean                                  // 学生资料缺年级 / 学期：需要弹窗补充
   grade: { code: string; name: string } | null

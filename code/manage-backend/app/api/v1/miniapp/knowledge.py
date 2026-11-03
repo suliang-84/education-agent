@@ -123,20 +123,25 @@ async def get_outline(
 
     # 每个知识点的可抽题数：后台「启用」、未删除、未归档的题（与创建训练时的抽取池一致）
     counts: dict[int, int] = {}
+    kp_chapter = {k.id: k.chapter_id for k in kps}
+    chapter_qids: dict[int, set[int]] = {c.id: set() for c in chapters}   # 单元可抽题数：该单元下各知识点的题去重
     if kps:
         rows = (await db.execute(
-            select(Question.knowledge_point_ids).where(
+            select(Question.id, Question.knowledge_point_ids).where(
                 *pool_filters(), kp_overlap([k.id for k in kps]),
             )
-        )).scalars().all()
-        for ids in rows:
+        )).all()
+        for qid, ids in rows:
             for kid in set(ids or []):
-                counts[kid] = counts.get(kid, 0) + 1
+                if kid in kp_chapter:
+                    counts[kid] = counts.get(kid, 0) + 1
+                    chapter_qids[kp_chapter[kid]].add(qid)
 
     base["chapters"] = [
         {
             "id": c.id,
             "name": c.name,
+            "question_count": len(chapter_qids[c.id]),
             "points": [
                 {"id": k.id, "name": k.name, "question_count": counts.get(k.id, 0)}
                 for k in kps if k.chapter_id == c.id

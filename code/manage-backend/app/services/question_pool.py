@@ -5,11 +5,13 @@ from app.models.question import Question
 
 
 def pool_filters() -> list:
-    """后台「启用」的题目即进入抽取池；与发布状态独立，已删除、已归档的不抽"""
+    """抽取池 = 后台「训练题管理」页里状态为「已启用」的题。
+    该页只展示已发布（published）的题，启用 / 停用（is_active）只对它们有意义；
+    草稿、待审核等未发布的题虽然 is_active 默认是 true，但不在该页出现，不能抽给学生。"""
     return [
+        Question.status == "published",
         Question.is_active == True,  # noqa: E712
         Question.deleted_at == None,  # noqa: E711
-        Question.status != "archived",
     ]
 
 
