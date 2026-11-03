@@ -196,6 +196,90 @@ button {
   &:active { background: $primary-light; }
 }
 
+// ── 卡片标题 / 五力评分列表（测试结果页与「我的五力」页共用）──────────────────────────
+// 卡片标题：左侧一条主色竖线 + 标题文字。
+// 竖线不再用 border-left（高度等于整行、没有圆角），改成单独的元素：
+//   高度 = 标题行高的 60%，圆角 = 宽度的一半（8rpx 宽 → 4rpx），并与标题文字垂直居中（flex align-items: center）。
+// 标题行高固定为 38rpx（原 line-height 1.2 × 32rpx ≈ 38rpx），这样 60% 才有确定的基准
+.card-title {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  height: 38rpx;
+  margin-bottom: $space-3;
+
+  &__bar {
+    flex-shrink: 0;
+    width: 8rpx;
+    height: calc(38rpx * 0.6);
+    border-radius: 4rpx;
+    background: $primary;
+  }
+
+  &__text {
+    font-size: $font-size-lg;
+    color: $text-1;
+    font-weight: 700;
+    line-height: 38rpx;
+    height: 38rpx;
+  }
+}
+
+// 分数列表：同测试首页五力预览（图标块 + 彩色名称 + 简介），行间用分割线；分数在最右
+.power-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.power-row {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  padding: 28rpx 0;
+  border-top: 1rpx solid $border;   // 第一行的上边线同时把列表与雷达图隔开
+}
+
+.power-row__icon {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: $r-md;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.power-row__info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+}
+
+.power-row__name {
+  font-size: $font-size-sm;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.power-row__desc {
+  font-size: $font-size-xs;
+  color: $text-3;
+
+  // 暗色下用白色，亮色保持浅灰（同测试首页）
+  &--dark { color: #ffffff; }
+}
+
+.power-row__score {
+  font-size: $font-size-lg;
+  font-weight: 800;
+  min-width: 60rpx;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+
 // 分割线
 .divider {
   height: 1rpx;

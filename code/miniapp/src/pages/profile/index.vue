@@ -3,14 +3,14 @@ import { useTheme } from '@/hooks/useTheme'
 import { ref, computed, onMounted } from 'vue'
 import { profileApi } from '@/api'
 import { useAuthStore } from '@/store'
-import { PAGES, FIVE_POWERS, FIVE_POWER_LABELS } from '@/constants'
-import { getPowerLevel, formatDate } from '@/utils'
+import { PAGES, FIVE_POWERS, FIVE_POWER_LABELS, FIVE_POWER_META } from '@/constants'
+import { formatDate } from '@/utils'
 import type { FivePowerProfile } from '@/api/profile'
 import RadarChart from '@/components/charts/RadarChart.vue'
 import SvgIcon from '@/components/SvgIcon.vue'
 
 
-const { pageStyle, theme, hl, powerColors } = useTheme()
+const { pageStyle, theme, hl, powerColors, isDark } = useTheme()
 
 const themeOptions = [
   { value: 'system', label: '跟随系统' },
@@ -35,28 +35,19 @@ const scores = computed(() => {
   return FIVE_POWERS.map((p) => Math.round(forces[p]?.final ?? 0))
 })
 
-// 维度详细信息列表
-const dimensionRows = computed(() =>
+// 五力详细评分列表：与测试结果页一致——按分数由高到低排序（分数相同保持五力原有顺序）
+const powerRows = computed(() =>
   FIVE_POWERS.map((power, idx) => ({
     power,
     label: FIVE_POWER_LABELS[power],
     color: powerColors.value[power],
     score: scores.value[idx],
-    level: getPowerLevel(scores.value[idx]),
-    abilityScore: fivePower.value?.profile
-      ? Math.round(fivePower.value.profile.forces[power]?.ability ?? 0)
-      : 0,
-    preferScore: fivePower.value?.profile
-      ? Math.round(fivePower.value.profile.forces[power]?.preference ?? 0)
-      : 0,
-  }))
+  })).sort((a, b) => b.score - a.score)
 )
 
-// 整体评级
-const overallScore = computed(() => {
-  if (!scores.value.length) return 0
-  return Math.round(scores.value.reduce((a, b) => a + b, 0) / scores.value.length)
-})
+// 雷达图尺寸：与测试结果页一致，占满卡片内宽（页面左右各 16px + 卡片内边距各 16px），高度为宽的 90%，标签不带分数
+const chartW = Math.min(uni.getSystemInfoSync().windowWidth - 64, 420)
+const chartH = Math.round(chartW * 0.9)
 
 onMounted(async () => {
   try {
@@ -120,70 +111,53 @@ function goToTraining() {
     </view>
 
     <template v-else>
-      <!-- ── 综合分数 ─────────────────────────────────────── -->
-      <view class="overall-card">
-        <view class="overall-score-wrap">
-          <text class="overall-score">{{ overallScore }}</text>
-          <text class="overall-unit">/100</text>
-        </view>
-        <view class="overall-info">
-          <text class="overall-label">综合五力评分</text>
-          <view
-            class="overall-level"
-            :style="{
-              background: getPowerLevel(overallScore).color + '20',
-              color: getPowerLevel(overallScore).color,
-            }"
-          >
-            <text class="overall-level__text">{{ getPowerLevel(overallScore).label }}</text>
-          </view>
-        </view>
-      </view>
-
       <!-- ── 五力雷达图 ──────────────────────────────────── -->
       <view class="radar-card" :style="hl('radar')">
-        <text class="card-title">五力分布图</text>
+        <view class="card-title">
+          <view class="card-title__bar" />
+          <text class="card-title__text">五力分布图</text>
+        </view>
         <view class="radar-wrap">
           <RadarChart
             canvas-id="profileRadar"
             :scores="scores"
             :labels="FIVE_POWERS.map(p => FIVE_POWER_LABELS[p])"
             :colors="FIVE_POWERS.map(p => powerColors[p])"
-            :size="300"
+            :size="chartW"
+            :height="chartH"
+            :show-value="false"
           />
         </view>
       </view>
 
       <!-- ── 五力维度详情 ─────────────────────────────────── -->
-      <view class="dimension-card">
-        <text class="card-title">五力详细评分</text>
-        <view class="dimension-list">
-          <view
-            v-for="row in dimensionRows"
-            :key="row.power"
-            class="dimension-row"
-          >
-            <view class="dim-left">
-              <view class="color-dot" :style="{ background: row.color }" />
-              <text class="dim-name">{{ row.label }}</text>
+      <view class="dimension-card" :style="hl('dimension')">
+        <view class="card-title">
+          <view class="card-title__bar" />
+          <text class="card-title__text">五力详细评分</text>
+        </view>
+        <!-- 样式同测试结果页：图标块 + 彩色名称 + 简介，分数在最右，行间分割线；按分数由高到低 -->
+        <view class="power-list">
+          <view v-for="row in powerRows" :key="row.power" class="power-row">
+            <view class="power-row__icon" :style="{ background: row.color + '1A' }">
+              <SvgIcon :name="FIVE_POWER_META[row.power].icon" :size="32" :color="row.color" />
             </view>
-            <view class="dim-bar-wrap">
-              <view class="dim-bar" :style="{ width: `${row.score}%`, background: row.color }" />
+            <view class="power-row__info">
+              <text class="power-row__name" :style="{ color: row.color }">{{ row.label }}</text>
+              <text class="power-row__desc" :class="{ 'power-row__desc--dark': isDark }">{{ FIVE_POWER_META[row.power].desc }}</text>
             </view>
-            <view class="dim-right">
-              <text class="dim-score" :style="{ color: row.color }">{{ row.score }}</text>
-              <view class="dim-level" :style="{ background: row.level.color + '20', color: row.level.color }">
-                <text class="dim-level__text">{{ row.level.label }}</text>
-              </view>
-            </view>
+            <text class="power-row__score" :style="{ color: row.color }">{{ row.score }}</text>
           </view>
         </view>
       </view>
 
       <!-- ── 成长趋势（可折叠） ──────────────────────────── -->
-      <view class="trend-card">
+      <view class="trend-card" :style="hl('trend')">
         <view class="trend-header" @tap="showGrowthTrend = !showGrowthTrend">
-          <text class="card-title">成长趋势</text>
+          <view class="card-title">
+            <view class="card-title__bar" />
+            <text class="card-title__text">成长趋势</text>
+          </view>
           <text class="trend-toggle">{{ showGrowthTrend ? '收起 ▲' : '展开 ▼' }}</text>
         </view>
         <view v-if="showGrowthTrend" class="trend-content">
@@ -198,8 +172,10 @@ function goToTraining() {
       <!-- ── AI 分析文本 ──────────────────────────────────── -->
       <view v-if="fivePower?.profile?.ai_analysis_text" class="ai-analysis-card" :style="hl('ai-analysis')">
         <view class="ai-analysis-header">
-          <view class="ai-icon"><SvgIcon name="sparkles" :size="32" /></view>
-          <text class="card-title">AI 画像分析</text>
+          <view class="card-title">
+            <view class="card-title__bar" />
+            <text class="card-title__text">AI 画像分析</text>
+          </view>
         </view>
         <text class="ai-analysis-text">{{ fivePower.profile.ai_analysis_text }}</text>
       </view>
@@ -207,7 +183,10 @@ function goToTraining() {
 
     <!-- ── 外观主题 ──────────────────────────────────────── -->
     <view class="theme-card" :style="hl('theme')">
-      <text class="card-title">外观</text>
+      <view class="card-title">
+        <view class="card-title__bar" />
+        <text class="card-title__text">外观</text>
+      </view>
       <view class="theme-seg">
         <view
           v-for="o in themeOptions"
@@ -389,60 +368,6 @@ function goToTraining() {
   &::after { border: none; }
 }
 
-// 综合分卡
-.overall-card {
-  background: $cta-gradient;
-  border-radius: $r-xl;
-  padding: $space-4 $space-5;
-  display: flex;
-  align-items: center;
-  gap: $space-4;
-  margin-bottom: $space-4;
-  box-shadow: $shadow-cta;
-}
-
-.overall-score-wrap {
-  display: flex;
-  align-items: baseline;
-  gap: 8rpx;
-}
-
-.overall-score {
-  font-size: 80rpx;
-  color: $on-primary;
-  font-weight: 800;
-  line-height: 1;
-}
-
-.overall-unit {
-  font-size: $font-size-sm;
-  color: $on-primary-dim;
-}
-
-.overall-info {
-  display: flex;
-  flex-direction: column;
-  gap: $space-2;
-}
-
-.overall-label {
-  font-size: $font-size-sm;
-  color: $on-primary-dim;
-}
-
-.overall-level {
-  display: inline-flex;
-  padding: 4rpx 20rpx;
-  border-radius: $r-pill;
-  align-self: flex-start;
-  background: $mask-surface;
-
-  &__text {
-    font-size: $font-size-xs;
-    font-weight: 700;
-  }
-}
-
 // 通用卡片
 .radar-card,
 .dimension-card,
@@ -454,93 +379,9 @@ function goToTraining() {
   margin-bottom: $space-4;
 }
 
-.card-title {
-  font-size: $font-size-lg;
-  color: $text-1;
-  font-weight: 700;
-  display: block;
-  margin-bottom: $space-3;
-  padding-left: $space-2;
-  border-left: 8rpx solid $primary;
-  line-height: 1.2;
-}
-
 .radar-wrap {
   display: flex;
   justify-content: center;
-}
-
-.dimension-list {
-  display: flex;
-  flex-direction: column;
-  gap: $space-3;
-}
-
-.dimension-row {
-  display: flex;
-  align-items: center;
-  gap: $space-2;
-}
-
-.dim-left {
-  display: flex;
-  align-items: center;
-  gap: $space-2;
-  width: 120rpx;
-  flex-shrink: 0;
-}
-
-.color-dot {
-  width: 16rpx;
-  height: 16rpx;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.dim-name {
-  font-size: $font-size-sm;
-  color: $text-2;
-  font-weight: 500;
-}
-
-.dim-bar-wrap {
-  flex: 1;
-  height: 16rpx;
-  background: $bg-muted;
-  border-radius: $r-pill;
-  overflow: hidden;
-}
-
-.dim-bar {
-  height: 100%;
-  border-radius: $r-pill;
-  transition: width 0.6s ease;
-}
-
-.dim-right {
-  display: flex;
-  align-items: center;
-  gap: $space-2;
-  width: 160rpx;
-  justify-content: flex-end;
-  flex-shrink: 0;
-}
-
-.dim-score {
-  font-size: $font-size-lg;
-  font-weight: 800;
-  min-width: 60rpx;
-  text-align: right;
-}
-
-.dim-level {
-  padding: 4rpx 14rpx;
-  border-radius: $r-pill;
-
-  &__text {
-    font-size: $font-size-xs;
-    font-weight: 600;
-  }
 }
 
 // 趋势卡
@@ -590,20 +431,9 @@ function goToTraining() {
 .ai-analysis-header {
   display: flex;
   align-items: center;
-  gap: $space-2;
   margin-bottom: $space-3;
 
   .card-title { margin-bottom: 0; }
-}
-
-.ai-icon {
-  width: 56rpx;
-  height: 56rpx;
-  border-radius: $r-md;
-  background: $primary-light;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .ai-analysis-text {
@@ -626,6 +456,8 @@ function goToTraining() {
   display: flex;
   flex-direction: column;
   gap: $space-3;
+
+  .card-title { margin-bottom: 0; }   // 间距由 gap 统一控制，避免与标题自带的下边距叠加
 }
 
 .theme-seg {

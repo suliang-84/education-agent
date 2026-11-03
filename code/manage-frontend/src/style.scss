@@ -2315,6 +2315,33 @@ html[data-theme="light"] {
   .surface--table::after { display: none; }
 }
 
+// ═══════════════════════════════════════════════════════════════
+// 知识体系树（训练题管理左侧 .tree-panel）：去掉反光，在右下角加一团云晕
+//   · 反光：关掉 glass-fx 的 ::after 扫光层（高亮描边 ::before 保留）
+//   · 云晕：通用玻璃面板的右下云晕圆心在面板底边之外（104% 125%），树面板又很高，几乎看不到；
+//     这里在右下角（100% 100%）单独加一团云晕。颜色用系统主色蓝 rgba(94,141,249)（与左上角那团、登录框、侧边栏同色系），
+//     强度与左上角对称（暗色 20% / 亮色 12%）——不要用紫色：紫色比系统其他面板的云晕更浓更艳，
+//     边框高亮（蓝色）落到右下角时叠在紫色上还会显得偏紫
+// ═══════════════════════════════════════════════════════════════
+html[data-theme] .content-area .tree-panel::after {
+  display: none !important;
+  animation: none !important;
+}
+
+html[data-theme="dark"] .content-area .tree-panel {
+  background:
+    radial-gradient(320px circle at 100% 100%, rgba(94, 141, 249, 0.20), transparent 62%),
+    radial-gradient(360px circle at 8% -25%, rgba(94, 141, 249, 0.20), transparent 62%),
+    rgba(14, 17, 22, 0.60) !important;
+}
+
+html[data-theme="light"] .content-area .tree-panel {
+  background:
+    radial-gradient(320px circle at 100% 100%, rgba(94, 141, 249, 0.12), transparent 62%),
+    radial-gradient(360px circle at 8% -25%, rgba(94, 141, 249, 0.12), transparent 62%),
+    rgba(255, 255, 255, 0.74) !important;
+}
+
 
 // ═══════════════════════════════════════════════════════════════
 // 表格固定列（操作列）背景与普通列保持一致

@@ -88,7 +88,10 @@ function goToAssistant() { uni.switchTab({ url: PAGES.ASSISTANT_HOME }) }
 
     <!-- ── Section 1: 雷达图 ─────────────────────────────── -->
     <view class="radar-card" :style="hl('radar')">
-      <text class="card-title">五力雷达图</text>
+      <view class="card-title">
+        <view class="card-title__bar" />
+        <text class="card-title__text">五力雷达图</text>
+      </view>
       <view class="radar-wrap">
         <RadarChart
           canvas-id="radarChart"
@@ -119,8 +122,10 @@ function goToAssistant() { uni.switchTab({ url: PAGES.ASSISTANT_HOME }) }
     <!-- ── Section 2: AI 分析卡 ──────────────────────────── -->
     <view class="ai-card" :style="hl('ai')">
       <view class="ai-card__header">
-        <view class="ai-card__icon"><SvgIcon name="brain" :size="32" /></view>
-        <text class="card-title">AI 个性化分析</text>
+        <view class="card-title">
+          <view class="card-title__bar" />
+          <text class="card-title__text">AI 个性化分析</text>
+        </view>
       </view>
 
       <!-- 加载骨架 -->
@@ -189,17 +194,6 @@ function goToAssistant() { uni.switchTab({ url: PAGES.ASSISTANT_HOME }) }
   border: 1rpx solid $border;
 }
 
-.card-title {
-  font-size: $font-size-lg;
-  color: $text-1;
-  font-weight: 700;
-  display: block;
-  margin-bottom: $space-3;
-  padding-left: $space-2;
-  border-left: 8rpx solid $primary;
-  line-height: 1.2;
-}
-
 // 雷达图
 .radar-wrap {
   display: flex;
@@ -208,76 +202,13 @@ function goToAssistant() { uni.switchTab({ url: PAGES.ASSISTANT_HOME }) }
 }
 
 
-// 分数列表：同测试首页五力预览（图标块 + 彩色名称 + 简介），行间用分割线；分数在最右
-.power-list {
-  display: flex;
-  flex-direction: column;
-}
-
-.power-row {
-  display: flex;
-  align-items: center;
-  gap: $space-3;
-  padding: 28rpx 0;
-  border-top: 1rpx solid $border;   // 第一行的上边线同时把列表与雷达图隔开
-}
-
-.power-row__icon {
-  width: 56rpx;
-  height: 56rpx;
-  border-radius: $r-md;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.power-row__info {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: $space-2;
-}
-
-.power-row__name {
-  font-size: $font-size-sm;
-  font-weight: 700;
-  flex-shrink: 0;
-}
-
-.power-row__desc {
-  font-size: $font-size-xs;
-  color: $text-3;
-
-  // 暗色下用白色，亮色保持浅灰（同测试首页）
-  &--dark { color: #ffffff; }
-}
-
-.power-row__score {
-  font-size: $font-size-lg;
-  font-weight: 800;
-  min-width: 60rpx;
-  text-align: right;
-  flex-shrink: 0;
-}
-
 // AI 卡
 .ai-card__header {
   display: flex;
   align-items: center;
-  gap: $space-2;
   margin-bottom: $space-3;
-}
 
-.ai-card__icon {
-  width: 56rpx;
-  height: 56rpx;
-  border-radius: $r-md;
-  background: $primary-light;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  .card-title { margin-bottom: 0; }   // 下边距由头部统一控制，避免与 .card-title 自带的下边距叠加
 }
 
 .ai-skeleton {

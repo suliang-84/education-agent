@@ -123,6 +123,12 @@ async function submitAnswer() {
 
     submitted.value = true
     isCorrect.value = resp.is_correct
+    if (resp.already_answered) {
+      // 该题此前已经提交过（比如恢复了一个过期的中断快照，当时没有这题的作答）：服务端不会覆盖，也不会报错，
+      // 返回的是首次提交的结果。页面改为显示首次提交的作答，避免“显示的作答”和“判题结果”对不上
+      answerState.value = restoreAnswer(question.value, resp.student_answer ?? '')
+      uni.showToast({ title: '这道题已经提交过了', icon: 'none' })
+    }
     trainingStore.recordAnswer(question.value.question_index, answerText(mode.value, answerState.value), resp.is_correct)
 
     // 注意：答错后不会自动生成解析，也不会弹出任何提示；学生点击「智能解答」才调用大模型（见 askAi）
@@ -273,7 +279,9 @@ onReady(measureLimit)
 watch([question, submitted], () => nextTick(() => setTimeout(measureLimit, 50)))
 
 onMounted(() => {
-  startTimer()
+  // 从中断记录恢复时，停留的这一题可能已经答过（服务端会把数据库里的真实作答补进快照）：直接显示只读的作答，不能再提交
+  if (trainingStore.isAnswered(currentIndex.value)) jumpToQuestion(currentIndex.value)
+  else startTimer()
 })
 
 onUnmounted(() => {

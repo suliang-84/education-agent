@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Query
 from loguru import logger
 from pydantic import BaseModel
 from sqlalchemy import select, func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -20,6 +21,7 @@ from app.models.training import TrainingAnswerRecord, TrainingDimensionConfig, T
 from app.models.question import Question
 from app.models.knowledge import KnowledgePoint, Chapter, Semester, Subject
 from app.services.training_analysis import generate_analysis
+from app.services.training_resume import merge_answers_snapshot, resume_index
 from app.services.answer_judge import (
     SINGLE_CHOICE, MULTIPLE_CHOICE,
     blank_count_of, judge_answer, question_type_of, split_stem_options,
@@ -251,6 +253,12 @@ async def submit_answer(
     if not question:
         raise AppException("题目不存在", 404)
 
+    # 同一会话的同一题只能提交一次（数据库有 (session_id, question_index) 唯一约束；已提交的答案不可覆盖修改）。
+    # 重复提交（恢复了一个过期的中断快照、网络重试、连点）不能报 500，而是直接返回已有的判题结果，让前端显示之前的作答。
+    existing = await _find_answer_record(db, body.session_id, body.question_index)
+    if existing:
+        return ok_response(_answer_result(existing, already_answered=True))
+
     # 判题：按题型比对答案
     is_correct = judge_answer(
         question.answer, question.question_type, body.student_answer,
@@ -288,13 +296,38 @@ async def submit_answer(
         )
         db.add(wrong)
 
-    await db.commit()
-    return ok_response({
+    try:
+        await db.commit()
+    except IntegrityError:
+        # 并发的重复提交：另一个请求刚刚写入了同一题 → 回滚，返回已有结果
+        await db.rollback()
+        existing = await _find_answer_record(db, body.session_id, body.question_index)
+        if existing:
+            return ok_response(_answer_result(existing, already_answered=True))
+        raise
+    return ok_response(_answer_result(record, already_answered=False))
+
+
+async def _find_answer_record(db: AsyncSession, session_id: str, question_index: int) -> TrainingAnswerRecord | None:
+    return (
+        await db.execute(
+            select(TrainingAnswerRecord).where(
+                TrainingAnswerRecord.session_id == session_id,
+                TrainingAnswerRecord.question_index == question_index,
+            )
+        )
+    ).scalar_one_or_none()
+
+
+def _answer_result(record: TrainingAnswerRecord, already_answered: bool) -> dict:
+    return {
         "answer_record_id": record.id,
-        "is_correct": is_correct,
+        "is_correct": bool(record.is_correct),
         "rag_status": None,
         "proactive_trigger": False,
-    })
+        "already_answered": already_answered,          # True：该题此前已提交过，本次没有新增记录
+        "student_answer": record.student_answer,        # 已提交过时，前端按它显示之前的作答
+    }
 
 
 class AnalysisReq(BaseModel):
@@ -369,12 +402,21 @@ async def generate_question_analysis(
     return ok_response({"status": "completed", "content": content, "static_solution": None, "cached": False})
 
 
+class CompleteReq(BaseModel):
+    session_id: str
+
+
 @router.post("/complete", summary="完成训练会话")
 async def complete_session(
-    session_id: str,
+    body: CompleteReq | None = None,                 # 接口设计说明书 §5.5：session_id 在请求体里
+    session_id: str | None = Query(None),            # 兼容旧写法（查询参数）。注意：此前只支持查询参数，而小程序发的是 JSON 请求体，
+                                                     # 所以「完成训练」一直 422 失败、会话永远停在 active、中断记录也清不掉
     student: Student = Depends(get_current_student),
     db: AsyncSession = Depends(get_db),
 ):
+    session_id = body.session_id if body else session_id
+    if not session_id:
+        raise AppException("缺少 session_id", 422)
     session = (
         await db.execute(
             select(TrainingSession).where(
@@ -446,6 +488,32 @@ async def get_interrupt(
     if not record:
         return ok_response({"has_interrupt": False, "interrupt": None})
 
+    # 会话已不存在 / 已结束（完成、放弃）：这条中断记录没有恢复的意义，清掉
+    session = (
+        await db.execute(select(TrainingSession).where(TrainingSession.id == record.session_id))
+    ).scalar_one_or_none()
+    if not session or session.session_status != "active":
+        await db.delete(record)
+        await db.commit()
+        return ok_response({"has_interrupt": False, "interrupt": None})
+
+    # 以数据库里的真实作答为准补全快照，并把当前题顺延到第一道没答的题。
+    # 中断记录只在「退出并保存」时写入，恢复后继续作答又直接关掉小程序，快照就过期了，
+    # 学生会对已答过的题再提交一次
+    answer_records = (
+        await db.execute(
+            select(TrainingAnswerRecord)
+            .where(TrainingAnswerRecord.session_id == record.session_id)
+            .order_by(TrainingAnswerRecord.question_index)
+        )
+    ).scalars().all()
+    answers_snapshot = merge_answers_snapshot(record.answers_snapshot, answer_records)
+    current_index = resume_index(
+        record.current_question_index,
+        {a["question_index"] for a in answers_snapshot},
+        len(record.questions_snapshot or []),
+    )
+
     return ok_response({
         "has_interrupt": True,
         "interrupt": {
@@ -455,8 +523,8 @@ async def get_interrupt(
             "scope_label": record.scope_label,
             "scope_info": record.scope_info,
             "questions_snapshot": record.questions_snapshot,
-            "answers_snapshot": record.answers_snapshot,
-            "current_question_index": record.current_question_index,
+            "answers_snapshot": answers_snapshot,
+            "current_question_index": current_index,
             "total_questions": record.total_questions,
             "session_id": record.session_id,
             "interrupted_at": record.interrupted_at.isoformat() if record.interrupted_at else None,

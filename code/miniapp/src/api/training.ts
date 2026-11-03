@@ -84,6 +84,8 @@ export const trainingApi = {
       is_correct: boolean
       rag_status: string | null
       proactive_trigger: boolean
+      already_answered?: boolean         // true：该题此前已提交过，本次没有新增记录（重复提交 / 恢复了过期的中断快照）
+      student_answer?: string | null     // already_answered 时为此前提交的作答
     }>('/training/answer', data),
 
   /**
