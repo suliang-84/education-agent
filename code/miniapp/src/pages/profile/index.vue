@@ -229,7 +229,7 @@ function goToTraining() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: $space-4;
+  margin-bottom: 20rpx;
   padding: $space-4;
   border: 1rpx solid $border;
 }
@@ -290,7 +290,7 @@ function goToTraining() {
   @include glass-panel(false);
   border: 1rpx solid $border;
   padding: $space-4;
-  margin-bottom: $space-4;
+  margin-bottom: 20rpx;
 }
 
 .skel-block {
@@ -327,7 +327,7 @@ function goToTraining() {
   flex-direction: column;
   align-items: center;
   gap: $space-3;
-  margin-bottom: $space-4;
+  margin-bottom: 20rpx;
 }
 
 .no-profile-icon {
@@ -376,7 +376,7 @@ function goToTraining() {
   @include glass-panel;
   border: 1rpx solid $border;
   padding: $space-4;
-  margin-bottom: $space-4;
+  margin-bottom: 20rpx;
 }
 
 .radar-wrap {
@@ -452,7 +452,7 @@ function goToTraining() {
   @include glass-panel;
   border: 1rpx solid $border;
   padding: $space-4;
-  margin-bottom: $space-4;
+  margin-bottom: 20rpx;
   display: flex;
   flex-direction: column;
   gap: $space-3;

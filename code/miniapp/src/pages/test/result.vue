@@ -190,7 +190,7 @@ function goToAssistant() { uni.switchTab({ url: PAGES.ASSISTANT_HOME }) }
 .ai-card {
   @include glass-panel;
   padding: $space-4;
-  margin-bottom: $space-4;
+  margin-bottom: 20rpx;
   border: 1rpx solid $border;
 }
 

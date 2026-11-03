@@ -317,7 +317,7 @@ function truncate(text: string, len = 60): string {
   padding: 0 $space-4;
   display: flex;
   flex-direction: column;
-  gap: $space-2;
+  gap: 20rpx;
 }
 
 .skel-card {
@@ -400,7 +400,7 @@ function truncate(text: string, len = 60): string {
   padding: 0 $space-4;
   display: flex;
   flex-direction: column;
-  gap: $space-2;
+  gap: 20rpx;
 }
 
 .wrong-card {

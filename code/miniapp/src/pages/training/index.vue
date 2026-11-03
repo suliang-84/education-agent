@@ -280,7 +280,7 @@ async function handleStartNew() {
 // ── 科目卡片 ────────────────────────────────────────────────────────────────
 .subject-grid {
   display: flex;
-  gap: $space-3;
+  gap: 20rpx;
 }
 
 .subject-card {
@@ -342,7 +342,7 @@ async function handleStartNew() {
 .dimension-list {
   display: flex;
   flex-direction: column;
-  gap: $space-2;
+  gap: 20rpx;
 }
 
 .dim-card {

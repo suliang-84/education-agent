@@ -22,8 +22,9 @@ page {
   --bg-muted: #F5F6FA;
   --border: rgba(96, 141, 249, 0.14);
   --border-hover: rgba(96, 141, 249, 0.28);
-  --shadow-sm: 0 10rpx 30rpx rgba(30,41,59,0.06), 0 2rpx 8rpx rgba(94,141,249,0.05);
-  --shadow-md: 0 12rpx 40rpx rgba(94,141,249,0.14), 0 4rpx 16rpx rgba(30,41,59,0.05);
+  // 亮色卡片阴影：与玻璃面板（--panel-shadow）同一量级——小扩散、低透明度，不要大范围的重影
+  --shadow-sm: 0 2rpx 6rpx rgba(30,41,59,0.04), 0 4rpx 16rpx rgba(94,141,249,0.05);
+  --shadow-md: 0 4rpx 20rpx rgba(94,141,249,0.08), 0 2rpx 8rpx rgba(30,41,59,0.04);
   --shadow-cta: 0 8rpx 28rpx rgba(94,141,249,0.32);
   --on-primary: #FFFFFF;
   --on-primary-dim: rgba(255,255,255,0.75);

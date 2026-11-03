@@ -219,7 +219,7 @@ function clearAndStart() {
 .info-card {
   @include glass-panel;
   padding: 0;
-  margin-bottom: $space-4;
+  margin-bottom: 20rpx;
   border: 1rpx solid $border;
 }
 
@@ -269,7 +269,7 @@ function clearAndStart() {
 .powers-preview {
   @include glass-panel;
   padding: 0;
-  margin-bottom: $space-4;
+  margin-bottom: 20rpx;
   border: 1rpx solid $border;
 }
 

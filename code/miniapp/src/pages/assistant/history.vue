@@ -100,7 +100,7 @@ function enterSession(s: ChatSession) {
 .skeleton-list {
   display: flex;
   flex-direction: column;
-  gap: $space-2;
+  gap: 20rpx;
 }
 
 .skel-card {
@@ -146,7 +146,7 @@ function enterSession(s: ChatSession) {
   justify-content: space-between;
   border: 1rpx solid $border;
   padding: $space-3 $space-4;
-  margin-bottom: $space-3;
+  margin-bottom: 20rpx;
   transition: $transition-fast;
 
   &:active { opacity: 0.85; border-color: $border-hover; }
