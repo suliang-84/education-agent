@@ -3,7 +3,8 @@ import { useTheme } from '@/hooks/useTheme'
 import { ref, computed } from 'vue'
 import { onShow, onHide } from '@dcloudio/uni-app'
 import SvgIcon from '@/components/SvgIcon.vue'
-import { trainingApi } from '@/api'
+import GradeSemesterDialog from '@/components/training/GradeSemesterDialog.vue'
+import { trainingApi, knowledgeApi } from '@/api'
 import { useTrainingStore } from '@/store'
 import {
   PAGES, SUBJECT_LABELS, SUBJECT_ICONS, TRAINING_DIMENSION_LABELS,
@@ -56,9 +57,8 @@ const dimensions: Array<{
 }> = [
   { key: 'KNOWLEDGE_POINT', icon: 'target', desc: '精准练习单个知识点，AI 从你擅长的角度引导入门' },
   { key: 'UNIT',            icon: 'book', desc: '以单元为单位，系统贯通知识脉络' },
-  { key: 'SEMESTER',        icon: 'calendar', desc: '学期范围综合练习，查漏补缺' },
   { key: 'ERROR_QUESTIONS', icon: 'repeat', desc: '复盘错题，AI 借你的优势帮你攻克薄弱环节' },
-  { key: 'RANDOM',          icon: 'dice', desc: '随机出题，保持训练广度' },
+  { key: 'RANDOM',          icon: 'dice', desc: '随机抽取当前学期的题目，保持训练广度' },
 ]
 
 const subjects = Object.keys(SUBJECT_LABELS).map((k) => ({
@@ -110,7 +110,25 @@ async function enterDimension(dim: TrainingDimension) {
     uni.navigateTo({ url: `${PAGES.TRAINING_KNOWLEDGE}?subject=${selectedSubject.value}&mode=${dim === 'UNIT' ? 'unit' : 'point'}` })
     return
   }
+  if (dim === 'RANDOM') {
+    // 随机训练的范围是「当前学期」：学生资料缺年级 / 学期时先弹窗补充，补充完直接开始
+    try {
+      const o = await knowledgeApi.getOutline(selectedSubject.value!)
+      if (o.need_profile) {
+        profileOptions.value = { grade: o.grade_options, semester: o.semester_options }
+        showProfile.value = true
+        return
+      }
+    } catch { /* 查询失败不阻断，由创建接口自行校验 */ }
+  }
   await doCreateSession(dim)
+}
+
+const showProfile = ref(false)
+const profileOptions = ref<{ grade: Array<{ code: string; name: string }>; semester: Array<{ code: string; name: string }> }>({ grade: [], semester: [] })
+async function onProfileSaved() {
+  showProfile.value = false
+  await doCreateSession('RANDOM')
 }
 
 async function doCreateSession(dim: TrainingDimension) {
@@ -124,7 +142,7 @@ async function doCreateSession(dim: TrainingDimension) {
     trainingStore.initSession(resp, selectedSubject.value!)
     goSession()
   } catch {
-    uni.showToast({ title: '创建训练失败，请重试', icon: 'none' })
+    // 失败原因（如「当前学期暂无题目」）已由请求层弹出提示，这里不再覆盖
   } finally {
     creatingSession.value = false
   }
@@ -217,6 +235,16 @@ async function handleStartNew() {
         <text class="creating-text">正在准备训练题目...</text>
       </view>
     </view>
+
+    <!-- 随机训练：补充年级学期 -->
+    <GradeSemesterDialog
+      :show="showProfile"
+      required
+      :grade-options="profileOptions.grade"
+      :semester-options="profileOptions.semester"
+      @saved="onProfileSaved"
+      @cancel="showProfile = false"
+    />
 
     <!-- 中断恢复弹窗 -->
     <view v-if="showResumeDialog" class="resume-mask">

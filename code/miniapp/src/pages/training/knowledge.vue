@@ -12,14 +12,14 @@
 import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { useTheme } from '@/hooks/useTheme'
-import { knowledgeApi, trainingApi, profileApi } from '@/api'
+import { knowledgeApi, trainingApi } from '@/api'
+import GradeSemesterDialog from '@/components/training/GradeSemesterDialog.vue'
 import type { Outline, OutlinePoint, OutlineChapter } from '@/api/knowledge'
-import { useTrainingStore, useAuthStore } from '@/store'
+import { useTrainingStore } from '@/store'
 import { PAGES, SUBJECT_LABELS } from '@/constants'
 
 const { pageStyle, hl } = useTheme()
 const trainingStore = useTrainingStore()
-const authStore = useAuthStore()
 
 const subject = ref('MATH')
 const unitMode = ref(false)   // true：按单元训练，只选单元
@@ -29,12 +29,6 @@ const outline = ref<Outline | null>(null)
 const collapsed = ref<Record<number, boolean>>({})   // 章节 id → 是否收起（默认全部展开）
 const creating = ref(false)
 
-// 年级 / 学期补充弹窗
-const showProfile = ref(false)
-const pickGrade = ref('')
-const pickSemester = ref('')
-const profileError = ref('')
-const saving = ref(false)
 
 const subjectLabel = computed(() => SUBJECT_LABELS[subject.value] || '')
 const gradeSemesterText = computed(() =>
@@ -65,37 +59,19 @@ async function load() {
 }
 
 // ── 补充 / 修改年级学期 ───────────────────────────────────────────────────
-function openProfile(required = false) {
-  pickGrade.value = outline.value?.grade?.code ?? ''
-  pickSemester.value = outline.value?.semester?.code ?? ''
-  profileError.value = ''
-  showProfile.value = true
-  requiredProfile.value = required
-}
+const showProfile = ref(false)
 const requiredProfile = ref(false)
-
+function openProfile(required = false) {
+  requiredProfile.value = required
+  showProfile.value = true
+}
 function cancelProfile() {
   showProfile.value = false
-  if (requiredProfile.value) uni.navigateBack()   // 没有年级学期就无法列出知识点，取消即返回
+  if (requiredProfile.value) uni.navigateBack()   // 没有年级学期就无法列出内容，取消即返回
 }
-
-async function saveProfile() {
-  if (saving.value) return
-  if (!pickGrade.value || !pickSemester.value) {
-    profileError.value = !pickGrade.value ? '请选择年级' : '请选择学期'
-    return
-  }
-  saving.value = true
-  try {
-    await profileApi.updateMe({ grade: pickGrade.value, semester: pickSemester.value })
-    authStore.updateUserInfo({ grade: pickGrade.value, semester: pickSemester.value } as never)
-    showProfile.value = false
-    await load()
-  } catch {
-    profileError.value = '保存失败，请重试'
-  } finally {
-    saving.value = false
-  }
+async function onProfileSaved() {
+  showProfile.value = false
+  await load()
 }
 
 // ── 单元展开 / 收起 ───────────────────────────────────────────────────────
@@ -122,8 +98,7 @@ async function start(count: number, emptyTip: string, scope: { training_dimensio
     trainingStore.initSession(resp, subject.value)
     uni.navigateTo({ url: PAGES.TRAINING_SESSION, complete: () => { setTimeout(() => { creating.value = false }, 800) } })
   } catch {
-    creating.value = false
-    uni.showToast({ title: '创建训练失败，请重试', icon: 'none' })
+    creating.value = false   // 失败原因已由请求层弹出提示
   }
 }
 </script>
@@ -198,41 +173,16 @@ async function start(count: number, emptyTip: string, scope: { training_dimensio
     </view>
 
     <!-- 补充 / 修改年级学期弹窗 -->
-    <view v-if="showProfile" class="mask mask--dialog">
-      <view class="dialog">
-        <text class="dialog__title">{{ requiredProfile ? '请先补充年级和学期' : '修改年级和学期' }}</text>
-        <text class="dialog__desc">按你当前所在的年级和学期，为你列出对应的知识点</text>
-
-        <text class="dialog__label">年级</text>
-        <view class="chips">
-          <view
-            v-for="g in outline?.grade_options"
-            :key="g.code"
-            class="chip"
-            :class="{ 'chip--active': pickGrade === g.code }"
-            @tap="pickGrade = g.code; profileError = ''"
-          ><text class="chip__text">{{ g.name }}</text></view>
-        </view>
-
-        <text class="dialog__label">学期</text>
-        <view class="chips">
-          <view
-            v-for="s in outline?.semester_options"
-            :key="s.code"
-            class="chip chip--half"
-            :class="{ 'chip--active': pickSemester === s.code }"
-            @tap="pickSemester = s.code; profileError = ''"
-          ><text class="chip__text">{{ s.name }}</text></view>
-        </view>
-
-        <text v-if="profileError" class="dialog__error">{{ profileError }}</text>
-
-        <view class="dialog__btns">
-          <button class="dlg-btn dlg-btn--cancel" @tap="cancelProfile">{{ requiredProfile ? '返回' : '取消' }}</button>
-          <button class="dlg-btn dlg-btn--ok" @tap="saveProfile">确定</button>
-        </view>
-      </view>
-    </view>
+    <GradeSemesterDialog
+      :show="showProfile"
+      :required="requiredProfile"
+      :grade-options="outline?.grade_options ?? []"
+      :semester-options="outline?.semester_options ?? []"
+      :grade="outline?.grade?.code"
+      :semester="outline?.semester?.code"
+      @saved="onProfileSaved"
+      @cancel="cancelProfile"
+    />
   </view>
 </template>
 
@@ -340,7 +290,6 @@ async function start(count: number, emptyTip: string, scope: { training_dimensio
   justify-content: center;
   z-index: 999;
 
-  &--dialog { padding: $space-6; z-index: 1000; }
   &__inner {
     background: $bg-surface;
     border-radius: $r-xl;
@@ -351,55 +300,5 @@ async function start(count: number, emptyTip: string, scope: { training_dimensio
     gap: $space-3;
   }
   &__text { font-size: $font-size-base; color: $text-2; }
-}
-
-.dialog {
-  background: $bg-surface;
-  border-radius: $r-xl;
-  padding: $space-5;
-  width: 100%;
-  border: 1rpx solid $border;
-  box-shadow: $shadow-md;
-  display: flex;
-  flex-direction: column;
-  gap: $space-2;
-
-  &__title { font-size: $font-size-lg; color: $text-1; font-weight: 700; text-align: center; }
-  &__desc { font-size: $font-size-sm; color: $text-3; text-align: center; margin-bottom: $space-2; }
-  &__label { font-size: $font-size-sm; color: $text-2; font-weight: 600; margin-top: $space-2; }
-  &__error { font-size: $font-size-sm; color: $danger; margin-top: $space-1; }
-  &__btns { display: flex; gap: $space-2; margin-top: $space-3; }
-}
-
-.chips { display: flex; flex-wrap: wrap; gap: $space-2; }
-.chip {
-  height: 68rpx;
-  padding: 0 $space-4;
-  border-radius: $r-pill;
-  background: $bg-muted;
-  border: 1rpx solid transparent;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  &--half { flex: 1; }
-  &--active { background: $primary-light; border-color: $primary-border; }
-  &__text { font-size: $font-size-sm; color: $text-2; font-weight: 500; }
-  &--active &__text { color: $primary; font-weight: 600; }
-}
-
-.dlg-btn {
-  flex: 1;
-  height: 88rpx;
-  line-height: 88rpx;
-  border-radius: $r-pill;
-  font-size: $font-size-base;
-  font-weight: 600;
-  border: none;
-  padding: 0;
-  &::after { border: none; }
-
-  &--cancel { background: $bg-muted; color: $text-2; }
-  &--ok { background: $cta-gradient; color: $on-primary; box-shadow: $shadow-cta; }
 }
 </style>

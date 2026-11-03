@@ -20,7 +20,7 @@ from app.models.student import (
 )
 from app.models.training import TrainingAnswerRecord, TrainingDimensionConfig, TrainingSession, TrainingInterrupt
 from app.models.question import Question
-from app.models.knowledge import KnowledgePoint, Chapter, Semester, Subject
+from app.models.knowledge import Chapter, Grade, KnowledgePoint, Semester, Subject
 from app.services.question_picker import pick_questions
 from app.services.question_pool import kp_overlap, pool_filters
 from app.services.training_analysis import generate_analysis
@@ -98,6 +98,19 @@ async def wrong_summary(
     })
 
 
+async def _current_semester_id(db: AsyncSession, student: Student, subject_code: str | None) -> int | None:
+    """学生当前年级 + 学期在指定科目下对应的 semesters.id；找不到返回 None"""
+    q = (
+        select(Semester.id)
+        .join(Grade, Semester.grade_id == Grade.id)
+        .join(Subject, Grade.subject_id == Subject.id)
+        .where(Grade.code == student.grade, Semester.code == student.semester)
+    )
+    if subject_code:
+        q = q.where(Subject.code == subject_code)
+    return (await db.execute(q)).scalars().first()
+
+
 async def _recent_question_ids(db: AsyncSession, student_id: int, limit: int) -> list[int]:
     """该学生最近做过的 limit 道题（去重，按答题时间倒序），抽题时尽量避开"""
     if limit <= 0:
@@ -168,6 +181,16 @@ async def create_session(
             select(KnowledgePoint.id).where(KnowledgePoint.chapter_id.in_(chapters))
         )).scalars().all()
         q_query = q_query.where(kp_overlap(list(kps)))
+    elif body.training_dimension == "RANDOM":
+        # 随机训练：当前学期（学生资料里的年级 + 学期）该科目下的全部已启用题目
+        if not student.grade or not student.semester:
+            raise AppException("请先补充年级和学期", 400, "TRAIN-004")
+        semester_id = await _current_semester_id(db, student, body.subject_code)
+        kps = (await db.execute(
+            select(KnowledgePoint.id).join(Chapter, KnowledgePoint.chapter_id == Chapter.id)
+            .where(Chapter.semester_id == semester_id)
+        )).scalars().all() if semester_id else []
+        q_query = q_query.where(kp_overlap(list(kps)))
     elif body.training_dimension == "ERROR_QUESTIONS":
         # 从错题集选题
         wrong_qids = (await db.execute(
@@ -203,6 +226,8 @@ async def create_session(
     selected_qs = [by_id[i] for i in ids if i in by_id]
 
     if len(selected_qs) < 1:
+        if body.training_dimension == "RANDOM":
+            raise AppException("当前学期暂无题目", 400, "TRAIN-002")
         raise AppException("范围内题目不足，无法开始训练", 400, "TRAIN-002")
 
     # 确定训练模式（基于五力画像）
