@@ -104,8 +104,12 @@ async function startTraining(dim: TrainingDimension) {
   await enterDimension(dim)
 }
 
-// 按知识点 / 按单元：先去选知识点或单元（选定后才创建训练）；其余维度直接创建训练
+// 按知识点 / 按单元 / 错题集：先去选范围（选定后才创建训练）；其余维度直接创建训练
 async function enterDimension(dim: TrainingDimension) {
+  if (dim === 'ERROR_QUESTIONS') {
+    uni.navigateTo({ url: `${PAGES.WRONG_ANSWERS}?subject=${selectedSubject.value}` })
+    return
+  }
   if (dim === 'KNOWLEDGE_POINT' || dim === 'UNIT') {
     uni.navigateTo({ url: `${PAGES.TRAINING_KNOWLEDGE}?subject=${selectedSubject.value}&mode=${dim === 'UNIT' ? 'unit' : 'point'}` })
     return
@@ -218,7 +222,7 @@ async function handleStartNew() {
               <text class="dim-card__name">{{ TRAINING_DIMENSION_LABELS[dim.key] }}</text>
               <!-- 错题数徽标 -->
               <view v-if="dim.key === 'ERROR_QUESTIONS' && wrongCount > 0" class="badge">
-                <text class="badge__text">{{ wrongCount }}题待复盘</text>
+                <text class="badge__text">{{ wrongCount }}题待攻克</text>
               </view>
             </view>
             <text class="dim-card__desc">{{ dim.desc }}</text>

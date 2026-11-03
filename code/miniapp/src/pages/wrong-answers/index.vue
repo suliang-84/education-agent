@@ -1,561 +1,352 @@
 <script setup lang="ts">
+/**
+ * 错题集：待攻克 / 已攻克 → 单元 → 知识点（只含当前学期）
+ *
+ * - 每一级都可以点击，直接进入答题：待攻克 / 已攻克这一级从全部题里抽，单元一级只抽该单元的，知识点一级只抽该知识点的
+ * - 每一级右侧是对应的题数（题目去重；同一道题无论答对答错几次都只算一道）
+ * - 点右侧箭头展开 / 收起下一级（点行本身是进入答题）
+ * - 答对归入已攻克、答错归入待攻克（规则在后端）；没有题的单元 / 知识点不展示
+ */
+import { ref, computed } from 'vue'
+import { onLoad, onShow } from '@dcloudio/uni-app'
 import { useTheme } from '@/hooks/useTheme'
-import type { FivePower } from '@/constants'
-import { ref, computed, onMounted } from 'vue'
-import SvgIcon from '@/components/SvgIcon.vue'
-import { wrongAnswerApi, assistantApi } from '@/api'
-import { PAGES, FIVE_POWER_LABELS, WRONG_STATUS_LABELS, DIFFICULTY_LABELS } from '@/constants'
-import { fromNow } from '@/utils'
-import type { WrongAnswer } from '@/api/profile'
+import { wrongAnswerApi, trainingApi } from '@/api'
+import type { WrongOutline, WrongTree } from '@/api/profile'
+import { useTrainingStore } from '@/store'
+import { PAGES, SUBJECT_LABELS } from '@/constants'
+import GradeSemesterDialog from '@/components/training/GradeSemesterDialog.vue'
 
+const { pageStyle, hl } = useTheme()
+const trainingStore = useTrainingStore()
 
-const { pageStyle, hl, powerColors } = useTheme()
-// ── 标签定义 ──────────────────────────────────────────────────────────────
-const tabs = [
-  { key: '', label: '全部' },
-  { key: 'unreview', label: '未复盘' },
-  { key: 'reviewing', label: '复盘中' },
-  { key: 'aha_achieved', label: '已突破' },
-]
-
-const activeTab = ref('')
-const list = ref<WrongAnswer[]>([])
+type Kind = 'pending' | 'mastered'
+const subjects = Object.keys(SUBJECT_LABELS)
+const subject = ref('MATH')
+const fromTraining = ref(false)    // 从个性化训练进入时已选好科目，不再显示科目切换
 const loading = ref(true)
-const startingReview = ref<string | null>(null) // 正在发起复盘的 wrong_id
+const loadFailed = ref(false)
+const outline = ref<WrongOutline | null>(null)
+const closed = ref<Record<string, boolean>>({})   // 收起的节点：'pending' / 'pending-39'（默认全部展开）
+const creating = ref(false)
 
-// ── 加载错题列表 ──────────────────────────────────────────────────────────
-async function loadList() {
+const showProfile = ref(false)
+const requiredProfile = ref(false)
+
+const sections = computed<Array<{ kind: Kind; title: string; tree: WrongTree }>>(() =>
+  outline.value
+    ? [
+        { kind: 'pending', title: '待攻克', tree: outline.value.pending },
+        { kind: 'mastered', title: '已攻克', tree: outline.value.mastered },
+      ]
+    : [],
+)
+const gradeSemesterText = computed(() =>
+  outline.value?.grade && outline.value?.semester ? `${outline.value.grade.name} · ${outline.value.semester.name}` : '',
+)
+
+onLoad((query) => {
+  if (query?.subject) {
+    subject.value = query.subject as string
+    fromTraining.value = true
+  }
+  load()
+})
+// 训练结束返回时刷新统计
+onShow(() => { if (outline.value) refresh() })
+
+async function load() {
   loading.value = true
+  loadFailed.value = false
   try {
-    const resp = await wrongAnswerApi.getList(activeTab.value || undefined)
-    list.value = resp.list
+    outline.value = await wrongAnswerApi.getOutline(subject.value)
+    if (outline.value.need_profile) openProfile(true)
   } catch {
-    list.value = []
+    loadFailed.value = true
   } finally {
     loading.value = false
   }
 }
-
-onMounted(() => {
-  loadList()
-})
-
-function switchTab(key: string) {
-  if (activeTab.value === key) return
-  activeTab.value = key
-  loadList()
+async function refresh() {
+  try { outline.value = await wrongAnswerApi.getOutline(subject.value) } catch { /* 静默：保留旧数据 */ }
+}
+function switchSubject(code: string) {
+  if (code === subject.value) return
+  subject.value = code
+  closed.value = {}
+  load()
 }
 
-// ── 发起 AI 复盘 ──────────────────────────────────────────────────────────
-async function startReview(item: WrongAnswer) {
-  if (startingReview.value) return
-  startingReview.value = item.wrong_id
+function openProfile(required = false) {
+  requiredProfile.value = required
+  showProfile.value = true
+}
+function cancelProfile() {
+  showProfile.value = false
+  if (requiredProfile.value && fromTraining.value) uni.navigateBack()
+}
+async function onProfileSaved() {
+  showProfile.value = false
+  await load()
+}
+
+function key(kind: Kind, chapterId?: number) {
+  return chapterId ? `${kind}-${chapterId}` : kind
+}
+function toggle(k: string) {
+  closed.value = { ...closed.value, [k]: !closed.value[k] }
+}
+
+// 点行 → 按该层级的范围创建错题集训练
+async function start(kind: Kind, count: number, scope: { chapter_id?: number; knowledge_point_id?: number } = {}) {
+  if (creating.value) return
+  if (count <= 0) {
+    uni.showToast({ title: kind === 'pending' ? '暂无待攻克题目' : '暂无已攻克题目', icon: 'none' })
+    return
+  }
+  creating.value = true
   try {
-    const resp = await wrongAnswerApi.startReview(item.wrong_id)
-    // 进入对话页，附带 session_id
-    uni.navigateTo({
-      url: `${PAGES.ASSISTANT_CHAT}?session_id=${resp.chat_session_id}&mode=wrong_review`,
+    const resp = await trainingApi.createSession({
+      training_dimension: 'ERROR_QUESTIONS',
+      subject_code: subject.value,
+      wrong_status: kind,
+      ...scope,
     })
+    trainingStore.initSession(resp, subject.value)
+    uni.navigateTo({ url: PAGES.TRAINING_SESSION, complete: () => { setTimeout(() => { creating.value = false }, 800) } })
   } catch {
-    uni.showToast({ title: '发起复盘失败，请重试', icon: 'none' })
-  } finally {
-    startingReview.value = null
+    creating.value = false   // 失败原因已由请求层弹出提示
   }
-}
-
-// ── 状态颜色映射 ──────────────────────────────────────────────────────────
-const statusColors: Record<string, string> = {
-  unreview: '#64748B',
-  reviewing: '#D97706',
-  pending_consolidation: '#3B82F6',
-  aha_achieved: '#10B981',
-}
-
-// ── 统计数量 ──────────────────────────────────────────────────────────────
-const tabCounts = computed(() => {
-  const all = list.value
-  return {
-    '': all.length,
-    unreview: all.filter((i) => i.review_status === 'unreview').length,
-    reviewing: all.filter((i) => i.review_status === 'reviewing').length,
-    aha_achieved: all.filter((i) => i.review_status === 'aha_achieved').length,
-  }
-})
-
-// ── 当前 tab 对应的空态文案 ────────────────────────────────────────────────
-const emptyMessages: Record<string, { icon: string; title: string; desc: string }> = {
-  '': { icon: 'sparkles', title: '暂无错题', desc: '坚持训练，保持零错题的好成绩！' },
-  unreview: { icon: 'target', title: '没有待复盘的错题', desc: '所有错题都已开始复盘，继续加油！' },
-  reviewing: { icon: 'rocket', title: '暂无复盘中的错题', desc: '开始 AI 复盘，突破你的薄弱点' },
-  aha_achieved: { icon: 'trophy', title: '还没有突破记录', desc: '坚持复盘，等待 aha moment！' },
-}
-
-const emptyState = computed(() => emptyMessages[activeTab.value] || emptyMessages[''])
-
-// ── 题干截断 ──────────────────────────────────────────────────────────────
-function truncate(text: string, len = 60): string {
-  return text.length > len ? text.slice(0, len) + '...' : text
 }
 </script>
 
 <template>
   <page-meta :page-style="pageStyle" />
-  <view class="wrong-answers-page">
-    <!-- ── 页面顶部 ──────────────────────────────────────── -->
-    <view class="page-header">
-      <text class="page-title">错题集</text>
-      <text class="total-count">共 {{ list.length }} 题</text>
-    </view>
-
-    <!-- ── Tab 栏 ─────────────────────────────────────────── -->
-    <scroll-view class="tab-scroll" scroll-x>
-      <view class="tab-bar">
-        <view
-          v-for="tab in tabs"
-          :key="tab.key"
-          class="tab-item"
-          :class="{ 'tab-item--active': activeTab === tab.key }"
-          @tap="switchTab(tab.key)"
-        >
-          <text class="tab-label">{{ tab.label }}</text>
-          <view v-if="tabCounts[tab.key] > 0" class="tab-badge">
-            <text class="tab-badge__text">{{ tabCounts[tab.key] }}</text>
-          </view>
-        </view>
+  <view class="wb-page">
+    <!-- 顶部：科目 + 当前年级学期 -->
+    <view v-if="outline && !outline.need_profile" class="wb-head" :style="hl('wb-head')">
+      <view class="wb-head__info">
+        <text class="wb-head__title">{{ SUBJECT_LABELS[subject] }} · {{ gradeSemesterText }}</text>
+        <text class="wb-head__sub">待攻克 {{ outline.pending.count }} 题 · 已攻克 {{ outline.mastered.count }} 题</text>
       </view>
-    </scroll-view>
-
-    <!-- ── 骨架屏 ────────────────────────────────────────── -->
-    <view v-if="loading" class="skeleton-list">
-      <view v-for="i in 4" :key="i" class="skel-card" :style="hl('skel-' + i)">
-        <view class="skel-power-tag" />
-        <view class="skel-content">
-          <view class="skel-line skel-line--title" />
-          <view class="skel-line skel-line--desc" />
-        </view>
-        <view class="skel-btn" />
-      </view>
+      <view class="wb-head__edit" @tap="openProfile(false)"><text>修改</text></view>
     </view>
 
-    <!-- ── 空状态 ────────────────────────────────────────── -->
-    <view v-else-if="list.length === 0" class="empty-state">
-      <view class="empty-icon"><SvgIcon :name="emptyState.icon" :size="64" /></view>
-      <text class="empty-title">{{ emptyState.title }}</text>
-      <text class="empty-desc">{{ emptyState.desc }}</text>
-    </view>
-
-    <!-- ── 错题列表 ───────────────────────────────────────── -->
-    <view v-else class="wrong-list">
+    <!-- 科目切换（从「我的」进入时没有预选科目） -->
+    <view v-if="!fromTraining" class="wb-subjects">
       <view
-        v-for="item in list"
-        :key="item.wrong_id"
-        class="wrong-card"
-        :style="hl('wrong-' + item.wrong_id)"
-      >
-        <!-- 顶部：五力色标签 + 状态 + 难度 -->
-        <view class="wrong-card__header">
-          <view
-            class="power-tag"
-            :style="{
-              background: (powerColors[item.question.primary_power as FivePower] || '#64748B') + '18',
-              color: powerColors[item.question.primary_power as FivePower] || '#64748B',
-            }"
-          >
-            <text class="power-tag__text">
-              {{ FIVE_POWER_LABELS[item.question.primary_power as keyof typeof FIVE_POWER_LABELS] || '未分类' }}
-            </text>
-          </view>
+        v-for="c in subjects"
+        :key="c"
+        class="wb-subject"
+        :class="{ 'wb-subject--active': subject === c }"
+        @tap="switchSubject(c)"
+      ><text>{{ SUBJECT_LABELS[c] }}</text></view>
+    </view>
 
-          <view class="wrong-card__badges">
-            <!-- 难度 -->
-            <view class="difficulty-badge">
-              <text class="difficulty-badge__text">{{ DIFFICULTY_LABELS[item.question.difficulty] || item.question.difficulty }}</text>
-            </view>
+    <view v-if="loading" class="wb-state"><view class="spinner" /></view>
+    <view v-else-if="loadFailed" class="wb-state">
+      <text class="wb-state__text">加载失败</text>
+      <view class="wb-state__btn" @tap="load"><text>重试</text></view>
+    </view>
 
-            <!-- 复盘状态 -->
-            <view
-              class="status-badge"
-              :style="{
-                background: (statusColors[item.review_status] || '#64748B') + '18',
-                color: statusColors[item.review_status] || '#64748B',
-              }"
-            >
-              <text class="status-badge__text">{{ WRONG_STATUS_LABELS[item.review_status] || item.review_status }}</text>
-            </view>
+    <template v-else-if="outline && !outline.need_profile">
+      <view v-for="sec in sections" :key="sec.kind" class="wb-card" :style="hl('wb-' + sec.kind)">
+        <!-- 第一级：待攻克 / 已攻克 -->
+        <view class="row row--root" @tap="start(sec.kind, sec.tree.count)">
+          <text class="row__name">{{ sec.title }}</text>
+          <text class="row__count">{{ sec.tree.count }} 题</text>
+          <view class="row__arrow" @tap.stop="toggle(key(sec.kind))">
+            <text class="arrow" :class="{ 'arrow--open': !closed[key(sec.kind)] }">›</text>
           </view>
         </view>
 
-        <!-- 题干预览 -->
-        <text class="wrong-card__stem">{{ truncate(item.question.stem) }}</text>
-
-        <!-- 我的答案（如果有） -->
-        <view v-if="item.student_answer" class="my-answer">
-          <text class="my-answer__label">我的答案：</text>
-          <text class="my-answer__text">{{ truncate(item.student_answer, 40) }}</text>
-        </view>
-
-        <!-- 底部：时间 + 操作 -->
-        <view class="wrong-card__footer">
-          <text class="wrong-time">{{ fromNow(item.created_at) }}</text>
-          <view class="wrong-actions">
-            <!-- 已突破状态：仅显示标记 -->
-            <view v-if="item.review_status === 'aha_achieved'" class="aha-badge">
-              <SvgIcon name="trophy" :size="24" color="#10B981" />
-              <text class="aha-badge__text">已突破</text>
+        <template v-if="!closed[key(sec.kind)]">
+          <!-- 第二级：单元（没有题的不展示） -->
+          <template v-for="ch in sec.tree.chapters.filter((c) => c.count > 0)" :key="ch.id">
+            <view class="row row--chapter" @tap="start(sec.kind, ch.count, { chapter_id: ch.id })">
+              <text class="row__name">{{ ch.name }}</text>
+              <text class="row__count">{{ ch.count }} 题</text>
+              <view class="row__arrow" @tap.stop="toggle(key(sec.kind, ch.id))">
+                <text class="arrow" :class="{ 'arrow--open': !closed[key(sec.kind, ch.id)] }">›</text>
+              </view>
             </view>
-            <!-- 其他状态：显示复盘按钮 -->
-            <button
-              v-else
-              class="review-btn"
-              :class="{ 'review-btn--loading': startingReview === item.wrong_id }"
-              @tap="startReview(item)"
-            >
-              <view v-if="startingReview === item.wrong_id" class="spinner" />
-              <text class="review-btn__text">
-                {{ startingReview === item.wrong_id
-                  ? '准备中...'
-                  : item.review_status === 'reviewing' ? '继续复盘' : 'AI 复盘'
-                }}
-              </text>
-            </button>
+            <!-- 第三级：知识点 -->
+            <template v-if="!closed[key(sec.kind, ch.id)]">
+              <view
+                v-for="p in ch.points.filter((x) => x.count > 0)"
+                :key="p.id"
+                class="row row--point"
+                @tap="start(sec.kind, p.count, { chapter_id: ch.id, knowledge_point_id: p.id })"
+              >
+                <text class="row__name">{{ p.name }}</text>
+                <text class="row__count">{{ p.count }} 题</text>
+                <view class="row__arrow"><text class="arrow arrow--plain">›</text></view>
+              </view>
+            </template>
+          </template>
+          <view v-if="sec.tree.count === 0" class="row row--empty">
+            <text class="row__count">{{ sec.kind === 'pending' ? '暂无待攻克题目，继续保持' : '暂无已攻克题目' }}</text>
           </view>
-        </view>
+        </template>
+      </view>
+    </template>
+
+    <view v-if="creating" class="mask">
+      <view class="mask__inner">
+        <view class="spinner" />
+        <text class="mask__text">正在准备训练题目...</text>
       </view>
     </view>
+
+    <GradeSemesterDialog
+      :show="showProfile"
+      :required="requiredProfile"
+      :grade-options="outline?.grade_options ?? []"
+      :semester-options="outline?.semester_options ?? []"
+      :grade="outline?.grade?.code"
+      :semester="outline?.semester?.code"
+      @saved="onProfileSaved"
+      @cancel="cancelProfile"
+    />
   </view>
 </template>
 
 <style lang="scss" scoped>
-
-.wrong-answers-page {
+.wb-page {
   min-height: 100vh;
   background: $bg-page;
+  padding: $space-4;
   padding-bottom: 80rpx;
 }
 
-// 页面顶部
-.page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: $space-4 $space-4 0;
-  margin-bottom: $space-3;
-}
-
-.page-title {
-  font-size: $font-size-2xl;
-  color: $text-1;
-  font-weight: 800;
-}
-
-.total-count {
-  font-size: $font-size-sm;
-  color: $text-3;
-}
-
-// Tab 栏
-.tab-scroll {
-  padding: 0 $space-4;
-  margin-bottom: $space-3;
-}
-
-.tab-bar {
-  display: flex;
-  gap: $space-2;
-  min-width: max-content;
-}
-
-.tab-item {
-  display: flex;
-  align-items: center;
-  gap: $space-1;
-  height: 68rpx;
-  padding: 0 $space-3;
-  border-radius: $r-pill;
-  background: $bg-surface;
+.wb-head {
+  @include glass-panel;
   border: 1rpx solid $border;
-  box-shadow: $shadow-sm;
-  transition: $transition-fast;
-  flex-shrink: 0;
+  padding: $space-3 $space-4;
+  margin-bottom: 20rpx;
+  display: flex;
+  align-items: center;
+  gap: $space-3;
 
-  &--active {
+  &__info { flex: 1; display: flex; flex-direction: column; gap: 4rpx; }
+  &__title { font-size: $font-size-lg; font-weight: 700; color: $text-1; }
+  &__sub { font-size: $font-size-xs; color: $text-3; }
+  &__edit {
+    padding: 10rpx 24rpx;
+    border-radius: $r-pill;
     background: $primary-light;
-    border-color: $primary;
+    font-size: $font-size-sm;
+    color: $primary;
+    font-weight: 600;
   }
 }
 
-.tab-label {
+.wb-subjects {
+  display: flex;
+  gap: $space-2;
+  margin-bottom: 20rpx;
+}
+.wb-subject {
+  flex: 1;
+  height: 72rpx;
+  border-radius: $r-pill;
+  background: $bg-muted;
+  border: 1rpx solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: $font-size-sm;
   color: $text-2;
   font-weight: 500;
 
-  .tab-item--active & {
+  &--active { background: $primary-light; border-color: $primary-border; color: $primary; font-weight: 600; }
+}
+
+.wb-card {
+  @include glass-panel;
+  border: 1rpx solid $border;
+  padding: 0;
+  margin-bottom: 20rpx;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  padding: 0 0 0 $space-4;
+  min-height: 96rpx;
+  border-top: 1rpx solid $border;
+
+  &:first-child { border-top: none; }
+  &:active { background: $primary-light; }
+
+  &__name { flex: 1; font-size: $font-size-base; color: $text-1; }
+  &__count { font-size: $font-size-sm; color: $text-3; }
+  // 箭头有独立的点击区域（展开 / 收起），行本身的点击是进入答题
+  &__arrow { width: 88rpx; height: 96rpx; display: flex; align-items: center; justify-content: center; }
+
+  &--root &__name { font-weight: 700; font-size: $font-size-lg; }
+  &--chapter { padding-left: $space-4; }
+  &--chapter &__name { font-weight: 600; }
+  &--point { padding-left: calc(#{$space-4} + 28rpx); }
+  &--point &__name { font-size: $font-size-sm; color: $text-2; }
+  &--empty { padding: $space-3 $space-4; justify-content: center; }
+}
+
+.arrow {
+  font-size: 36rpx;
+  color: $text-3;
+  transition: transform 0.2s ease;
+  &--open { transform: rotate(90deg); }
+  &--plain { font-size: 32rpx; }
+}
+
+.wb-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $space-3;
+  padding-top: 200rpx;
+
+  &__text { font-size: $font-size-base; color: $text-3; }
+  &__btn {
+    padding: 14rpx 36rpx;
+    border-radius: $r-pill;
+    background: $primary-light;
+    font-size: $font-size-sm;
     color: $primary;
-    font-weight: 700;
-  }
-}
-
-.tab-badge {
-  min-width: 36rpx;
-  height: 36rpx;
-  background: $danger;
-  border-radius: $r-pill;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 10rpx;
-
-  &__text {
-    font-size: $font-size-xs;
-    color: $on-primary;
-    font-weight: 700;
-  }
-}
-
-// 骨架屏
-.skeleton-list {
-  padding: 0 $space-4;
-  display: flex;
-  flex-direction: column;
-  gap: 20rpx;
-}
-
-.skel-card {
-  @include glass-panel(false);
-  padding: $space-3 $space-4;
-  display: flex;
-  align-items: center;
-  gap: $space-3;
-  border: 1rpx solid $border;
-}
-
-.skel-power-tag {
-  width: 100rpx;
-  height: 40rpx;
-  background: $bg-muted;
-  border-radius: $r-pill;
-  flex-shrink: 0;
-  animation: shimmer 1.2s ease-in-out infinite;
-}
-
-.skel-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: $space-2;
-}
-
-.skel-line {
-  height: 24rpx;
-  background: $bg-muted;
-  border-radius: $r-pill;
-  animation: shimmer 1.2s ease-in-out infinite;
-
-  &--title { width: 80%; }
-  &--desc { width: 55%; }
-}
-
-.skel-btn {
-  width: 120rpx;
-  height: 56rpx;
-  background: $bg-muted;
-  border-radius: $r-pill;
-  flex-shrink: 0;
-  animation: shimmer 1.2s ease-in-out infinite;
-}
-
-// 空状态
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: $space-3;
-  padding: 120rpx $space-4;
-}
-
-.empty-icon {
-  width: 144rpx;
-  height: 144rpx;
-  border-radius: $r-xl;
-  background: $primary-light;
-  border: 1rpx solid $primary-border;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.empty-title {
-  font-size: $font-size-lg;
-  color: $text-2;
-  font-weight: 600;
-}
-.empty-desc {
-  font-size: $font-size-sm;
-  color: $text-3;
-  text-align: center;
-  line-height: 1.7;
-}
-
-// 错题列表
-.wrong-list {
-  padding: 0 $space-4;
-  display: flex;
-  flex-direction: column;
-  gap: 20rpx;
-}
-
-.wrong-card {
-  @include glass-panel(false);
-  padding: $space-3 $space-4;
-  border: 1rpx solid $border;
-  display: flex;
-  flex-direction: column;
-  gap: $space-2;
-}
-
-.wrong-card__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.power-tag {
-  padding: 6rpx 20rpx;
-  border-radius: $r-pill;
-
-  &__text {
-    font-size: $font-size-xs;
-    font-weight: 700;
-  }
-}
-
-.wrong-card__badges {
-  display: flex;
-  align-items: center;
-  gap: $space-2;
-}
-
-.difficulty-badge {
-  padding: 4rpx 14rpx;
-  background: $bg-muted;
-  border-radius: $r-pill;
-
-  &__text {
-    font-size: $font-size-xs;
-    color: $text-3;
-  }
-}
-
-.status-badge {
-  padding: 4rpx 16rpx;
-  border-radius: $r-pill;
-
-  &__text {
-    font-size: $font-size-xs;
-    font-weight: 600;
-  }
-}
-
-.wrong-card__stem {
-  font-size: $font-size-base;
-  color: $text-1;
-  line-height: 1.6;
-  display: block;
-}
-
-.my-answer {
-  display: flex;
-  gap: $space-1;
-  padding: $space-2 $space-3;
-  background: $danger-light;
-  border-radius: $r-md;
-  flex-wrap: wrap;
-}
-
-.my-answer__label {
-  font-size: $font-size-xs;
-  color: $danger;
-  font-weight: 600;
-  flex-shrink: 0;
-}
-
-.my-answer__text {
-  font-size: $font-size-xs;
-  color: $text-2;
-}
-
-.wrong-card__footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: $space-1;
-}
-
-.wrong-time {
-  font-size: $font-size-xs;
-  color: $text-3;
-}
-
-.wrong-actions {
-  display: flex;
-  align-items: center;
-  gap: $space-2;
-}
-
-.aha-badge {
-  padding: 6rpx 20rpx;
-  background: $success-light;
-  border-radius: $r-pill;
-  display: flex;
-  align-items: center;
-  gap: 8rpx;
-
-  &__text {
-    font-size: $font-size-xs;
-    color: $success;
-    font-weight: 600;
-  }
-}
-
-.review-btn {
-  height: 64rpx;
-  padding: 0 $space-3;
-  background: $cta-gradient;
-  box-shadow: $shadow-cta;
-  border-radius: $r-pill;
-  border: none;
-  display: flex;
-  align-items: center;
-  gap: $space-1;
-
-  &::after { border: none; }
-
-  &--loading {
-    opacity: 0.75;
-  }
-
-  &__text {
-    font-size: $font-size-xs;
-    color: $on-primary;
     font-weight: 600;
   }
 }
 
 .spinner {
-  width: 28rpx;
-  height: 28rpx;
+  width: 60rpx;
+  height: 60rpx;
   border-radius: 50%;
-  border: 3rpx solid $on-primary-line;
-  border-top-color: $on-primary;
+  border: 6rpx solid $bg-muted;
+  border-top-color: $primary;
   animation: spin 0.7s linear infinite;
-  flex-shrink: 0;
 }
+@keyframes spin { to { transform: rotate(360deg); } }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
+.mask {
+  position: fixed;
+  inset: 0;
+  background: $mask;
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
 
-@keyframes shimmer {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  &__inner {
+    background: $bg-surface;
+    border-radius: $r-xl;
+    padding: $space-5;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: $space-3;
+  }
+  &__text { font-size: $font-size-base; color: $text-2; }
 }
 </style>

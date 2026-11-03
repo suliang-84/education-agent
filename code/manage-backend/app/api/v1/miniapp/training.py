@@ -21,6 +21,7 @@ from app.models.student import (
 from app.models.training import TrainingAnswerRecord, TrainingDimensionConfig, TrainingSession, TrainingInterrupt
 from app.models.question import Question
 from app.models.knowledge import Chapter, Grade, KnowledgePoint, Semester, Subject
+from app.services import wrong_book, wrong_scope
 from app.services.question_picker import pick_questions
 from app.services.question_pool import kp_overlap, pool_filters
 from app.services.training_analysis import generate_analysis
@@ -39,6 +40,7 @@ class CreateSessionReq(BaseModel):
     chapter_id: int | None = None
     semester_id: int | None = None
     subject_code: str | None = None
+    wrong_status: str | None = None   # 错题集训练：pending（待攻克，默认）/ mastered（已攻克）；范围由 chapter_id / knowledge_point_id 进一步限定
 
 
 class SubmitAnswerReq(BaseModel):
@@ -69,33 +71,16 @@ async def wrong_summary(
     student: Student = Depends(get_current_student),
     db: AsyncSession = Depends(get_db),
 ):
-    """按科目统计待攻克错题数（review_status in unreview/reviewing/pending_consolidation）"""
-    pending_statuses = ["unreview", "reviewing", "pending_consolidation"]
-
-    # 查询各科目错题数
-    q = (
-        select(Subject.code, Subject.name, func.count(WrongAnswerRecord.id).label("cnt"))
-        .join(Question, WrongAnswerRecord.question_id == Question.id)
-        .join(Subject, Question.subject_id == Subject.id)
-        .where(
-            WrongAnswerRecord.student_id == student.id,
-            WrongAnswerRecord.review_status.in_(pending_statuses),
-        )
-        .group_by(Subject.code, Subject.name)
-    )
-    if subject_code:
-        q = q.where(Subject.code == subject_code)
-
-    rows = (await db.execute(q)).all()
-    total = sum(r.cnt for r in rows)
-
-    return ok_response({
-        "total_pending": total,
-        "subjects": [
-            {"subject_code": r.code, "subject_name": r.name, "pending_count": r.cnt}
-            for r in rows
-        ],
-    })
+    """按科目统计待攻克题数：题目去重，资料里有年级学期时只算当前学期（与错题集页最外层「待攻克」一致）"""
+    subjects = (await db.execute(
+        select(Subject).where(Subject.code == subject_code) if subject_code else select(Subject)
+    )).scalars().all()
+    out = []
+    for sub in subjects:
+        cnt = await wrong_scope.pending_count(db, student, sub.code)
+        if cnt > 0:
+            out.append({"subject_code": sub.code, "subject_name": sub.name, "pending_count": cnt})
+    return ok_response({"total_pending": sum(r["pending_count"] for r in out), "subjects": out})
 
 
 async def _current_semester_id(db: AsyncSession, student: Student, subject_code: str | None) -> int | None:
@@ -192,36 +177,37 @@ async def create_session(
         )).scalars().all() if semester_id else []
         q_query = q_query.where(kp_overlap(list(kps)))
     elif body.training_dimension == "ERROR_QUESTIONS":
-        # 从错题集选题
-        wrong_qids = (await db.execute(
-            select(WrongAnswerRecord.question_id).where(
-                WrongAnswerRecord.student_id == student.id,
-                WrongAnswerRecord.review_status.in_(["unreview", "reviewing", "pending_consolidation"]),
-            ).limit(50)
-        )).scalars().all()
-        if not wrong_qids:
-            raise AppException("该科目暂无待攻克错题", 400, "TRAIN-003")
-        q_query = q_query.where(Question.id.in_(wrong_qids))
+        # 错题集训练：从当前学期的「待攻克 / 已攻克」题里抽；可按单元 / 知识点进一步限定
+        if not student.grade or not student.semester:
+            raise AppException("请先补充年级和学期", 400, "TRAIN-004")
+        mastered = body.wrong_status == "mastered"
+        chapters, kps_all = await wrong_scope.semester_structure(db, student, body.subject_code)
+        if body.knowledge_point_id:
+            scope_kps = [k[0] for k in kps_all if k[0] == body.knowledge_point_id]
+        elif body.chapter_id:
+            scope_kps = [k[0] for k in kps_all if k[2] == body.chapter_id]
+        else:
+            scope_kps = [k[0] for k in kps_all]
+        wrong_ids = [q[0] for q in await wrong_scope.wrong_questions(db, student.id, body.subject_code, mastered)]
+        if not scope_kps or not wrong_ids:
+            raise AppException("暂无已攻克题目" if mastered else "暂无待攻克题目", 400, "TRAIN-003")
+        q_query = q_query.where(Question.id.in_(wrong_ids), kp_overlap(scope_kps))
     elif body.subject_code:
         q_query = q_query.join(Subject, Question.subject_id == Subject.id).where(
             Subject.code == body.subject_code
         )
 
     pool_rows = (await db.execute(q_query)).all()
-    if body.training_dimension == "ERROR_QUESTIONS":
-        # 错题集：按原有规则随机取，不做题型 / 难度配比
-        ids = [r.id for r in random.sample(pool_rows, min(questions_per_session, len(pool_rows)))]
-    else:
-        # 其余维度：按题型比例 + 难度比例抽题，尽量避开最近做过的题
-        dedup_n = dim_config.dedup_window_size if dim_config else 30
-        recent_ids = await _recent_question_ids(db, student.id, dedup_n)
-        ids = pick_questions(
-            [{"id": r.id, "question_type": r.question_type, "difficulty": r.difficulty} for r in pool_rows],
-            questions_per_session,
-            type_ratio=dim_config.type_ratio if dim_config else None,
-            difficulty_ratio=dim_config.difficulty_ratio if dim_config else None,
-            avoid_ids=recent_ids,
-        )
+    # 按题型比例 + 难度比例抽题，尽量避开最近做过的题
+    dedup_n = dim_config.dedup_window_size if dim_config else 30
+    recent_ids = await _recent_question_ids(db, student.id, dedup_n)
+    ids = pick_questions(
+        [{"id": r.id, "question_type": r.question_type, "difficulty": r.difficulty} for r in pool_rows],
+        questions_per_session,
+        type_ratio=dim_config.type_ratio if dim_config else None,
+        difficulty_ratio=dim_config.difficulty_ratio if dim_config else None,
+        avoid_ids=recent_ids,
+    )
     by_id = {q.id: q for q in (await db.execute(select(Question).where(Question.id.in_(ids)))).scalars().all()} if ids else {}
     selected_qs = [by_id[i] for i in ids if i in by_id]
 
@@ -245,6 +231,17 @@ async def create_session(
         ch = (await db.execute(select(Chapter).where(Chapter.id == body.chapter_id))).scalar_one_or_none()
         if ch:
             scope_info = {"chapter_id": ch.id, "name": ch.name}
+    elif body.training_dimension == "ERROR_QUESTIONS":
+        label = "已攻克" if body.wrong_status == "mastered" else "待攻克"
+        name = label
+        if body.knowledge_point_id:
+            kp = (await db.execute(select(KnowledgePoint).where(KnowledgePoint.id == body.knowledge_point_id))).scalar_one_or_none()
+            name = f"{label} · {kp.name}" if kp else label
+        elif body.chapter_id:
+            ch = (await db.execute(select(Chapter).where(Chapter.id == body.chapter_id))).scalar_one_or_none()
+            name = f"{label} · {ch.name}" if ch else label
+        scope_info = {"wrong_status": body.wrong_status or "pending", "chapter_id": body.chapter_id,
+                      "knowledge_point_id": body.knowledge_point_id, "name": name}
 
     session_id = str(uuid.uuid4())
     snapshot = {
@@ -355,19 +352,34 @@ async def submit_answer(
     )
     db.add(record)
 
-    # 答错：写入错题集
-    if not is_correct:
-        wrong = WrongAnswerRecord(
-            id=str(uuid.uuid4()),
-            student_id=student.id,
-            question_id=body.question_id,
-            source_module="training",
-            source_session_id=body.session_id,
-            student_answer=body.student_answer,
-            review_status="unreview",
-            created_at=datetime.now(UTC),
+    # 错题集：同一学生同一道题只有一条记录（合并去重）。
+    # 任何训练答错 → 待攻克；只有在错题集训练里答对待攻克的题 → 已攻克（规则见 services/wrong_book.py）
+    wrong = (await db.execute(
+        select(WrongAnswerRecord).where(
+            WrongAnswerRecord.student_id == student.id,
+            WrongAnswerRecord.question_id == body.question_id,
         )
-        db.add(wrong)
+    )).scalar_one_or_none()
+    new_status = wrong_book.next_status(wrong.review_status if wrong else None, bool(is_correct), session.training_dimension)
+    if new_status:
+        now = datetime.now(UTC)
+        if wrong is None:
+            db.add(WrongAnswerRecord(
+                id=str(uuid.uuid4()),
+                student_id=student.id,
+                question_id=body.question_id,
+                source_module="training",
+                source_session_id=body.session_id,
+                student_answer=body.student_answer,
+                review_status=new_status,
+                created_at=now,
+            ))
+        else:
+            wrong.review_status = new_status
+            wrong.aha_at = now if new_status == wrong_book.MASTERED else None
+            if new_status == wrong_book.PENDING:      # 再次答错：更新为最近一次的作答
+                wrong.student_answer = body.student_answer
+                wrong.source_session_id = body.session_id
 
     try:
         await db.commit()

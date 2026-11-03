@@ -22,6 +22,7 @@ export interface CreateSessionReq {
   chapter_id?: number
   semester_id?: number
   subject_code?: string
+  wrong_status?: 'pending' | 'mastered'   // 错题集训练：待攻克（默认）/ 已攻克
 }
 
 export interface TrainingSessionResp {

@@ -27,17 +27,18 @@ export interface FivePowerProfile {
   training_profile: Record<string, number> | null
 }
 
-export interface WrongAnswer {
-  wrong_id: string
-  question: {
-    question_id: number
-    stem: string
-    difficulty: string
-    primary_power: string
-  }
-  student_answer: string | null
-  review_status: string
-  created_at: string
+// 错题集统计树：待攻克 / 已攻克 → 单元 → 知识点（只含当前学期）
+export interface WrongPoint { id: number; name: string; count: number }
+export interface WrongChapter { id: number; name: string; count: number; points: WrongPoint[] }
+export interface WrongTree { count: number; chapters: WrongChapter[] }
+export interface WrongOutline {
+  need_profile: boolean
+  grade: { code: string; name: string } | null
+  semester: { code: string; name: string } | null
+  grade_options: Array<{ code: string; name: string }>
+  semester_options: Array<{ code: string; name: string }>
+  pending: WrongTree
+  mastered: WrongTree
 }
 
 export const profileApi = {
@@ -57,18 +58,7 @@ export const profileApi = {
 }
 
 export const wrongAnswerApi = {
-  /** 获取错题列表 */
-  getList: (review_status?: string, limit = 20) =>
-    http.get<{ list: WrongAnswer[]; total: number }>(
-      '/wrong-answers',
-      review_status ? { review_status, limit } : { limit }
-    ),
-
-  /** 发起 AI 复盘 */
-  startReview: (wrong_id: string) =>
-    http.post<{
-      chat_session_id: string
-      question_info: { stem: string; student_answer: string | null; primary_power: string | null }
-      opening_message: { role: string; content: string }
-    }>(`/wrong-answers/${wrong_id}/review`),
+  /** 错题集：待攻克 / 已攻克 → 单元 → 知识点的题数统计 */
+  getOutline: (subject_code: string) =>
+    http.get<WrongOutline>('/wrong-answers/outline', { subject_code }),
 }
