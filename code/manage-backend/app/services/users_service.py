@@ -684,11 +684,18 @@ async def regenerate_learning_summary(db: AsyncSession, student_id: int):
             f'薄弱维度：{profile.primary_weakness or "暂无"}。'
         )
 
+    # 智能训练依据的学习状态：错题集 / 收藏概况、薄弱知识点和题型、近期向 AI 助手提到的困惑
+    from app.services.smart_training.signals import learning_state_text
+    try:
+        state_text = await learning_state_text(db, student)
+    except Exception:
+        state_text = ''
+
+    semester_label = {'S1': '上学期', 'S2': '下学期'}.get(student.semester or '', '')
     summary_text = (
-        f'学生{student.nickname or "（未知）"}，{grade_label}。'
-        f'{profile_text}'
-        f'累计训练{training_count}次，'
-        f'有效知识点统计{valid_kp_count}个。'
+        f'学生{student.nickname or "（未知）"}，{grade_label}{semester_label}。'
+        f'{state_text or profile_text}'   # 学习状态里已包含五力得分；取不到时退回只有五力的描述
+        f'累计训练{training_count}次。'
     )
 
     # 更新数据库记录

@@ -83,6 +83,23 @@ async def wrong_summary(
     return ok_response({"total_pending": sum(r["pending_count"] for r in out), "subjects": out})
 
 
+async def _smart_pick(db, student, subject_code, n, recent_ids, dim_config) -> tuple[list[int], dict[int, dict]]:
+    """智能训练抽题：聊天信号（缓存）+ 五力 + 错题 + 收藏 + 做题历史 → 打分 → 按槽位配比组卷。
+    返回 (题目 id 列表, {题目 id: {tag, label}})。聊天为空 / 大模型不可用时只是少一类信号，照常出题"""
+    from app.services.smart_training import intents
+    from app.services.smart_training.core import compose
+    from app.services.smart_training.signals import load_pool, load_signals
+
+    params = dim_config.smart_params if dim_config else None
+    await intents.ensure_fresh(db, student)
+    pool, _kps = await load_pool(db, student, subject_code)
+    if not pool:
+        return [], {}
+    sig = await load_signals(db, student, recent_ids, params)
+    picks = compose(pool, sig, n, params)
+    return [p.question_id for p in picks], {p.question_id: {"tag": p.tag, "label": p.label} for p in picks}
+
+
 async def _current_semester_id(db: AsyncSession, student: Student, subject_code: str | None) -> int | None:
     """学生当前年级 + 学期在指定科目下对应的 semesters.id；找不到返回 None"""
     q = (
@@ -193,6 +210,10 @@ async def create_session(
             select(KnowledgePoint.id).where(KnowledgePoint.chapter_id.in_(chapters))
         )).scalars().all()
         q_query = q_query.where(kp_overlap(list(kps)))
+    elif body.training_dimension == "SMART":
+        # 智能训练：抽取池由 smart_training 自己按当前学期装配（见下方 _smart_pick），这里只校验前置条件
+        if not student.grade or not student.semester:
+            raise AppException("请先补充年级和学期", 400, "TRAIN-004")
     elif body.training_dimension == "RANDOM":
         # 随机训练：当前学期（学生资料里的年级 + 学期）该科目下的全部已启用题目
         if not student.grade or not student.semester:
@@ -239,22 +260,26 @@ async def create_session(
             Subject.code == body.subject_code
         )
 
-    pool_rows = (await db.execute(q_query)).all()
-    # 按题型比例 + 难度比例抽题，尽量避开最近做过的题
     dedup_n = dim_config.dedup_window_size if dim_config else 30
     recent_ids = await _recent_question_ids(db, student.id, dedup_n)
-    ids = pick_questions(
-        [{"id": r.id, "question_type": r.question_type, "difficulty": r.difficulty} for r in pool_rows],
-        questions_per_session,
-        type_ratio=dim_config.type_ratio if dim_config else None,
-        difficulty_ratio=dim_config.difficulty_ratio if dim_config else None,
-        avoid_ids=recent_ids,
-    )
+    reasons: dict[int, dict] = {}
+    if body.training_dimension == "SMART":
+        ids, reasons = await _smart_pick(db, student, body.subject_code, questions_per_session, recent_ids, dim_config)
+    else:
+        pool_rows = (await db.execute(q_query)).all()
+        # 按题型比例 + 难度比例抽题，尽量避开最近做过的题
+        ids = pick_questions(
+            [{"id": r.id, "question_type": r.question_type, "difficulty": r.difficulty} for r in pool_rows],
+            questions_per_session,
+            type_ratio=dim_config.type_ratio if dim_config else None,
+            difficulty_ratio=dim_config.difficulty_ratio if dim_config else None,
+            avoid_ids=recent_ids,
+        )
     by_id = {q.id: q for q in (await db.execute(select(Question).where(Question.id.in_(ids)))).scalars().all()} if ids else {}
     selected_qs = [by_id[i] for i in ids if i in by_id]
 
     if len(selected_qs) < 1:
-        if body.training_dimension == "RANDOM":
+        if body.training_dimension in ("RANDOM", "SMART"):
             raise AppException("当前学期暂无题目", 400, "TRAIN-002")
         raise AppException("范围内题目不足，无法开始训练", 400, "TRAIN-002")
 
@@ -343,7 +368,7 @@ async def create_session(
             "version_number": dim_config.version_number if dim_config else "default",
             "questions_per_session": questions_per_session,
         },
-        "questions": [_question_payload(q, i) for i, q in enumerate(selected_qs)],
+        "questions": [{**_question_payload(q, i), **({"reason": reasons[q.id]} if q.id in reasons else {})} for i, q in enumerate(selected_qs)],
         "total_questions": len(selected_qs),
         "scope_info": scope_info,
         "tips": {
@@ -581,6 +606,14 @@ async def complete_session(
     session.ended_at = datetime.now(UTC)
     session.is_early_end = total < (session.total_questions or 5)
     await db.commit()
+
+    # 训练结果会改变学习状态：刷新后台「学生管理 → 摘要 → 学习信息摘要」（失败不影响完成训练）
+    try:
+        from app.services import users_service
+        await users_service.regenerate_learning_summary(db, student.id)
+        await db.commit()
+    except Exception as e:
+        logger.warning(f"刷新学习信息摘要失败 student={student.id}: {e}")
 
     # 完成后自动清除关联的中断记录
     interrupt = (

@@ -58,6 +58,7 @@ const dimensions: Array<{
   { key: 'UNIT',            icon: 'book', desc: '以单元为单位，系统贯通知识脉络' },
   { key: 'ERROR_QUESTIONS', icon: 'repeat', desc: '复盘错题，AI 借你的优势帮你攻克薄弱环节' },
   { key: 'FAVORITES',       icon: 'star', desc: '收藏的题目，按单元、知识点分类回顾' },
+  { key: 'SMART',           icon: 'sparkle', desc: '综合五力、错题、收藏和聊天中的困惑，帮你补弱项、固强项' },
   { key: 'RANDOM',          icon: 'dice', desc: '随机抽取当前学期的题目，保持训练广度' },
 ]
 
@@ -119,8 +120,9 @@ async function enterDimension(dim: TrainingDimension) {
     uni.navigateTo({ url: `${PAGES.TRAINING_KNOWLEDGE}?subject=${selectedSubject.value}&mode=${dim === 'UNIT' ? 'unit' : 'point'}` })
     return
   }
-  if (dim === 'RANDOM') {
-    // 随机训练的范围是「当前学期」：学生资料缺年级 / 学期时先弹窗补充，补充完直接开始
+  if (dim === 'RANDOM' || dim === 'SMART') {
+    pendingProfileDim = dim
+    // 随机训练、智能训练的范围都是「当前学期」：学生资料缺年级 / 学期时先弹窗补充，补充完直接开始
     try {
       const o = await knowledgeApi.getOutline(selectedSubject.value!)
       if (o.need_profile) {
@@ -133,11 +135,12 @@ async function enterDimension(dim: TrainingDimension) {
   await doCreateSession(dim)
 }
 
+let pendingProfileDim: TrainingDimension = 'RANDOM'
 const showProfile = ref(false)
 const profileOptions = ref<{ grade: Array<{ code: string; name: string }>; semester: Array<{ code: string; name: string }> }>({ grade: [], semester: [] })
 async function onProfileSaved() {
   showProfile.value = false
-  await doCreateSession('RANDOM')
+  await doCreateSession(pendingProfileDim)
 }
 
 async function doCreateSession(dim: TrainingDimension) {

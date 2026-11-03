@@ -74,6 +74,7 @@ export const TRAINING_DIMENSIONS = [
   'SEMESTER',
   'ERROR_QUESTIONS',
   'FAVORITES',
+  'SMART',
   'RANDOM',
 ] as const
 export type TrainingDimension = (typeof TRAINING_DIMENSIONS)[number]
@@ -84,6 +85,7 @@ export const TRAINING_DIMENSION_LABELS: Record<TrainingDimension, string> = {
   SEMESTER: '按学期',
   ERROR_QUESTIONS: '错题集',
   FAVORITES: '收藏夹',
+  SMART: '智能训练',
   RANDOM: '随机练习',
 }
 

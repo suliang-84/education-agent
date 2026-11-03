@@ -210,3 +210,16 @@ class QuestionFavorite(Base):
     student_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     question_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class StudentLearningSignal(Base):
+    """学生学习信号缓存：AI 助手聊天里提取出的近期困惑知识点与聊天摘要（不存聊天原文）"""
+
+    __tablename__ = "student_learning_signals"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    student_id: Mapped[int] = mapped_column(BigInteger, nullable=False, unique=True)
+    intents: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    chat_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source_message_id: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    refreshed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

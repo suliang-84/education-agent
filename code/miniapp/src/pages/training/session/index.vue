@@ -350,6 +350,8 @@ onUnmounted(() => {
           <text class="type-tag__text">{{ typeMeta.label }}</text>
         </view>
         <view v-else />
+        <!-- 智能训练：推荐理由 -->
+        <view v-if="question?.reason" class="reason-tag"><text>{{ question.reason.label }}</text></view>
         <!-- 收藏：五角星，点击收藏，再点取消收藏 -->
         <view class="fav-btn" @tap="toggleFavorite">
           <SvgIcon :name="isFav ? 'star_fill' : 'star'" :size="44" :color="isFav ? '#F59E0B' : 'muted'" />
@@ -660,6 +662,18 @@ onUnmounted(() => {
     line-height: 28rpx;
     height: 28rpx;
   }
+}
+
+.reason-tag {
+  margin-left: auto;
+  margin-right: $space-2;
+  padding: 6rpx 18rpx;
+  border-radius: $r-pill;
+  background: $primary-light;
+  border: 1rpx solid $primary-border;
+  font-size: $font-size-xs;
+  color: $primary;
+  font-weight: 500;
 }
 
 .fav-btn {

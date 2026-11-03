@@ -6,6 +6,7 @@ import { ICON_COLORS } from '@/styles/theme'
 // 线性图标（24x24, stroke 1.8），用法：<SvgIcon name="target" :size="40" />
 // color 可为命名色 primary / muted / on-primary（随深浅色主题切换），或任意十六进制色
 const ICONS: Record<string, string> = {
+  sparkle: '<path d="M11 3l2 5.4L18.4 10.4 13 12.4 11 17.8 9 12.4 3.6 10.4 9 8.4z"/><path d="M19 15.5l.8 2.1 2.1.8-2.1.8L19 21.3l-.8-2.1-2.1-.8 2.1-.8z"/>',
   star: '<path d="M12 3.2l2.7 5.5 6 .9-4.35 4.25 1.03 6-5.38-2.84-5.38 2.84 1.03-6L3.3 9.6l6-.9z"/>',
   star_fill: '<path d="M12 3.2l2.7 5.5 6 .9-4.35 4.25 1.03 6-5.38-2.84-5.38 2.84 1.03-6L3.3 9.6l6-.9z" fill="__C__"/>',
   target: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
