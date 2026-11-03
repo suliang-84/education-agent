@@ -112,6 +112,7 @@ export const PAGES = {
   AUTH_LOGIN: '/pages/auth/login',
   AUTH_BIND_PHONE: '/pages/auth/bind-phone',
   TRAINING_HOME: '/pages/training/index',
+  TRAINING_KNOWLEDGE: '/pages/training/knowledge',
   TRAINING_SESSION: '/pages/training/session/index',
   TEST_HOME: '/pages/test/index',
   TEST_QUESTIONS: '/pages/test/questions',

@@ -33,7 +33,8 @@ async def get_me(student: Student = Depends(get_current_student)):
     })
 
 
-@router.patch("/me", summary="更新个人信息")
+# 微信小程序的 wx.request 不支持 PATCH 方法，小程序端用 PUT 发送，所以两种方法都接受
+@router.api_route("/me", methods=["PATCH", "PUT"], summary="更新个人信息")
 async def update_me(
     body: UpdateProfileReq,
     student: Student = Depends(get_current_student),

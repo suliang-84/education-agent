@@ -126,7 +126,8 @@ async def get_messages(
     ])
 
 
-@router.patch("/message/{message_id}/rating", summary="消息评分")
+# 小程序端 wx.request 不支持 PATCH，用 PUT 发送，两种方法都接受
+@router.api_route("/message/{message_id}/rating", methods=["PATCH", "PUT"], summary="消息评分")
 async def rate_message(
     message_id: int = Path(...),
     body: RateMessageReq = ...,

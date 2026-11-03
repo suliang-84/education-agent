@@ -33,6 +33,7 @@ export interface TrainingSessionResp {
   dimension_config: { version_number: string; questions_per_session: number }
   questions: TrainingQuestion[]
   total_questions: number
+  scope_info?: { knowledge_point_id?: number; name?: string }   // 按知识点训练：知识点信息（答题页顶部范围标签）
   tips: { focus_power_name: string; hint: string }
 }
 

@@ -101,6 +101,15 @@ async function startTraining(dim: TrainingDimension) {
     checkingInterrupt.value = false
   }
 
+  await enterDimension(dim)
+}
+
+// 按知识点：先去选知识点（选定后才创建训练）；其余维度直接创建训练
+async function enterDimension(dim: TrainingDimension) {
+  if (dim === 'KNOWLEDGE_POINT') {
+    uni.navigateTo({ url: `${PAGES.TRAINING_KNOWLEDGE}?subject=${selectedSubject.value}` })
+    return
+  }
   await doCreateSession(dim)
 }
 
@@ -139,7 +148,7 @@ async function handleStartNew() {
     )
   } catch { /* 忽略 */ }
   interruptRecord.value = null
-  await doCreateSession(pendingDimension.value)
+  await enterDimension(pendingDimension.value)
 }
 
 </script>
@@ -304,12 +313,10 @@ async function handleStartNew() {
     width: 96rpx;
     height: 96rpx;
     border-radius: $r-lg;
-    background: $bg-muted;
+    background: $primary-light;   // 与下方训练方式的图标底色一致（选中态也不变）
     display: flex;
     align-items: center;
     justify-content: center;
-
-    .subject-card--active & { background: $bg-surface; }
   }
 
   &__label {

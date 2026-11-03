@@ -24,7 +24,22 @@ export interface KnowledgePoint {
   chapter_name: string
 }
 
+export interface OutlinePoint { id: number; name: string; question_count: number }
+export interface OutlineChapter { id: number; name: string; points: OutlinePoint[] }
+export interface Outline {
+  need_profile: boolean                                  // 学生资料缺年级 / 学期：需要弹窗补充
+  grade: { code: string; name: string } | null
+  semester: { code: string; name: string } | null
+  grade_options: Array<{ code: string; name: string }>
+  semester_options: Array<{ code: string; name: string }>
+  chapters: OutlineChapter[]                             // 当前年级学期下按单元分组的知识点
+}
+
 export const knowledgeApi = {
+  /** 按知识点训练：当前年级学期的单元与知识点（带可抽题数） */
+  getOutline: (subject_code: string) =>
+    http.get<Outline>('/knowledge/outline', { subject_code }),
+
   /** 获取学科列表 */
   getSubjects: () => http.get<Subject[]>('/knowledge/subjects'),
 

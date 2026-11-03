@@ -137,7 +137,15 @@ export const http = {
   patch<T = unknown>(url: string, data?: unknown, options?: Partial<UniApp.RequestOptions>) {
     return request<T>({ ...options, url, method: 'PUT', data })
   },
-  delete<T = unknown>(url: string, data?: unknown, options?: Partial<UniApp.RequestOptions>) {
-    return request<T>({ ...options, url, method: 'DELETE', data })
+  // DELETE 的参数放在查询字符串里：wx.request 会把 DELETE 的 data 放进请求体，而后端按 Query 参数读取，
+  // 放在请求体里后端收不到（报「subject_code — Field required」）
+  delete<T = unknown>(url: string, data?: Record<string, unknown>, options?: Partial<UniApp.RequestOptions>) {
+    const qs = data
+      ? Object.entries(data)
+          .filter(([, v]) => v !== undefined && v !== null)
+          .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+          .join('&')
+      : ''
+    return request<T>({ ...options, url: qs ? `${url}${url.includes('?') ? '&' : '?'}${qs}` : url, method: 'DELETE' })
   },
 }

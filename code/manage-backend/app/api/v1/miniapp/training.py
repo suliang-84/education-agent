@@ -1,4 +1,5 @@
 """小程序端训练模块 — §5"""
+import random
 import re
 import uuid
 from datetime import UTC, datetime
@@ -20,6 +21,8 @@ from app.models.student import (
 from app.models.training import TrainingAnswerRecord, TrainingDimensionConfig, TrainingSession, TrainingInterrupt
 from app.models.question import Question
 from app.models.knowledge import KnowledgePoint, Chapter, Semester, Subject
+from app.services.question_picker import pick_questions
+from app.services.question_pool import kp_overlap, pool_filters
 from app.services.training_analysis import generate_analysis
 from app.services.training_resume import merge_answers_snapshot, resume_index
 from app.services.answer_judge import (
@@ -95,6 +98,26 @@ async def wrong_summary(
     })
 
 
+async def _recent_question_ids(db: AsyncSession, student_id: int, limit: int) -> list[int]:
+    """该学生最近做过的 limit 道题（去重，按答题时间倒序），抽题时尽量避开"""
+    if limit <= 0:
+        return []
+    rows = (await db.execute(
+        select(TrainingAnswerRecord.question_id)
+        .join(TrainingSession, TrainingSession.id == TrainingAnswerRecord.session_id)
+        .where(TrainingSession.student_id == student_id)
+        .order_by(TrainingAnswerRecord.created_at.desc())
+        .limit(limit * 3)
+    )).scalars().all()
+    out: list[int] = []
+    for qid in rows:
+        if qid not in out:
+            out.append(qid)
+        if len(out) >= limit:
+            break
+    return out
+
+
 @router.post("/session", summary="创建训练会话")
 async def create_session(
     body: CreateSessionReq,
@@ -125,11 +148,8 @@ async def create_session(
 
     questions_per_session = dim_config.questions_per_session if dim_config else 5
 
-    # 选题（简化版：按维度范围随机选题）
-    q_query = select(Question).where(
-        Question.status == "published",
-        Question.deleted_at == None,
-    )
+    # 抽取池：后台「启用」的题目即进入抽取池（与发布状态独立；已归档的不抽）
+    q_query = select(Question.id, Question.question_type, Question.difficulty).where(*pool_filters())
 
     if body.training_dimension == "KNOWLEDGE_POINT" and body.knowledge_point_id:
         q_query = q_query.where(
@@ -139,7 +159,7 @@ async def create_session(
         kps = (await db.execute(
             select(KnowledgePoint.id).where(KnowledgePoint.chapter_id == body.chapter_id)
         )).scalars().all()
-        q_query = q_query.where(Question.knowledge_point_ids.overlap(kps))
+        q_query = q_query.where(kp_overlap(list(kps)))
     elif body.training_dimension == "SEMESTER" and body.semester_id:
         chapters = (await db.execute(
             select(Chapter.id).where(Chapter.semester_id == body.semester_id)
@@ -147,7 +167,7 @@ async def create_session(
         kps = (await db.execute(
             select(KnowledgePoint.id).where(KnowledgePoint.chapter_id.in_(chapters))
         )).scalars().all()
-        q_query = q_query.where(Question.knowledge_point_ids.overlap(kps))
+        q_query = q_query.where(kp_overlap(list(kps)))
     elif body.training_dimension == "ERROR_QUESTIONS":
         # 从错题集选题
         wrong_qids = (await db.execute(
@@ -164,8 +184,23 @@ async def create_session(
             Subject.code == body.subject_code
         )
 
-    q_query = q_query.order_by(func.random()).limit(questions_per_session)
-    selected_qs = (await db.execute(q_query)).scalars().all()
+    pool_rows = (await db.execute(q_query)).all()
+    if body.training_dimension == "ERROR_QUESTIONS":
+        # 错题集：按原有规则随机取，不做题型 / 难度配比
+        ids = [r.id for r in random.sample(pool_rows, min(questions_per_session, len(pool_rows)))]
+    else:
+        # 其余维度：按题型比例 + 难度比例抽题，尽量避开最近做过的题
+        dedup_n = dim_config.dedup_window_size if dim_config else 30
+        recent_ids = await _recent_question_ids(db, student.id, dedup_n)
+        ids = pick_questions(
+            [{"id": r.id, "question_type": r.question_type, "difficulty": r.difficulty} for r in pool_rows],
+            questions_per_session,
+            type_ratio=dim_config.type_ratio if dim_config else None,
+            difficulty_ratio=dim_config.difficulty_ratio if dim_config else None,
+            avoid_ids=recent_ids,
+        )
+    by_id = {q.id: q for q in (await db.execute(select(Question).where(Question.id.in_(ids)))).scalars().all()} if ids else {}
+    selected_qs = [by_id[i] for i in ids if i in by_id]
 
     if len(selected_qs) < 1:
         raise AppException("范围内题目不足，无法开始训练", 400, "TRAIN-002")
@@ -173,6 +208,14 @@ async def create_session(
     # 确定训练模式（基于五力画像）
     training_mode = profile.recommended_mode or "TRAIN_WEAKNESS"
     focus_power = profile.primary_weakness
+
+    scope_info: dict = {}
+    if body.training_dimension == "KNOWLEDGE_POINT" and body.knowledge_point_id:
+        kp = (await db.execute(
+            select(KnowledgePoint).where(KnowledgePoint.id == body.knowledge_point_id)
+        )).scalar_one_or_none()
+        if kp:
+            scope_info = {"knowledge_point_id": kp.id, "name": kp.name}
 
     session_id = str(uuid.uuid4())
     snapshot = {
@@ -222,6 +265,7 @@ async def create_session(
         },
         "questions": [_question_payload(q, i) for i, q in enumerate(selected_qs)],
         "total_questions": len(selected_qs),
+        "scope_info": scope_info,
         "tips": {
             "focus_power_name": focus_power,
             "hint": f"本次重点练习{focus_power}维度",

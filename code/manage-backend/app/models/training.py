@@ -20,6 +20,7 @@ class TrainingDimensionConfig(Base):
     questions_per_session: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=5)
     dedup_window_size: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=30)
     difficulty_ratio: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    type_ratio: Mapped[dict | None] = mapped_column(JSONB, nullable=True)   # 题型抽取比例，NULL=五种题型平均
     wrong_priority: Mapped[str | None] = mapped_column(String(20), nullable=True)
     new_question_mix_ratio: Mapped[Decimal | None] = mapped_column(Numeric(3, 2), nullable=True)
     remove_after_correct: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)

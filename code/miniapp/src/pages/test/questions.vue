@@ -250,9 +250,10 @@ onUnmounted(() => {
       <!-- ── 选项卡片 ─────────────────────────────────────────────── -->
       <view class="options-list">
         <view
-          v-for="opt in currentQuestion.answers"
+          v-for="(opt, oi) in currentQuestion.answers"
           :key="opt.key"
           class="option-card"
+          :style="oi % 2 === 0 ? '--hl-x:0%;--hl-y:50%' : '--hl-x:100%;--hl-y:50%'"
           :class="{
             'option-card--selected': currentAnswer === opt.key,
           }"
@@ -447,11 +448,11 @@ onUnmounted(() => {
   margin: 0 $space-4;
   display: flex;
   flex-direction: column;
-  gap: $space-2;
+  gap: 20rpx;
 }
 
 .option-card {
-  @include glass-panel(false, false);   // 无扫光、无高亮边：默认态只有普通描边，选中态才是主色边框
+  @include glass-panel(false);   // 无扫光；每个选项各自随机的边框云晕（hl），选中态改为主色边框并隐藏云晕
   padding: $space-3 $space-4;
   display: flex;
   align-items: center;
@@ -463,6 +464,7 @@ onUnmounted(() => {
     border-color: $primary;
     background: $primary-light;
     box-shadow: $shadow-md;
+    &::before { display: none !important; }
   }
 
   &:active {
