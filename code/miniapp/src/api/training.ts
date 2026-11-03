@@ -103,6 +103,10 @@ export const trainingApi = {
       cached: boolean
     }>('/training/analysis', data, { timeout: 90000, silent: true } as never),
 
+  /** 退出训练：放弃本次题卷（不保存进度）；失败不影响退出，所以静默 */
+  abandonSession: (session_id: string) =>
+    http.post('/training/abandon', { session_id }, { silent: true } as never),
+
   /** 完成训练会话 */
   completeSession: (session_id: string) =>
     http.post<{

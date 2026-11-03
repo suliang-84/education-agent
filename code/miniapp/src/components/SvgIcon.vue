@@ -6,6 +6,8 @@ import { ICON_COLORS } from '@/styles/theme'
 // 线性图标（24x24, stroke 1.8），用法：<SvgIcon name="target" :size="40" />
 // color 可为命名色 primary / muted / on-primary（随深浅色主题切换），或任意十六进制色
 const ICONS: Record<string, string> = {
+  star: '<path d="M12 3.2l2.7 5.5 6 .9-4.35 4.25 1.03 6-5.38-2.84-5.38 2.84 1.03-6L3.3 9.6l6-.9z"/>',
+  star_fill: '<path d="M12 3.2l2.7 5.5 6 .9-4.35 4.25 1.03 6-5.38-2.84-5.38 2.84 1.03-6L3.3 9.6l6-.9z" fill="__C__"/>',
   target: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
   book: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M20 17v4H6.5A2.5 2.5 0 0 1 4 18.5"/>',
   calendar: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',

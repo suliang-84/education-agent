@@ -3,7 +3,7 @@ import { useTheme } from '@/hooks/useTheme'
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { onReady } from '@dcloudio/uni-app'
 import { useTrainingStore } from '@/store'
-import { trainingApi } from '@/api'
+import { trainingApi, favoriteApi } from '@/api'
 import { PAGES, QUESTION_TYPE_META } from '@/constants'
 import { formatSeconds } from '@/utils'
 import SvgIcon from '@/components/SvgIcon.vue'
@@ -210,34 +210,15 @@ function resetQuestion() {
 
 // ── 退出确认弹窗 ──────────────────────────────────────────────────────────
 const showExitDialog = ref(false)
-const savingInterrupt = ref(false)
 
-async function handleExit() {
+function handleExit() {
   showExitDialog.value = true
 }
 
-async function confirmExit() {
-  if (savingInterrupt.value) return
-  savingInterrupt.value = true
+// 退出不保存训练进度：下次进入同样的训练方式会重新抽题。已提交的答案已经记录（错题集归类不受影响）
+function confirmExit() {
   stopTimer()
-
-  try {
-    await trainingApi.saveInterrupt({
-      session_id: trainingStore.sessionId!,
-      subject_code: trainingStore.subjectCode!,
-      training_dimension: trainingStore.dimension!,
-      scope_info: trainingStore.scopeInfo,
-      scope_label: trainingStore.scopeLabel,
-      questions_snapshot: trainingStore.questions,
-      answers_snapshot: trainingStore.getAnswersSnapshot(),
-      current_question_index: trainingStore.currentIndex,
-    })
-  } catch {
-    // 保存失败不阻断退出
-  } finally {
-    savingInterrupt.value = false
-  }
-
+  if (trainingStore.sessionId) trainingApi.abandonSession(trainingStore.sessionId).catch(() => { /* 退出不受影响 */ })
   showExitDialog.value = false
   trainingStore.reset()
   uni.navigateBack()
@@ -278,7 +259,42 @@ onReady(measureLimit)
 // 换题 / 提交后回到未提交态时，上方内容高度变了，需要重新量
 watch([question, submitted], () => nextTick(() => setTimeout(measureLimit, 50)))
 
+// ── 收藏 ───────────────────────────────────────────────────────────────────
+const favorites = ref<Record<number, boolean>>({})
+const isFav = computed(() => !!(question.value && favorites.value[question.value.question_id]))
+let favBusy = false
+
+async function loadFavorites() {
+  const ids = trainingStore.questions.map((q) => q.question_id)
+  if (!ids.length) return
+  try {
+    const res = await favoriteApi.status(ids)
+    const map: Record<number, boolean> = {}
+    res.favorite_ids.forEach((id) => { map[id] = true })
+    favorites.value = map
+  } catch { /* 取不到就当都没收藏，点星星时再按结果更新 */ }
+}
+
+async function toggleFavorite() {
+  const q = question.value
+  if (!q || favBusy) return
+  favBusy = true
+  const id = q.question_id
+  const willFav = !favorites.value[id]
+  favorites.value = { ...favorites.value, [id]: willFav }   // 先更新图标，失败再回滚
+  try {
+    if (willFav) await favoriteApi.add(id)
+    else await favoriteApi.remove(id)
+    uni.showToast({ title: willFav ? '已收藏' : '已取消收藏', icon: 'none', duration: 1000 })
+  } catch {
+    favorites.value = { ...favorites.value, [id]: !willFav }
+  } finally {
+    favBusy = false
+  }
+}
+
 onMounted(() => {
+  loadFavorites()
   // 从中断记录恢复时，停留的这一题可能已经答过（服务端会把数据库里的真实作答补进快照）：直接显示只读的作答，不能再提交
   if (trainingStore.isAnswered(currentIndex.value)) jumpToQuestion(currentIndex.value)
   else startTimer()
@@ -334,7 +350,10 @@ onUnmounted(() => {
           <text class="type-tag__text">{{ typeMeta.label }}</text>
         </view>
         <view v-else />
-        <text class="question-index">{{ currentIndex + 1 }}/{{ totalQuestions }}</text>
+        <!-- 收藏：五角星，点击收藏，再点取消收藏 -->
+        <view class="fav-btn" @tap="toggleFavorite">
+          <SvgIcon :name="isFav ? 'star_fill' : 'star'" :size="44" :color="isFav ? '#F59E0B' : 'muted'" />
+        </view>
       </view>
 
       <!-- ── 题目正文 ────────────────────────────────────────────── -->
@@ -446,12 +465,10 @@ onUnmounted(() => {
     <view v-if="showExitDialog" class="dialog-mask">
       <view class="dialog">
         <text class="dialog__title">确认退出训练？</text>
-        <text class="dialog__desc">当前训练进度将自动保存，下次可继续</text>
+        <text class="dialog__desc">退出后不会保存本次训练，下次进入将重新抽取题目</text>
         <view class="dialog__btns">
           <button class="dialog-btn dialog-btn--cancel" @tap="cancelExit">继续训练</button>
-          <button class="dialog-btn dialog-btn--confirm" @tap="confirmExit">
-            {{ savingInterrupt ? '保存中...' : '退出并保存' }}
-          </button>
+          <button class="dialog-btn dialog-btn--confirm" @tap="confirmExit">退出</button>
         </view>
       </view>
     </view>
@@ -645,9 +662,12 @@ onUnmounted(() => {
   }
 }
 
-.question-index {
-  font-size: $font-size-sm;
-  color: $text-3;
+.fav-btn {
+  width: 72rpx;
+  height: 56rpx;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
 }
 
 // ── 题目卡 ────────────────────────────────────────────────────────────────

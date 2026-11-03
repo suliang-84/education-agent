@@ -4,12 +4,11 @@ import { ref, computed } from 'vue'
 import { onShow, onHide } from '@dcloudio/uni-app'
 import SvgIcon from '@/components/SvgIcon.vue'
 import GradeSemesterDialog from '@/components/training/GradeSemesterDialog.vue'
-import { trainingApi, knowledgeApi } from '@/api'
+import { trainingApi, knowledgeApi, favoriteApi } from '@/api'
 import { useTrainingStore } from '@/store'
 import {
   PAGES, SUBJECT_LABELS, SUBJECT_ICONS, TRAINING_DIMENSION_LABELS,
 } from '@/constants'
-import type { InterruptRecord } from '@/api/training'
 import type { TrainingDimension } from '@/constants'
 
 
@@ -21,19 +20,15 @@ const selectedSubject = ref<string | null>(null)
 const dimensionsVisible = ref(false)
 const creatingSession = ref(false)
 const wrongCount = ref(0)
+const favCount = ref(0)
 
-// ── 中断恢复弹窗 ────────────────────────────────────────────────────────────
-const interruptRecord = ref<InterruptRecord | null>(null)
-const showResumeDialog = ref(false)
-const pendingDimension = ref<TrainingDimension | null>(null)
-const checkingInterrupt = ref(false)
 
 // ── 进入答题页期间的遮罩 ───────────────────────────────────────────────────
 // 遮罩要从点击一直盖到答题页真正出现：检查中断记录、创建会话、以及 navigateTo 之后答题页加载的那一小段时间。
 // 以前遮罩只在「创建会话」请求期间显示，请求一结束就关掉，而 navigateTo 是异步的、答题页还要加载约 1 秒，
 // 这期间用户会看到个性化训练页「回来了」，然后才切到答题页。
 const navigating = ref(false)
-const busy = computed(() => checkingInterrupt.value || creatingSession.value || navigating.value)
+const busy = computed(() => creatingSession.value || navigating.value)
 let navTimer: ReturnType<typeof setTimeout> | null = null
 
 function goSession() {
@@ -47,7 +42,11 @@ function clearNavigating() {
   if (navTimer) { clearTimeout(navTimer); navTimer = null }
 }
 onHide(clearNavigating)   // 本页被答题页盖住后，遮罩已经完成使命
-onShow(clearNavigating)   // 从答题页返回时，确保遮罩不残留
+onShow(() => {
+  clearNavigating()   // 从答题页返回时，确保遮罩不残留
+  refreshWrongCount() // 返回时刷新待攻克数量
+  refreshFavCount()   // 以及收藏题数（答题页可以收藏 / 取消）
+})
 
 // ── 训练维度配置 ───────────────────────────────────────────────────────────
 const dimensions: Array<{
@@ -58,6 +57,7 @@ const dimensions: Array<{
   { key: 'KNOWLEDGE_POINT', icon: 'target', desc: '精准练习单个知识点，AI 从你擅长的角度引导入门' },
   { key: 'UNIT',            icon: 'book', desc: '以单元为单位，系统贯通知识脉络' },
   { key: 'ERROR_QUESTIONS', icon: 'repeat', desc: '复盘错题，AI 借你的优势帮你攻克薄弱环节' },
+  { key: 'FAVORITES',       icon: 'star', desc: '收藏的题目，按单元、知识点分类回顾' },
   { key: 'RANDOM',          icon: 'dice', desc: '随机抽取当前学期的题目，保持训练广度' },
 ]
 
@@ -71,7 +71,24 @@ const subjects = Object.keys(SUBJECT_LABELS).map((k) => ({
 async function selectSubject(code: string) {
   selectedSubject.value = code
   dimensionsVisible.value = true
-  // 获取该科目错题数
+  await Promise.all([refreshWrongCount(), refreshFavCount()])
+}
+
+// 该科目的收藏题数（当前学期）
+async function refreshFavCount() {
+  const code = selectedSubject.value
+  if (!code) return
+  try {
+    favCount.value = (await favoriteApi.count(code)).count
+  } catch {
+    favCount.value = 0
+  }
+}
+
+// 该科目的待攻克题数。选科目时取一次；训练 / 错题集页返回后也要重新取（答对 / 答错都会改变数量）
+async function refreshWrongCount() {
+  const code = selectedSubject.value
+  if (!code) return
   try {
     const res = await trainingApi.getWrongSummary(code)
     const sub = res.subjects?.find((s) => s.subject_code === code)
@@ -81,31 +98,19 @@ async function selectSubject(code: string) {
   }
 }
 
-// 点击训练维度 → 先检查中断，再创建会话
+// 点击训练维度 → 进入范围选择页，或直接创建训练（退出训练不保存进度，所以不再有「继续上次训练」）
 async function startTraining(dim: TrainingDimension) {
-  if (creatingSession.value || checkingInterrupt.value) return
+  if (creatingSession.value) return
   if (!selectedSubject.value) return
-
-  checkingInterrupt.value = true
-  try {
-    const res = await trainingApi.getInterrupt(selectedSubject.value, dim)
-    if (res.has_interrupt && res.interrupt) {
-      interruptRecord.value = res.interrupt
-      pendingDimension.value = dim
-      showResumeDialog.value = true
-      return
-    }
-  } catch {
-    // 查询失败不阻断正常流程
-  } finally {
-    checkingInterrupt.value = false
-  }
-
   await enterDimension(dim)
 }
 
 // 按知识点 / 按单元 / 错题集：先去选范围（选定后才创建训练）；其余维度直接创建训练
 async function enterDimension(dim: TrainingDimension) {
+  if (dim === 'FAVORITES') {
+    uni.navigateTo({ url: `${PAGES.FAVORITES}?subject=${selectedSubject.value}` })
+    return
+  }
   if (dim === 'ERROR_QUESTIONS') {
     uni.navigateTo({ url: `${PAGES.WRONG_ANSWERS}?subject=${selectedSubject.value}` })
     return
@@ -150,27 +155,6 @@ async function doCreateSession(dim: TrainingDimension) {
   } finally {
     creatingSession.value = false
   }
-}
-
-async function handleResume() {
-  showResumeDialog.value = false
-  if (!interruptRecord.value) return
-  trainingStore.restoreFromInterrupt(interruptRecord.value)
-  goSession()
-}
-
-async function handleStartNew() {
-  showResumeDialog.value = false
-  if (!interruptRecord.value || !pendingDimension.value) return
-  // 删除旧中断记录
-  try {
-    await trainingApi.deleteInterrupt(
-      interruptRecord.value.subject_code,
-      interruptRecord.value.training_dimension
-    )
-  } catch { /* 忽略 */ }
-  interruptRecord.value = null
-  await enterDimension(pendingDimension.value)
 }
 
 </script>
@@ -221,6 +205,9 @@ async function handleStartNew() {
             <view class="dim-card__name-row">
               <text class="dim-card__name">{{ TRAINING_DIMENSION_LABELS[dim.key] }}</text>
               <!-- 错题数徽标 -->
+              <view v-if="dim.key === 'FAVORITES' && favCount > 0" class="badge badge--fav">
+                <text class="badge__text">{{ favCount }}题收藏</text>
+              </view>
               <view v-if="dim.key === 'ERROR_QUESTIONS' && wrongCount > 0" class="badge">
                 <text class="badge__text">{{ wrongCount }}题待攻克</text>
               </view>
@@ -249,24 +236,6 @@ async function handleStartNew() {
       @saved="onProfileSaved"
       @cancel="showProfile = false"
     />
-
-    <!-- 中断恢复弹窗 -->
-    <view v-if="showResumeDialog" class="resume-mask">
-      <view class="resume-dialog">
-        <text class="resume-dialog__title">检测到未完成的训练</text>
-        <text class="resume-dialog__desc">
-          {{ interruptRecord?.scope_label || '上次训练' }} · 已完成
-          {{ interruptRecord?.answers_snapshot.length }}/{{ interruptRecord?.total_questions }} 题
-        </text>
-        <text class="resume-dialog__time">
-          中断于 {{ interruptRecord?.interrupted_at ? new Date(interruptRecord.interrupted_at).toLocaleDateString('zh-CN') : '' }}
-        </text>
-        <view class="resume-dialog__btns">
-          <button class="resume-btn resume-btn--new" @tap="handleStartNew">放弃，重新开始</button>
-          <button class="resume-btn resume-btn--resume" @tap="handleResume">继续上次训练</button>
-        </view>
-      </view>
-    </view>
   </view>
 </template>
 
@@ -451,6 +420,11 @@ async function handleStartNew() {
     color: $danger;
     font-weight: 600;
   }
+
+  &--fav {
+    background: $primary-light;
+    .badge__text { color: $primary; }
+  }
 }
 
 // ── 创建遮罩 ────────────────────────────────────────────────────────────────
@@ -491,77 +465,5 @@ async function handleStartNew() {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
-}
-
-// ── 中断恢复弹窗 ──────────────────────────────────────────────────────────────
-.resume-mask {
-  position: fixed;
-  inset: 0;
-  background: $mask;
-  backdrop-filter: blur(6px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: $space-6;
-}
-
-.resume-dialog {
-  background: $bg-surface;
-  border-radius: $r-xl;
-  padding: $space-5;
-  width: 100%;
-  border: 1rpx solid $border;
-  box-shadow: $shadow-md;
-  display: flex;
-  flex-direction: column;
-  gap: $space-3;
-
-  &__title {
-    font-size: $font-size-lg;
-    color: $text-1;
-    font-weight: 700;
-    text-align: center;
-  }
-
-  &__desc {
-    font-size: $font-size-base;
-    color: $text-2;
-    text-align: center;
-  }
-
-  &__time {
-    font-size: $font-size-xs;
-    color: $text-3;
-    text-align: center;
-  }
-
-  &__btns {
-    display: flex;
-    flex-direction: column;
-    gap: $space-2;
-    margin-top: $space-2;
-  }
-}
-
-.resume-btn {
-  height: 88rpx;
-  border-radius: $r-pill;
-  font-size: $font-size-base;
-  font-weight: 600;
-  border: none;
-
-  &::after { border: none; }
-
-  &--new {
-    background: $bg-muted;
-    color: $text-2;
-  }
-
-  &--resume {
-    background: $cta-gradient;
-    color: $on-primary;
-    box-shadow: $shadow-cta;
-  }
 }
 </style>

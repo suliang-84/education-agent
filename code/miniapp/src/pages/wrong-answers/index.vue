@@ -59,6 +59,8 @@ async function load() {
   loadFailed.value = false
   try {
     outline.value = await wrongAnswerApi.getOutline(subject.value)
+    // 已攻克为 0 时默认不展开（用户手动展开过的不受影响）
+    if (outline.value.mastered.count === 0 && closed.value.mastered === undefined) closed.value = { ...closed.value, mastered: true }
     if (outline.value.need_profile) openProfile(true)
   } catch {
     loadFailed.value = true
@@ -67,7 +69,10 @@ async function load() {
   }
 }
 async function refresh() {
-  try { outline.value = await wrongAnswerApi.getOutline(subject.value) } catch { /* 静默：保留旧数据 */ }
+  try {
+    outline.value = await wrongAnswerApi.getOutline(subject.value)
+    if (outline.value.mastered.count === 0 && closed.value.mastered === undefined) closed.value = { ...closed.value, mastered: true }
+  } catch { /* 静默：保留旧数据 */ }
 }
 function switchSubject(code: string) {
   if (code === subject.value) return

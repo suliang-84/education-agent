@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from fastapi import APIRouter, Depends, Query
 from loguru import logger
 from pydantic import BaseModel
-from sqlalchemy import select, func
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -35,7 +35,7 @@ router = APIRouter()
 
 
 class CreateSessionReq(BaseModel):
-    training_dimension: str  # KNOWLEDGE_POINT / UNIT / SEMESTER / ERROR_QUESTIONS / RANDOM
+    training_dimension: str  # KNOWLEDGE_POINT / UNIT / SEMESTER / ERROR_QUESTIONS / RANDOM / FAVORITES
     knowledge_point_id: int | None = None
     chapter_id: int | None = None
     semester_id: int | None = None
@@ -116,6 +116,33 @@ async def _recent_question_ids(db: AsyncSession, student_id: int, limit: int) ->
     return out
 
 
+async def _abandon_active_sessions(db: AsyncSession, student_id: int, session_id: str | None = None) -> int:
+    """把学生进行中的训练会话标记为已放弃；传 session_id 只处理这一个。已提交的答案不受影响"""
+    q = update(TrainingSession).where(
+        TrainingSession.student_id == student_id,
+        TrainingSession.session_status == "active",
+    )
+    if session_id:
+        q = q.where(TrainingSession.id == session_id)
+    result = await db.execute(q.values(session_status="abandoned", ended_at=datetime.now(UTC)))
+    return result.rowcount or 0
+
+
+class AbandonReq(BaseModel):
+    session_id: str
+
+
+@router.post("/abandon", summary="退出训练（放弃本次题卷，不保存进度）")
+async def abandon_session(
+    body: AbandonReq,
+    student: Student = Depends(get_current_student),
+    db: AsyncSession = Depends(get_db),
+):
+    n = await _abandon_active_sessions(db, student.id, body.session_id)
+    await db.commit()
+    return ok_response({"session_id": body.session_id, "abandoned": n > 0}, "已退出训练")
+
+
 @router.post("/session", summary="创建训练会话")
 async def create_session(
     body: CreateSessionReq,
@@ -176,6 +203,21 @@ async def create_session(
             .where(Chapter.semester_id == semester_id)
         )).scalars().all() if semester_id else []
         q_query = q_query.where(kp_overlap(list(kps)))
+    elif body.training_dimension == "FAVORITES":
+        # 收藏夹训练：从当前学期收藏的题里抽；可按单元 / 知识点进一步限定
+        if not student.grade or not student.semester:
+            raise AppException("请先补充年级和学期", 400, "TRAIN-004")
+        chapters, kps_all = await wrong_scope.semester_structure(db, student, body.subject_code)
+        if body.knowledge_point_id:
+            scope_kps = [k[0] for k in kps_all if k[0] == body.knowledge_point_id]
+        elif body.chapter_id:
+            scope_kps = [k[0] for k in kps_all if k[2] == body.chapter_id]
+        else:
+            scope_kps = [k[0] for k in kps_all]
+        fav_ids = [q[0] for q in await wrong_scope.favorite_questions(db, student.id, body.subject_code)]
+        if not scope_kps or not fav_ids:
+            raise AppException("暂无收藏题目", 400, "TRAIN-005")
+        q_query = q_query.where(Question.id.in_(fav_ids), kp_overlap(scope_kps))
     elif body.training_dimension == "ERROR_QUESTIONS":
         # 错题集训练：从当前学期的「待攻克 / 已攻克」题里抽；可按单元 / 知识点进一步限定
         if not student.grade or not student.semester:
@@ -231,6 +273,15 @@ async def create_session(
         ch = (await db.execute(select(Chapter).where(Chapter.id == body.chapter_id))).scalar_one_or_none()
         if ch:
             scope_info = {"chapter_id": ch.id, "name": ch.name}
+    elif body.training_dimension == "FAVORITES":
+        name = "收藏夹"
+        if body.knowledge_point_id:
+            kp = (await db.execute(select(KnowledgePoint).where(KnowledgePoint.id == body.knowledge_point_id))).scalar_one_or_none()
+            name = f"收藏夹 · {kp.name}" if kp else name
+        elif body.chapter_id:
+            ch = (await db.execute(select(Chapter).where(Chapter.id == body.chapter_id))).scalar_one_or_none()
+            name = f"收藏夹 · {ch.name}" if ch else name
+        scope_info = {"chapter_id": body.chapter_id, "knowledge_point_id": body.knowledge_point_id, "name": name}
     elif body.training_dimension == "ERROR_QUESTIONS":
         label = "已攻克" if body.wrong_status == "mastered" else "待攻克"
         name = label
@@ -257,6 +308,9 @@ async def create_session(
         "primary_weakness": profile.primary_weakness,
         "preferred_force": profile.preferred_force,
     }
+
+    # 该学生之前没结束的训练一律记为已放弃（退出训练不再保存进度，遗留的进行中会话不会再被恢复）
+    await _abandon_active_sessions(db, student.id)
 
     session = TrainingSession(
         id=session_id,

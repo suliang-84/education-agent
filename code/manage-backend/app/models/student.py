@@ -199,3 +199,14 @@ class StudentKpStat(Base, TimestampMixin):
     last_practiced_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+
+
+class QuestionFavorite(Base):
+    """题目收藏（同一学生同一道题只有一条）"""
+
+    __tablename__ = "question_favorites"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    student_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    question_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

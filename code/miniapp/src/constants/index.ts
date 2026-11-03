@@ -73,6 +73,7 @@ export const TRAINING_DIMENSIONS = [
   'UNIT',
   'SEMESTER',
   'ERROR_QUESTIONS',
+  'FAVORITES',
   'RANDOM',
 ] as const
 export type TrainingDimension = (typeof TRAINING_DIMENSIONS)[number]
@@ -82,6 +83,7 @@ export const TRAINING_DIMENSION_LABELS: Record<TrainingDimension, string> = {
   UNIT: '按单元',
   SEMESTER: '按学期',
   ERROR_QUESTIONS: '错题集',
+  FAVORITES: '收藏夹',
   RANDOM: '随机练习',
 }
 
@@ -121,6 +123,7 @@ export const PAGES = {
   ASSISTANT_CHAT: '/pages/assistant/chat',
   PROFILE_HOME: '/pages/profile/index',
   WRONG_ANSWERS: '/pages/wrong-answers/index',
+  FAVORITES: '/pages/favorites/index',
 } as const
 
 // ── 科目 ─────────────────────────────────────────────────────────────────

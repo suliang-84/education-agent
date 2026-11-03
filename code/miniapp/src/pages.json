@@ -12,6 +12,7 @@
     { "path": "pages/assistant/history",   "style": { "navigationBarTitleText": "历史对话" } },
     { "path": "pages/assistant/chat",      "style": { "navigationBarTitleText": "对话", "navigationStyle": "custom" } },
     { "path": "pages/profile/index",       "style": { "navigationBarTitleText": "我的五力" } },
+    { "path": "pages/favorites/index", "style": { "navigationBarTitleText": "收藏夹" } },
     { "path": "pages/wrong-answers/index", "style": { "navigationBarTitleText": "错题集" } }
   ],
   "tabBar": {
