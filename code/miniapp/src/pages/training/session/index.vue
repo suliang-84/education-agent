@@ -340,18 +340,20 @@ onUnmounted(() => {
     <template v-else>
       <!-- ── 题目元信息 ────────────────────────────────────────── -->
       <view class="question-meta">
-        <!-- 题目类型标签：图标 + 文字，同色淡底 + 描边（与后台「题目类型」列一致） -->
-        <view
-          v-if="typeMeta"
-          class="type-tag"
-          :style="{ color: typeColor, background: typeColor + '1F', borderColor: typeColor + '47' }"
-        >
-          <view class="type-tag__icon"><SvgIcon :name="typeMeta.icon" :size="28" :color="typeColor" /></view>
-          <text class="type-tag__text">{{ typeMeta.label }}</text>
+        <!-- 左侧：题目类型标签 + 智能训练的推荐理由（两者相距 10px、高度一致） -->
+        <view class="meta-left">
+          <!-- 题目类型标签：图标 + 文字，同色淡底 + 描边（与后台「题目类型」列一致） -->
+          <view
+            v-if="typeMeta"
+            class="type-tag"
+            :style="{ color: typeColor, background: typeColor + '1F', borderColor: typeColor + '47' }"
+          >
+            <view class="type-tag__icon"><SvgIcon :name="typeMeta.icon" :size="28" :color="typeColor" /></view>
+            <text class="type-tag__text">{{ typeMeta.label }}</text>
+          </view>
+          <!-- 智能训练：推荐理由 -->
+          <view v-if="question?.reason" class="reason-tag"><text class="reason-tag__text">{{ question.reason.label }}</text></view>
         </view>
-        <view v-else />
-        <!-- 智能训练：推荐理由 -->
-        <view v-if="question?.reason" class="reason-tag"><text>{{ question.reason.label }}</text></view>
         <!-- 收藏：五角星，点击收藏，再点取消收藏 -->
         <view class="fav-btn" @tap="toggleFavorite">
           <SvgIcon :name="isFav ? 'star_fill' : 'star'" :size="44" :color="isFav ? '#F59E0B' : 'muted'" />
@@ -664,16 +666,28 @@ onUnmounted(() => {
   }
 }
 
+.meta-left {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;   // 题目类型标签与推荐理由标签相距 10px
+}
+
+// 推荐理由标签：与题目类型标签同高（上下内边距 + 28rpx 的行高 + 1rpx 描边）
 .reason-tag {
-  margin-left: auto;
-  margin-right: $space-2;
-  padding: 6rpx 18rpx;
+  display: inline-flex;
+  align-items: center;
+  padding: 10rpx 22rpx;
   border-radius: $r-pill;
-  background: $primary-light;
   border: 1rpx solid $primary-border;
-  font-size: $font-size-xs;
-  color: $primary;
-  font-weight: 500;
+  background: $primary-light;
+
+  &__text {
+    font-size: $font-size-xs;
+    font-weight: 500;
+    line-height: 28rpx;
+    height: 28rpx;
+    color: $primary;
+  }
 }
 
 .fav-btn {
