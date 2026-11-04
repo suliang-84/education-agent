@@ -75,7 +75,7 @@
             <span class="nav-item__icon">
               <SvgIcon name="config" :size="16" />
             </span>
-            <span class="nav-item__label">训练配置</span>
+            <span class="nav-item__label">配置管理</span>
           </router-link>
         </div>
       </nav>

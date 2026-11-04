@@ -121,7 +121,7 @@ const router = createRouter({
           path: 'training-config',
           name: 'TrainingConfig',
           component: () => import('@/views/training-config/TrainingConfigView.vue'),
-          meta: { title: '训练配置' },
+          meta: { title: '配置管理' },
         },
         {
           path: 'students/:id',

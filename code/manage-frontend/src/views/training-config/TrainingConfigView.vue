@@ -8,9 +8,11 @@
           <SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />{{ f.label }}
         </span>
         <div class="hd-actions">
-          <el-button v-if="f.smart" size="small" title="只恢复页面上的数值，点「保存」后才生效" @click="resetSmart(f)">恢复算法默认值</el-button>
-          <el-button size="small" :loading="f.saving" @click="saveDimension(f)">
-            <SvgIcon v-if="!f.saving" name="save" :size="14" style="margin-right:4px" />保存
+          <el-button v-if="f.smart" size="small" text title="只恢复页面上的数值，点「保存」后才生效" style="color:var(--color-primary)" @click="resetSmart(f)">
+            <SvgIcon name="reset_default" :size="16" color="var(--color-primary)" style="margin-right:4px" />恢复算法默认值
+          </el-button>
+          <el-button size="small" text :loading="f.saving" style="color:var(--color-primary)" @click="saveDimension(f)">
+            <SvgIcon v-if="!f.saving" name="save" :size="16" color="var(--color-primary)" style="margin-right:4px" />保存
           </el-button>
         </div>
       </div>
@@ -132,8 +134,8 @@
         <span class="section-title">
           <SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />题目分析（大模型）
         </span>
-        <el-button size="small" :loading="analysisSaving" @click="saveAnalysis">
-          <SvgIcon v-if="!analysisSaving" name="save" :size="14" style="margin-right:4px" />保存
+        <el-button size="small" text :loading="analysisSaving" style="color:var(--color-primary)" @click="saveAnalysis">
+          <SvgIcon v-if="!analysisSaving" name="save" :size="16" color="var(--color-primary)" style="margin-right:4px" />保存
         </el-button>
       </div>
       <el-form label-width="150px" class="cfg-form" @submit.prevent>
