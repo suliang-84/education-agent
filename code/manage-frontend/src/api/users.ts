@@ -13,7 +13,7 @@
 import request from './request'
 import type {
   Student, StudentDetail, Parent, AdminUser, AuditLog,
-  StudentKpStat, StudentAiPromptSummary, PromptInsightEntry,
+  StudentKpStat, StudentAiPromptSummary,
   PaginatedResponse,
 } from '@/types'
 
@@ -103,26 +103,6 @@ export const studentApi = {
       `/students/${studentId}/ai-prompt-summary`,
       data
     ),
-
-  /**
-   * 管理员手动新增洞察条目
-   * POST /api/v1/admin/students/{student_id}/prompt-insights
-   * 接口文档：§9.8.13
-   */
-  addInsightEntry: (studentId: number, data: {
-    content: string
-    insight_type?: 'interest' | 'mood' | 'life_event' | 'analogy_pref' | 'family' | 'learning_attitude' | 'other'
-    is_sensitive?: boolean
-  }) =>
-    request.post<unknown, { insight_id: number; created_at: string }>(`/students/${studentId}/prompt-insights`, data),
-
-  /**
-   * 获取洞察条目历史记录
-   * GET /api/v1/admin/students/{student_id}/prompt-insights
-   * （本地扩展，配合 getAiPromptSummary 使用）
-   */
-  getInsightEntries: (studentId: number) =>
-    request.get<unknown, PromptInsightEntry[]>(`/students/${studentId}/prompt-insights`),
 
   /**
    * 重新生成学习信息摘要（异步任务，约10秒）

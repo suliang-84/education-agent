@@ -11,7 +11,6 @@ from app.schemas.users import (
     UnbindStudentReq,
     CreateAdminReq,
     SetAdminStatusReq,
-    AddInsightEntryReq,
     UpdatePersonalInsightReq,
 )
 from app.services import audit_service, users_service
@@ -126,43 +125,6 @@ async def update_ai_prompt_summary(
                             target_type="student_ai_prompt_summaries", target_id=str(student_id))
     await db.commit()
     return ok_response(result, "个人洞察摘要已更新")
-
-
-@router.post("/students/{student_id}/prompt-insights", summary="新增洞察条目")
-async def add_insight_entry(
-    student_id: int,
-    body: AddInsightEntryReq,
-    db: AsyncSession = Depends(get_db),
-    current_admin: AdminUser = Depends(get_current_admin),
-):
-    entry = await users_service.add_insight_entry(db, student_id, body, current_admin.id)
-    await audit_service.log(db, current_admin.id, "ADD_INSIGHT_ENTRY",
-                            target_type="student_prompt_insights", target_id=str(entry.id))
-    await db.commit()
-    return ok_response({"insight_id": entry.id, "created_at": entry.created_at}, "洞察条目已添加")
-
-
-@router.get("/students/{student_id}/prompt-insights", summary="获取洞察条目列表")
-async def get_insight_entries(
-    student_id: int,
-    only_active: bool = Query(True),
-    db: AsyncSession = Depends(get_db),
-    _: AdminUser = Depends(get_current_admin),
-):
-    entries = await users_service.get_insight_entries(db, student_id, only_active=only_active)
-    return ok_response([
-        {
-            "id": e.id,
-            "content": e.content,
-            "insight_type": e.insight_type,
-            "source": e.source,
-            "is_sensitive": e.is_sensitive,
-            "weight": float(e.weight),
-            "is_active": e.is_active,
-            "created_at": e.created_at,
-        }
-        for e in entries
-    ])
 
 
 @router.post("/students/{student_id}/ai-prompt-summary/regenerate", summary="重新生成学习信息摘要")

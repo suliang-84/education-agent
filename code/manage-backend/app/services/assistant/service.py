@@ -20,7 +20,7 @@ from app.models.ai import (
 )
 from app.models.knowledge import KnowledgePoint
 from app.models.student import FivePowerProfile, Student, StudentLearningSignal
-from app.services.assistant import core
+from app.services.assistant import core, insights
 
 UPLOAD_ROOT = Path(__file__).resolve().parents[3] / "uploads"
 
@@ -160,7 +160,7 @@ async def _state_text(db: AsyncSession, student: Student) -> tuple[str, str, str
     summ = (await db.execute(select(StudentAiPromptSummary).where(StudentAiPromptSummary.student_id == student.id))).scalar_one_or_none()
     insight = (summ.personal_insight or "").strip() if summ else ""
     prof = (await db.execute(select(FivePowerProfile).where(FivePowerProfile.student_id == student.id, FivePowerProfile.is_latest == True))).scalar_one_or_none()  # noqa: E712
-    return state[:900], insight[:300], (prof.primary_weakness if prof else None)
+    return state[:900], insight[:insights.MAX_CHARS], (prof.primary_weakness if prof else None)
 
 
 async def _recent_strategies(db: AsyncSession, session_id: str, limit: int = 4) -> list[str]:
@@ -454,10 +454,34 @@ async def summarize_in_background(session_id: str, student_id: int) -> None:
             s.summary_message_id = rows[-1].id
             await _log_tokens(db, student_id, session_id, res)
             await db.commit()
+            await _extract_insights(db, student_id, session_id, rows)
         from app.services.smart_training import intents
         await intents.refresh_in_background(student_id)   # 摘要更新后同步更新聊天困惑信号和后台学生摘要
     except Exception as e:
         logger.warning(f"生成对话摘要失败 session={session_id}: {e}")
+
+
+async def _extract_insights(db: AsyncSession, student_id: int, session_id: str, rows: list[AiChatMessage]) -> None:
+    """用学生最近说的话更新「个人洞察」：一段总结概括的文字（不是条目），已有内容（含管理员手写的）要保留。
+    只存概括后的文字，不存聊天原文；失败不影响其它流程。"""
+    said = [m.content.strip()[:200] for m in rows if m.role == "student" and m.content.strip()]
+    if not said:
+        return
+    try:
+        summ = (await db.execute(select(StudentAiPromptSummary).where(StudentAiPromptSummary.student_id == student_id))).scalar_one_or_none()
+        old = (summ.personal_insight or "").strip() if summ else ""
+        res = await _llm([{"role": "system", "content": insights.INSIGHT_PROMPT},
+                          {"role": "user", "content": f"【已有的个人洞察】\n{old or '（暂无）'}\n\n【学生最近说的话】\n" + "\n".join(f"- {t}" for t in said[-20:])}],
+                         max_tokens=800, temperature=0.2)
+        await _log_tokens(db, student_id, session_id, res)
+        new = insights.clean_paragraph(res["text"])
+        if insights.accept_update(old, new):
+            await insights.apply_update(db, student_id, new, source="AI")
+            logger.info(f"AI 更新了个人洞察 student={student_id}")
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        logger.warning(f"更新个人洞察失败 student={student_id}: {e}")
 
 
 # ── 快捷建议问题 ─────────────────────────────────────────────────────────────

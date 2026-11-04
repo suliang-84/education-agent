@@ -156,7 +156,11 @@ def build_system_prompt(strategy: dict | None, state_text: str, insight: str, si
     if state_text:
         parts.append("【这位同学的学习情况】\n" + state_text)
     if insight:
-        parts.append("【老师 / 系统记录的个人特点】\n" + insight)
+        parts.append(
+            "【老师 / 系统记录的个人特点】\n" + insight
+            + "\n（用这些信息让讲解更贴合他：比如用他感兴趣的事物做类比、按他的状态调整语气。"
+              "标有「【敏感】」的内容只用来调整你的语气和节奏，不要直接向学生提起，也不要复述。）"
+        )
     if nickname:
         parts.append(f"学生昵称：{nickname}（偶尔称呼即可，不要每句都叫）")
     return "\n\n".join(parts)

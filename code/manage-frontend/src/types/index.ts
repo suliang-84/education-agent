@@ -296,13 +296,6 @@ export interface StudentAiPromptSummary {
 }
 
 // 个人洞察历史条目
-export interface PromptInsightEntry {
-  id: number
-  content: string
-  source: 'AI' | 'ADMIN'        // AI提取 或 管理员手动补充
-  created_at: string
-}
-
 // 审计日志
 export interface AuditLog {
   id: number

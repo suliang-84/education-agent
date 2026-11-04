@@ -1,5 +1,5 @@
 <template>
-  <div class="page-root" v-loading="loading">
+  <div class="page-root ai-prompt" v-loading="loading">
     <div class="form-topbar">
       <el-button size="small" class="btn-back" @click="$router.push('/students')">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="margin-right:4px">
@@ -21,14 +21,14 @@
     <div>
 
       <!-- 📚 学习信息摘要（只读） -->
-      <div class="surface section-block">
+      <div class="surface section-block learning-block">
         <div class="section-hd">
           <div class="block-hd__left">
             <span class="section-title"><SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />学习信息摘要</span>
           </div>
           <span class="block-note">训练会话结束后、五力测试完成后异步更新</span>
         </div>
-        <div class="summary-text readonly-text" v-if="summary">{{ summary.learning_summary }}</div>
+        <div class="summary-text readonly-text learning-text" v-if="summary">{{ summary.learning_summary }}</div>
         <div class="empty-tip" v-else>暂无学习信息摘要</div>
       </div>
 
@@ -44,19 +44,9 @@
           v-model="editableInsight"
           type="textarea"
           :rows="6"
-          placeholder="AI 从对话中自动提取并更新，管理员也可手动补充或修正..."
+          placeholder="一段概括这位学生特点的文字：兴趣爱好、学习 / 类比偏好、近期状态等。AI 助教聊天累积后会自动更新这段文字，你也可以直接修改，修改后点右上角「保存」；助教聊天时会参考它..."
           style="margin-top:8px"
         />
-        <el-button
-          size="small"
-          style="margin-top:10px"
-          @click="showAddInsight = true"
-        >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
-          </svg>
-          手动补充信息
-        </el-button>
       </div>
 
       <!-- 🔗 完整 Prompt 预览 -->
@@ -73,47 +63,7 @@
         <div v-else-if="!promptExpanded" class="prompt-collapsed">点击「展开查看」查看合并后的完整 Prompt 文本（只读）</div>
       </div>
 
-      <!-- 📋 洞察条目历史记录 -->
-      <div class="surface section-block">
-        <div class="section-hd">
-          <div class="block-hd__left">
-            <span class="section-title"><SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />洞察条目历史记录</span>
-          </div>
-        </div>
-        <div class="insight-list">
-          <div v-for="entry in insightEntries" :key="entry.id" class="insight-entry">
-            <div class="insight-entry__meta">
-              <span class="insight-date">{{ formatDate(entry.created_at) }}</span>
-              <span class="insight-source" :class="entry.source === 'AI' ? 'source--ai' : 'source--admin'">
-                {{ entry.source === 'AI' ? 'AI提取' : '管理员' }}
-              </span>
-            </div>
-            <div class="insight-entry__content">{{ entry.content }}</div>
-          </div>
-          <div class="empty-tip" v-if="insightEntries.length === 0">暂无洞察记录</div>
-        </div>
-      </div>
-
     </div>
-
-    <!-- 手动补充洞察弹窗 -->
-    <el-dialog v-model="showAddInsight" title="手动补充洞察信息" width="480px" :close-on-click-modal="false">
-      <div style="font-size:13.5px;color:var(--text-2);margin-bottom:14px;line-height:1.6">
-        新增一条洞察条目，来源将标记为「管理员」，写入历史记录并纳入个人洞察摘要。
-      </div>
-      <el-input
-        v-model="newInsightContent"
-        type="textarea"
-        :rows="4"
-        placeholder="如：学生提到近期有升学压力，建议AI助教适度减少学业强度，多给正向鼓励..."
-      />
-      <template #footer>
-        <el-button @click="showAddInsight = false">取消</el-button>
-        <el-button type="primary" :disabled="!newInsightContent.trim()" :loading="addingInsight" @click="handleAddInsight">
-          确认补充
-        </el-button>
-      </template>
-    </el-dialog>
 
   </div>
 </template>
@@ -123,36 +73,29 @@ import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { studentApi } from '@/api'
-import type { StudentDetail, StudentAiPromptSummary, PromptInsightEntry } from '@/types'
-import { formatDate } from '@/utils/format'
+import type { StudentDetail, StudentAiPromptSummary } from '@/types'
 
 const route = useRoute()
 
 const loading      = ref(false)
 const saving       = ref(false)
 const regenerating = ref(false)
-const addingInsight = ref(false)
 
 const student        = ref<StudentDetail | null>(null)
 const summary        = ref<StudentAiPromptSummary | null>(null)
-const insightEntries = ref<PromptInsightEntry[]>([])
 
 const editableInsight  = ref('')
 const promptExpanded   = ref(false)
-const showAddInsight   = ref(false)
-const newInsightContent = ref('')
 
 async function loadAll() {
   loading.value = true
   try {
-    const [s, sum, entries] = await Promise.all([
+    const [s, sum] = await Promise.all([
       studentApi.getOne(Number(route.params.id)),
       studentApi.getAiPromptSummary(Number(route.params.id)),
-      studentApi.getInsightEntries(Number(route.params.id)),
     ])
     student.value        = s
     summary.value        = sum
-    insightEntries.value = entries
     editableInsight.value = sum.personal_insight
   } finally { loading.value = false }
 }
@@ -181,21 +124,6 @@ async function handleRegenerate() {
     await loadSummary()
     ElMessage.success('学习信息摘要已重新生成')
   } finally { regenerating.value = false }
-}
-
-async function handleAddInsight() {
-  if (!newInsightContent.value.trim()) return
-  addingInsight.value = true
-  try {
-    await studentApi.addInsightEntry(Number(route.params.id), {
-      content: newInsightContent.value.trim(),
-      insight_type: 'other',
-    })
-    insightEntries.value = await studentApi.getInsightEntries(Number(route.params.id))
-    showAddInsight.value = false
-    newInsightContent.value = ''
-    ElMessage.success('洞察条目已补充')
-  } finally { addingInsight.value = false }
 }
 
 onMounted(loadAll)
@@ -271,6 +199,16 @@ onMounted(loadAll)
   }
 }
 
+// 学习信息摘要：文档式排版，同「训练题管理 → 详情」页的「题目内容」子模块——文字直接排在子模块上，不加灰底文字框
+.learning-text {
+  font-size: 15px;
+  line-height: 1.85;
+  background: transparent;
+  padding: 4px 0 10px;
+
+  [data-theme="dark"] & { background: transparent; }
+}
+
 .empty-tip {
   font-size: 13px;
   color: var(--text-3);
@@ -303,54 +241,22 @@ onMounted(loadAll)
 
   [data-theme="dark"] & { background: #282b31; }
 }
+</style>
 
-// ── 洞察条目历史 ─────────────────────────────────────────────
-.insight-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
+<style>
+/* 学习信息摘要子模块的云晕：同训练题详情页「题目内容」子模块（左上 + 右下两团，固定大小的椭圆）。
+   不加 scoped：选择器要从 html / .content-area 开头，才压得过 style.scss 里的全局玻璃面板规则。
+   注意渐变尺寸里不能用 min() / max()（浏览器会判整条 background 无效，云晕不显示）。 */
+html[data-theme="dark"] .content-area .page-root.ai-prompt .section-block.learning-block {
+  background:
+    radial-gradient(ellipse 480px 260px at 6% -6%, rgba(94, 141, 249, 0.22), transparent 72%),
+    radial-gradient(ellipse 480px 260px at 104% 106%, rgba(124, 112, 255, 0.15), transparent 72%),
+    rgba(14, 17, 22, 0.60) !important;
 }
-
-.insight-entry {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--border);
-
-  &:last-child { border-bottom: none; }
-
-  &__meta {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
-    flex-shrink: 0;
-    min-width: 130px;
-  }
-
-  &__content {
-    font-size: 13.5px;
-    color: var(--text-1);
-    line-height: 1.6;
-    flex: 1;
-  }
-}
-
-.insight-date {
-  font-size: 12px;
-  color: var(--text-3);
-  font-family: var(--font-mono);
-}
-
-.insight-source {
-  font-size: 11px;
-  font-weight: 600;
-  padding: 1px 7px;
-  border-radius: 4px;
-  border: 1px solid;
-
-  &.source--ai    { background: var(--indigo-light); color: var(--indigo); border-color: var(--indigo-border); }
-  &.source--admin { background: var(--purple-dim);   color: var(--purple); border-color: var(--purple-border); }
+html[data-theme="light"] .content-area .page-root.ai-prompt .section-block.learning-block {
+  background:
+    radial-gradient(ellipse 480px 260px at 6% -6%, rgba(94, 141, 249, 0.15), transparent 72%),
+    radial-gradient(ellipse 480px 260px at 104% 106%, rgba(124, 112, 255, 0.10), transparent 72%),
+    rgba(255, 255, 255, 0.74) !important;
 }
 </style>

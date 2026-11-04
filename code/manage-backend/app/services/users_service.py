@@ -599,24 +599,12 @@ async def get_ai_prompt_summary(db: AsyncSession, student_id: int):
         )
     ).scalar_one_or_none()
 
-    insights_res = await db.execute(
-        select(StudentPromptInsight)
-        .where(
-            StudentPromptInsight.student_id == student_id,
-            StudentPromptInsight.is_active == True,
-        )
-        .order_by(StudentPromptInsight.created_at.desc())
-    )
-    insights = insights_res.scalars().all()
 
+    # 预览的是 AI 助教真正使用的系统提示词（不含本轮启发策略，策略每条回复随情况变化）
+    from app.services.assistant import core as assistant_core
     learning_text = summary.learning_summary if summary and summary.learning_summary else ''
     insight_text = summary.personal_insight if summary and summary.personal_insight else ''
-    prompt_preview = (
-        f'你是一位专属于{student.nickname or "该"}同学的AI学习助教。\n\n'
-        f'【学生学习档案】\n{learning_text or "暂无"}\n\n'
-        f'【学生个人档案】\n{insight_text or "暂无"}\n\n'
-        '请根据以上信息，以贴合该学生特点的方式提供学习辅导。'
-    )
+    prompt_preview = assistant_core.build_system_prompt(None, learning_text, insight_text, False, student.nickname)
 
     return {
         'student_id': student_id,
@@ -633,18 +621,6 @@ async def get_ai_prompt_summary(db: AsyncSession, student_id: int):
             'updated_by': summary.insight_updated_by if summary else None,
         },
         'prompt_preview': prompt_preview,
-        'insights': [
-            {
-                'id': e.id,
-                'content': e.content,
-                'insight_type': e.insight_type,
-                'source': e.source,
-                'is_sensitive': e.is_sensitive,
-                'weight': float(e.weight),
-                'created_at': e.created_at,
-            }
-            for e in insights
-        ],
     }
 
 
@@ -672,34 +648,6 @@ async def update_personal_insight(db: AsyncSession, student_id: int, content: st
     summary.insight_updated_by = 'ADMIN'
     await db.flush()
     return {'updated_at': now, 'updated_by': 'ADMIN'}
-
-
-async def add_insight_entry(db: AsyncSession, student_id: int, data, operator_id: int):
-    student = (
-        await db.execute(select(Student).where(Student.id == student_id))
-    ).scalar_one_or_none()
-    if not student:
-        raise AppException('学生不存在', 404)
-
-    entry = StudentPromptInsight(
-        student_id=student_id,
-        content=data.content,
-        insight_type=data.insight_type,
-        is_sensitive=data.is_sensitive,
-        source='ADMIN',
-        added_by_admin_id=operator_id,
-    )
-    db.add(entry)
-    await db.flush()
-    return entry
-
-
-async def get_insight_entries(db: AsyncSession, student_id: int, only_active: bool = True):
-    q = select(StudentPromptInsight).where(StudentPromptInsight.student_id == student_id)
-    if only_active:
-        q = q.where(StudentPromptInsight.is_active == True)
-    q = q.order_by(StudentPromptInsight.created_at.desc())
-    return (await db.execute(q)).scalars().all()
 
 
 async def regenerate_learning_summary(db: AsyncSession, student_id: int):
