@@ -25,7 +25,6 @@
         <div class="section-hd">
           <div class="block-hd__left">
             <span class="section-title"><SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />学习信息摘要</span>
-            <span class="block-badge block-badge--auto">系统自动生成</span>
           </div>
           <span class="block-note">训练会话结束后、五力测试完成后异步更新</span>
         </div>

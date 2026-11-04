@@ -38,7 +38,7 @@
       </div>
 
       <!-- ── 分析结果（可修改，仅 pending_review 状态）── -->
-      <div class="surface section-block">
+      <div class="surface section-block detail-block">
         <div class="section-hd">
           <span class="section-title"><SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />{{ isEditable ? '大模型分析结果' : '题目详情' }}</span>
           <span v-if="question.status === 'pending_review'" class="edit-hint">
@@ -782,10 +782,7 @@ async function handleReject() {
   border-radius: 4px !important;
   box-shadow: none !important;
   border: 1px solid rgba(96, 141, 248, 0.15) !important;
-}
 
-// 编辑态（可修改）暗色下用实色底；详情（只读）态不覆盖，沿用全局玻璃面板的云晕底
-.page-root:not(.is-detail) .section-block {
   [data-theme="dark"] & {
     background: #1a1a1a !important;
     border-color: #202020 !important;
@@ -1068,46 +1065,47 @@ async function handleReject() {
   --el-color-primary: var(--color-primary);
 }
 
-// ── 全页面表单组件：去除 hover 效果，cursor 改为默认箭头 ──────
+// ── 详情（只读）态：去除 hover 效果，cursor 改为默认箭头 ──────
+// 只在详情态生效；编辑态（待审核可修改）的输入框保持正常的悬停 / 光标反馈，与「训练题管理 → 编辑」页一致
 // cursor
-:deep(.el-input__wrapper),
-:deep(.el-select__wrapper),
-:deep(.el-textarea__inner),
-:deep(.el-input-number) {
+.is-detail :deep(.el-input__wrapper),
+.is-detail :deep(.el-select__wrapper),
+.is-detail :deep(.el-textarea__inner),
+.is-detail :deep(.el-input-number) {
   cursor: default !important;
   * { cursor: default !important; }
 }
 
 // input/select hover（亮主题）：维持基础边框色，不变蓝
-:deep(.el-input__wrapper:hover:not(.is-focus)) {
+.is-detail :deep(.el-input__wrapper:hover:not(.is-focus)) {
   border-color: rgba(220, 224, 234, 1) !important;
   box-shadow: none !important;
 }
-:deep(.el-select__wrapper.is-hovering:not(.is-focused)) {
+.is-detail :deep(.el-select__wrapper.is-hovering:not(.is-focused)) {
   box-shadow: 0 0 0 1px rgba(220, 224, 234, 1) inset !important;
 }
-:deep(.el-select .el-input__wrapper:hover) {
+.is-detail :deep(.el-select .el-input__wrapper:hover) {
   box-shadow: 0 0 0 1px rgba(220, 224, 234, 1) inset !important;
   border-color: rgba(220, 224, 234, 1) !important;
 }
 // textarea hover（亮主题）
-:deep(.el-textarea__inner:hover) {
+.is-detail :deep(.el-textarea__inner:hover) {
   border-color: rgba(220, 224, 234, 1) !important;
 }
 
 // input/select hover（暗主题）：维持暗主题基础边框色
-[data-theme="dark"] .page-root :deep(.el-input__wrapper:hover:not(.is-focus)) {
+[data-theme="dark"] .page-root.is-detail :deep(.el-input__wrapper:hover:not(.is-focus)) {
   border-color: rgba(255, 255, 255, 0.10) !important;
 }
-[data-theme="dark"] .page-root :deep(.el-select__wrapper.is-hovering:not(.is-focused)) {
+[data-theme="dark"] .page-root.is-detail :deep(.el-select__wrapper.is-hovering:not(.is-focused)) {
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.10) inset !important;
 }
-[data-theme="dark"] .page-root :deep(.el-select .el-input__wrapper:hover) {
+[data-theme="dark"] .page-root.is-detail :deep(.el-select .el-input__wrapper:hover) {
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.10) inset !important;
   border-color: rgba(255, 255, 255, 0.10) !important;
 }
 // textarea hover（暗主题）
-[data-theme="dark"] .page-root :deep(.el-textarea__inner:hover) {
+[data-theme="dark"] .page-root.is-detail :deep(.el-textarea__inner:hover) {
   border-color: rgba(255, 255, 255, 0.10) !important;
 }
 
@@ -1226,18 +1224,39 @@ async function handleReject() {
 
 <style>
 /* 详情页子模块的云晕：全局玻璃面板的云晕是固定像素大小（约 360~420px）的两团光，一个子模块很高（如「题目详情」）时
-   只有左上和右下两个角有光，中间一大片是平的。这里改成按子模块自身大小等比缩放，高矮不同的子模块看起来一致。
+   只有左上和右下两个角有光，中间一大片是平的。云晕用固定大小的椭圆（480px × 260px）：宽而矮的子模块（如「题目内容」）不会被拉成一条很长的光带，
+   高的子模块也只在角上有光。注意不能在渐变尺寸里用 min() / max()：浏览器会判整条 background 无效，云晕整个不显示。
    不加 scoped：选择器要从 html / .content-area 开头，才压得过 style.scss 里的全局规则。 */
 html[data-theme="dark"] .content-area .page-root.is-detail .section-block {
   background:
-    radial-gradient(ellipse 80% 45% at 6% -6%, rgba(94, 141, 249, 0.22), transparent 72%),
-    radial-gradient(ellipse 80% 45% at 104% 106%, rgba(124, 112, 255, 0.15), transparent 72%),
+    radial-gradient(ellipse 480px 260px at 6% -6%, rgba(94, 141, 249, 0.22), transparent 72%),
+    radial-gradient(ellipse 480px 260px at 104% 106%, rgba(124, 112, 255, 0.15), transparent 72%),
     rgba(14, 17, 22, 0.60) !important;
 }
 html[data-theme="light"] .content-area .page-root.is-detail .section-block {
   background:
-    radial-gradient(ellipse 80% 45% at 6% -6%, rgba(94, 141, 249, 0.15), transparent 72%),
-    radial-gradient(ellipse 80% 45% at 104% 106%, rgba(124, 112, 255, 0.10), transparent 72%),
+    radial-gradient(ellipse 480px 260px at 6% -6%, rgba(94, 141, 249, 0.15), transparent 72%),
+    radial-gradient(ellipse 480px 260px at 104% 106%, rgba(124, 112, 255, 0.10), transparent 72%),
     rgba(255, 255, 255, 0.74) !important;
+}
+
+/* 「题目详情」子模块（详情态）：右上角再加一团云晕；暗色下恢复定时反光（二级页面默认去掉了反光，这里单独打开） */
+html[data-theme="dark"] .content-area .page-root.is-detail .section-block.detail-block {
+  background:
+    radial-gradient(ellipse 480px 260px at 100% 0%, rgba(94, 141, 249, 0.26), transparent 72%),
+    radial-gradient(ellipse 480px 260px at 104% 106%, rgba(124, 112, 255, 0.15), transparent 72%),
+    rgba(14, 17, 22, 0.60) !important;
+}
+html[data-theme="light"] .content-area .page-root.is-detail .section-block.detail-block {
+  background:
+    radial-gradient(ellipse 480px 260px at 100% 0%, rgba(94, 141, 249, 0.17), transparent 72%),
+    radial-gradient(ellipse 480px 260px at 104% 106%, rgba(124, 112, 255, 0.10), transparent 72%),
+    rgba(255, 255, 255, 0.74) !important;
+}
+@media (prefers-reduced-motion: no-preference) {
+  html[data-theme="dark"] .content-area.no-shine .page-root.is-detail .section-block.detail-block::after {
+    animation: panel-shine 9s ease-in-out infinite;
+    opacity: 1;
+  }
 }
 </style>

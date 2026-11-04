@@ -1,5 +1,5 @@
 <template>
-  <div class="page-root" v-loading="loading">
+  <div class="page-root archived-edit" v-loading="loading">
 
     <!-- ── 顶部操作栏 ── -->
     <div class="form-topbar">
@@ -31,7 +31,7 @@
       </div>
 
       <!-- ── 编辑内容 ── -->
-      <div class="surface section-block">
+      <div class="surface section-block detail-block">
         <div class="section-hd">
           <span class="section-title"><SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />题目详情</span>
         </div>
@@ -697,5 +697,23 @@ async function handleSaveAndActivate() {
   align-items: center;
   gap: 6px;
   min-height: 32px;
+}
+</style>
+
+<style>
+/* 「题目详情」子模块：右上 / 右下两个角各一团云晕（与训练题详情页一致）。
+   云晕用固定大小的椭圆（480px × 260px），不会被拉成长带；渐变尺寸里不能用 min() / max()（浏览器会判整条 background 无效）。
+   不加 scoped：选择器要从 html / .content-area 开头，才压得过 style.scss 里的全局玻璃面板规则。 */
+html[data-theme="dark"] .content-area .page-root.archived-edit .section-block.detail-block {
+  background:
+    radial-gradient(ellipse 480px 260px at 100% 0%, rgba(94, 141, 249, 0.26), transparent 72%),
+    radial-gradient(ellipse 480px 260px at 104% 106%, rgba(124, 112, 255, 0.15), transparent 72%),
+    rgba(14, 17, 22, 0.60) !important;
+}
+html[data-theme="light"] .content-area .page-root.archived-edit .section-block.detail-block {
+  background:
+    radial-gradient(ellipse 480px 260px at 100% 0%, rgba(94, 141, 249, 0.17), transparent 72%),
+    radial-gradient(ellipse 480px 260px at 104% 106%, rgba(124, 112, 255, 0.10), transparent 72%),
+    rgba(255, 255, 255, 0.74) !important;
 }
 </style>
