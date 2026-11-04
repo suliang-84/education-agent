@@ -13,7 +13,7 @@
 import request from './request'
 import type {
   Student, StudentDetail, Parent, AdminUser, AuditLog,
-  StudentKpStat, StudentAiPromptSummary,
+  StudentKpStat, StudentAiPromptSummary, StudentProfile,
   PaginatedResponse,
 } from '@/types'
 
@@ -48,6 +48,10 @@ export const studentApi = {
    * POST /api/v1/admin/students/{student_id}/bind-parent
    * 接口文档：§9.8.8
    */
+  /** 学生画像（管理员视图）：GET /api/v1/admin/students/{id}/profile */
+  getProfile: (studentId: number) =>
+    request.get<unknown, StudentProfile>(`/students/${studentId}/profile`),
+
   bindParent: (studentId: number, data: { parent_phone: string }) =>
     request.post<unknown, { binding_id: number; parent_id: number; parent_created: boolean }>(
       `/students/${studentId}/bind-parent`,

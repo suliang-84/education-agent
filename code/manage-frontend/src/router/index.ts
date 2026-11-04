@@ -126,8 +126,8 @@ const router = createRouter({
         {
           path: 'students/:id',
           name: 'StudentDetail',
-          component: () => import('@/views/students/StudentDetailView.vue'),
-          meta: { title: '学生详情' },
+          component: () => import('@/views/students/StudentProfileView.vue'),
+          meta: { title: '学生画像' },
         },
         {
           path: 'students/:id/kp-stats',

@@ -103,6 +103,16 @@ async def get_kp_stats(
     return ok_response(data)
 
 
+@router.get("/students/{student_id}/profile", summary="学生画像")
+async def get_student_profile(
+    student_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: AdminUser = Depends(get_current_admin),
+):
+    from app.services import profile_service
+    return ok_response(await profile_service.get_profile(db, student_id))
+
+
 @router.get("/students/{student_id}/ai-prompt-summary", summary="获取AI助教提示词摘要")
 async def get_ai_prompt_summary(
     student_id: int,

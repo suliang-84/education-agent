@@ -301,3 +301,56 @@ export interface TrainingConfigList {
   default_smart_params: SmartParams
   analysis: AnalysisConfig
 }
+
+// ── 学生画像（管理员视图，一期）────────────────────────────────
+export interface ProfileRate { key: string; label: string; answered: number; accuracy: number | null }
+export interface ProfileKp { id: number; name: string; chapter: string | null; attempts: number; errors: number; error_rate: number | null; weak_score: number; last_at: string | null }
+export interface ProfileStrategy { strategy_id: string; name: string; uses: number; likes: number; dislikes: number; score: number | null }
+export interface StudentProfile {
+  generated_at: string
+  summary: {
+    status: string; status_reason: string; engagement_score: number
+    engagement_parts: { frequency: number; streak: number; complete: number; hint_independence: number }
+    trend: { weeks: { weeks_ago: number; answered: number; accuracy: number | null }[]; slope: number | null }
+    tips: string[]
+  }
+  basic: {
+    id: number; nickname: string; avatar_url: string | null; grade: string | null; semester: string | null; is_minor: boolean
+    created_at: string; last_login_at: string | null; active_days_30: number
+    parents: { id: number; nickname: string; confirmed_at: string | null }[]
+  }
+  cognitive: {
+    has_profile: boolean; tested_at?: string
+    final?: Record<string, number>; ability?: Record<string, number>; preference?: Record<string, number>; training?: Record<string, number> | null
+    training_info?: { total_training_count: number; total_question_count: number; last_trained_at: string | null } | null
+    primary_strength?: string; primary_weakness?: string; secondary_weakness?: string; preferred_force?: string; recommended_mode?: string
+    confidence?: number | null; tags?: string[]
+    history?: { at: string; final: Record<string, number> }[]
+  }
+  mastery: {
+    answered: number; correct: number; accuracy: number | null
+    by_subject: ProfileRate[]; by_type: ProfileRate[]; by_difficulty: ProfileRate[]
+    weak_kps: ProfileKp[]; strong_kps: ProfileKp[]; kp_total_practiced: number
+    wrong_pending: number; wrong_mastered: number; wrong_mastered_rate: number | null
+    stubborn_questions: number; favorites: number
+    semester_progress: { practiced: number; total: number; rate: number | null }
+  }
+  behavior: {
+    sessions_7d: number; sessions_30d: number; sessions_total: number; streak_days: number; last_active_date: string | null
+    time_buckets: { key: string; label: string; count: number; ratio: number | null }[]
+    avg_seconds_per_question: number | null; avg_seconds_per_session: number | null
+    fast_wrong_ratio: number | null; avg_hint_level: number | null
+    completed_sessions: number; finished_sessions: number; issued_questions: number; answered_questions: number; complete_rate: number | null
+    dimensions: { key: string; label: string; count: number }[]
+  }
+  ai_interaction: {
+    student_messages: number; assistant_messages: number; sessions: number; last_chat_at: string | null; aha_count: number
+    top_strategies: ProfileStrategy[]; bottom_strategies: ProfileStrategy[]; strategies: ProfileStrategy[]
+    intents: unknown[]; chat_summary: string | null; intents_refreshed_at: string | null
+  }
+  traits: {
+    personal_insight: string | null; insight_admin_text: string | null; insight_ai_text: string | null
+    personal_insight_updated_at?: string | null; learning_summary?: string | null; learning_summary_updated_at?: string | null
+  }
+  warnings: unknown[]
+}
