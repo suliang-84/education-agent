@@ -159,6 +159,8 @@ class StudentAiPromptSummary(Base, TimestampMixin):
         DateTime(timezone=True), nullable=True
     )
     insight_updated_by: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    insight_admin_text: Mapped[str | None] = mapped_column(Text, nullable=True)   # 管理员确认的部分（AI 不改写）
+    insight_ai_text: Mapped[str | None] = mapped_column(Text, nullable=True)      # AI 补充的部分（AI 只改这一块）
     is_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
 

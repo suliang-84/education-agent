@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onLaunch, onShow } from '@dcloudio/uni-app'
+import { onLaunch, onShow, onHide } from '@dcloudio/uni-app'
+import { flushChatDigest } from '@/utils/chatDigest'
 import { useAuthStore } from '@/store/auth'
 import { useThemeStore } from '@/store/theme'
 
@@ -8,6 +9,11 @@ onLaunch(() => {
   // 跟随系统深浅色
   const themeStore = useThemeStore()
   uni.onThemeChange?.((res: { theme: string }) => themeStore.setSystemTheme(res.theme))
+})
+
+// 小程序退到后台：如果聊过天，通知服务端更新摘要和个人洞察
+onHide(() => {
+  if (useAuthStore().isLoggedIn) flushChatDigest()
 })
 
 const LOGIN_ROUTE = 'pages/auth/login'

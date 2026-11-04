@@ -48,6 +48,9 @@ export const assistantApi = {
   resumeSilence: (session_id: string) =>
     http.post(`/assistant/silence/resume?session_id=${encodeURIComponent(session_id)}`),
 
+  /** 退出助教页 / 小程序退到后台时调用：通知服务端按需更新摘要和个人洞察（立即返回，静默） */
+  digest: () => http.post<{ scheduled: boolean }>('/assistant/digest', undefined, { silent: true } as never),
+
   /** 快捷提问（按学生的薄弱知识点、错题、五力生成） */
   getSuggestions: () => http.get<{ suggestions: string[] }>('/assistant/suggestions'),
 

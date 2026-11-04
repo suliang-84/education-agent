@@ -9,9 +9,11 @@
  * - 学生说「我自己想」后进入沉默模式（AI 暂停主动引导），输入框上方出现「点击恢复」条
  */
 import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
+import { onHide } from '@dcloudio/uni-app'
 import { useTheme } from '@/hooks/useTheme'
 import SvgIcon from '@/components/SvgIcon.vue'
 import { assistantApi } from '@/api'
+import { markChatDirty, flushChatDigest } from '@/utils/chatDigest'
 import { assetUrl } from '@/utils/request'
 import type { ChatMessage } from '@/api/assistant'
 
@@ -88,6 +90,7 @@ async function loadSuggestions() {
 }
 
 onMounted(init)
+onHide(flushChatDigest)   // 切到别的 Tab / 进入别的页面：通知服务端更新摘要和个人洞察
 
 async function loadOlder() {
   if (loadingMore.value || !hasMore.value || !messages.value.length) return
@@ -141,6 +144,7 @@ async function send(text?: string) {
     setSilence(res.silence)
     messages.value.push({ message_id: res.message_id, role: 'assistant', content: res.content, is_aha_trigger: res.is_aha_trigger, rating: null, created_at: res.created_at })
     startTyping(res.message_id, res.content.length)
+    markChatDirty()
   } catch {
     // 失败原因（内容安全、过长、AI 暂不可用、模型不支持看图）已由请求层弹出提示：撤回这条消息，文字和图片放回输入区，方便修改后重发
     messages.value = messages.value.filter((m) => m.message_id !== tempId)

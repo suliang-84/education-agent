@@ -42,8 +42,26 @@ async def get_session(
     db: AsyncSession = Depends(get_db),
 ):
     s, created = await service.get_or_create_session(db, student)
+    await service.schedule_digest(s.id, student.id)   # 上次退出时没来得及更新的摘要，进入时补一次
     silent = core.silence_active(s.silence_mode, s.silence_triggered_at, datetime.now(UTC), await service._timeout_min(db))
     return ok_response({"session_id": s.id, "session_mode": s.session_mode, "is_new": created, "silence": silent})
+
+
+@router.post("/digest", summary="退出助教页 / 小程序退到后台时调用：按需更新摘要和个人洞察")
+async def digest(
+    student: Student = Depends(get_current_student),
+    db: AsyncSession = Depends(get_db),
+):
+    """立即返回；有新聊天内容时在服务端后台更新对话摘要、个人洞察、聊天困惑信号（见 service.schedule_digest）。
+    没有会话、没有新消息、或离上次更新不到 60 秒时什么都不做，所以客户端可以放心在每次退出时调用。"""
+    from sqlalchemy import select
+    from app.models.ai import AiChatSession
+    s = (await db.execute(
+        select(AiChatSession).where(AiChatSession.student_id == student.id, AiChatSession.session_mode == "free_chat")
+        .order_by(AiChatSession.created_at.desc()).limit(1)
+    )).scalar_one_or_none()
+    scheduled = await service.schedule_digest(s.id, student.id) if s else False
+    return ok_response({"scheduled": scheduled})
 
 
 @router.get("/messages", summary="获取历史消息（分页，向上翻页）")

@@ -420,21 +420,50 @@ async def rate(db: AsyncSession, student: Student, message_id: int, rating: str)
 
 # ── 滚动摘要 ─────────────────────────────────────────────────────────────────
 
-async def _maybe_summarize(session_id: str, student_id: int) -> None:
-    """每累积 SUMMARY_EVERY 条新消息，后台滚动生成一次对话摘要（≤100 字）；失败只记日志"""
+_DIGEST_RUNNING: set[int] = set()          # 正在更新摘要的学生（同一学生同一时间只跑一个）
+_DIGEST_LAST: dict[int, float] = {}        # 学生上次更新摘要的时间（防抖；进程重启后清空，无碍）
+
+
+async def schedule_digest(session_id: str, student_id: int, min_pending: int = core.EXIT_DIGEST_MIN_PENDING) -> bool:
+    """按需在后台更新对话摘要 / 个人洞察 / 聊天困惑信号（失败只记日志）。
+    触发点：①学生退出助教页或小程序退到后台（小程序调 POST /assistant/digest，立即返回，更新在服务端后台做，
+    小程序随后被挂起也不影响）；②下次进入助教页时补一次（防止退出时那次请求丢了）；
+    ③兜底：聊天里累积够 SUMMARY_EVERY 条新消息。没有新内容或离上次太近时什么都不做。返回是否已安排。"""
+    if student_id in _DIGEST_RUNNING:
+        return False
     try:
         async with AsyncSessionLocal() as db:
-            s = (await db.execute(select(AiChatSession).where(AiChatSession.id == session_id))).scalar_one_or_none()
-            if not s:
-                return
-            n = (await db.execute(select(func.count()).select_from(AiChatMessage).where(
-                AiChatMessage.session_id == session_id, AiChatMessage.id > s.summary_message_id))).scalar_one()
-            if not core.summary_due(n):
-                return
+            sess = (await db.execute(select(AiChatSession).where(AiChatSession.id == session_id))).scalar_one_or_none()
+            if not sess:
+                return False
+            base = [AiChatMessage.session_id == session_id, AiChatMessage.id > sess.summary_message_id]
+            pending = (await db.execute(select(func.count()).select_from(AiChatMessage).where(*base))).scalar_one()
+            pending_student = (await db.execute(select(func.count()).select_from(AiChatMessage).where(*base, AiChatMessage.role == "student"))).scalar_one()
     except Exception as e:
-        logger.warning(f"检查摘要条件失败: {e}")
-        return
-    asyncio.create_task(summarize_in_background(session_id, student_id))
+        logger.warning(f"检查摘要更新条件失败: {e}")
+        return False
+    import time
+    last = _DIGEST_LAST.get(student_id)
+    gap = None if last is None else time.time() - last
+    if not core.digest_due(pending, pending_student, gap, min_pending=min_pending, min_gap=core.DIGEST_MIN_GAP_SEC if min_pending < core.SUMMARY_EVERY else 0):
+        return False
+    _DIGEST_RUNNING.add(student_id)
+    asyncio.create_task(_run_digest(session_id, student_id))
+    return True
+
+
+async def _run_digest(session_id: str, student_id: int) -> None:
+    import time
+    try:
+        await summarize_in_background(session_id, student_id)
+    finally:
+        _DIGEST_RUNNING.discard(student_id)
+        _DIGEST_LAST[student_id] = time.time()
+
+
+async def _maybe_summarize(session_id: str, student_id: int) -> None:
+    """兜底：每累积 SUMMARY_EVERY 条新消息就更新一次（不用等学生退出）"""
+    await schedule_digest(session_id, student_id, min_pending=core.SUMMARY_EVERY)
 
 
 async def summarize_in_background(session_id: str, student_id: int) -> None:
@@ -462,22 +491,29 @@ async def summarize_in_background(session_id: str, student_id: int) -> None:
 
 
 async def _extract_insights(db: AsyncSession, student_id: int, session_id: str, rows: list[AiChatMessage]) -> None:
-    """用学生最近说的话更新「个人洞察」：一段总结概括的文字（不是条目），已有内容（含管理员手写的）要保留。
+    """用学生最近说的话更新「个人洞察」里 AI 补充的那一部分。管理员确认的部分只作为上下文交给大模型，不会被改写；
     只存概括后的文字，不存聊天原文；失败不影响其它流程。"""
-    said = [m.content.strip()[:200] for m in rows if m.role == "student" and m.content.strip()]
-    if not said:
-        return
     try:
-        summ = (await db.execute(select(StudentAiPromptSummary).where(StudentAiPromptSummary.student_id == student_id))).scalar_one_or_none()
-        old = (summ.personal_insight or "").strip() if summ else ""
+        # 取这个会话里学生最近说过的 30 句话，而不只是「自上次摘要以来」的新消息：
+        # 否则一次只有「我不清楚，直接给我答案吧」这种没信息量的新消息时，之前说过的兴趣、状态等根本不会被看到
+        said_rows = (await db.execute(
+            select(AiChatMessage.content).where(AiChatMessage.session_id == session_id, AiChatMessage.role == "student",
+                                                 AiChatMessage.content != "").order_by(AiChatMessage.id.desc()).limit(30)
+        )).scalars().all()
+        said = [t.strip()[:200] for t in reversed(said_rows) if t.strip()]
+        if not said:
+            return
+        admin_text, old_ai = await insights.load(db, student_id)
         res = await _llm([{"role": "system", "content": insights.INSIGHT_PROMPT},
-                          {"role": "user", "content": f"【已有的个人洞察】\n{old or '（暂无）'}\n\n【学生最近说的话】\n" + "\n".join(f"- {t}" for t in said[-20:])}],
+                          {"role": "user", "content": f"【老师确认的个人洞察】\n{admin_text or '（暂无）'}\n\n【此前 AI 概括的补充】\n{old_ai or '（暂无）'}\n\n【学生最近说的话】\n"
+                                                     + "\n".join(f"- {t}" for t in said[-20:])}],
                          max_tokens=800, temperature=0.2)
         await _log_tokens(db, student_id, session_id, res)
-        new = insights.clean_paragraph(res["text"])
-        if insights.accept_update(old, new):
-            await insights.apply_update(db, student_id, new, source="AI")
-            logger.info(f"AI 更新了个人洞察 student={student_id}")
+        new_ai = insights.clean_paragraph(res["text"])
+        _, old_ai = await insights.load(db, student_id)    # 大模型思考期间管理员可能保存过：和最新的 AI 补充比较
+        if insights.accept_update(old_ai, new_ai):
+            await insights.apply_update(db, student_id, new_ai)
+            logger.info(f"AI 更新了个人洞察补充 student={student_id}")
         await db.commit()
     except Exception as e:
         await db.rollback()

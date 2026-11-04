@@ -135,6 +135,19 @@ def summary_due(new_message_count: int) -> bool:
     return new_message_count >= SUMMARY_EVERY
 
 
+# 退出助教页 / 小程序退到后台时触发的「摘要更新」：至少有一问一答的新消息，同一学生两次之间至少间隔 60 秒
+EXIT_DIGEST_MIN_PENDING = 2
+DIGEST_MIN_GAP_SEC = 60
+
+
+def digest_due(pending_messages: int, pending_student_messages: int, seconds_since_last: float | None,
+               min_pending: int = EXIT_DIGEST_MIN_PENDING, min_gap: int = DIGEST_MIN_GAP_SEC) -> bool:
+    """是否该更新摘要：新消息够多、其中至少有一条学生消息，且距离上次更新不太近"""
+    if pending_messages < min_pending or pending_student_messages < 1:
+        return False
+    return seconds_since_last is None or seconds_since_last >= min_gap
+
+
 # ── 提示词 ──
 BASE_PROMPT = """你是 MESH 数理化 AI 学习伙伴，面向初高中学生，语气亲切、鼓励、口语化。
 教学原则：

@@ -1149,12 +1149,23 @@ async function handleReject() {
     position: relative;
   }
 
+  // 题目内容：与后台学生「摘要」页的「学习信息摘要」文本框同样式——深色底、等宽字体、白字
   .stem-display {
-    font-size: 15px;
-    line-height: 1.85;
-    background: transparent;
-    padding: 4px 0 10px;
-    [data-theme="dark"] & { background: transparent; }
+    background: #1E2030;
+    border-radius: 4px;
+    padding: 16px 18px;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    line-height: 1.7;
+    color: #ffffff;
+    white-space: pre-wrap;
+    word-break: break-word;
+    // 暗色主题与摘要页「学习信息摘要」文本框完全一致（#1E2030 + 白字，不单独换底色）；
+    // 亮色主题改为浅灰底 + 深色字，不再是深色块
+    [data-theme="light"] & {
+      background: var(--bg-muted);
+      color: var(--text-1);
+    }
   }
 
   // 子模块纵向节奏统一为 10px：
@@ -1223,22 +1234,11 @@ async function handleReject() {
 </style>
 
 <style>
-/* 详情页子模块的云晕：全局玻璃面板的云晕是固定像素大小（约 360~420px）的两团光，一个子模块很高（如「题目详情」）时
+/* （已去掉对所有子模块的统一云晕：「题目内容」等子模块沿用全局玻璃面板的背景，与摘要页「学习信息摘要」一致；下面只保留「题目详情」子模块的云晕）
+   详情页子模块的云晕：全局玻璃面板的云晕是固定像素大小（约 360~420px）的两团光，一个子模块很高（如「题目详情」）时
    只有左上和右下两个角有光，中间一大片是平的。云晕用固定大小的椭圆（480px × 260px）：宽而矮的子模块（如「题目内容」）不会被拉成一条很长的光带，
    高的子模块也只在角上有光。注意不能在渐变尺寸里用 min() / max()：浏览器会判整条 background 无效，云晕整个不显示。
    不加 scoped：选择器要从 html / .content-area 开头，才压得过 style.scss 里的全局规则。 */
-html[data-theme="dark"] .content-area .page-root.is-detail .section-block {
-  background:
-    radial-gradient(ellipse 480px 260px at 6% -6%, rgba(94, 141, 249, 0.22), transparent 72%),
-    radial-gradient(ellipse 480px 260px at 104% 106%, rgba(124, 112, 255, 0.15), transparent 72%),
-    rgba(14, 17, 22, 0.60) !important;
-}
-html[data-theme="light"] .content-area .page-root.is-detail .section-block {
-  background:
-    radial-gradient(ellipse 480px 260px at 6% -6%, rgba(94, 141, 249, 0.15), transparent 72%),
-    radial-gradient(ellipse 480px 260px at 104% 106%, rgba(124, 112, 255, 0.10), transparent 72%),
-    rgba(255, 255, 255, 0.74) !important;
-}
 
 /* 「题目详情」子模块（详情态）：右上角再加一团云晕；暗色下恢复定时反光（二级页面默认去掉了反光，这里单独打开） */
 html[data-theme="dark"] .content-area .page-root.is-detail .section-block.detail-block {

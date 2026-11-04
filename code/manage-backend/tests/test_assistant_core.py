@@ -92,3 +92,13 @@ def test_image_helpers():
     good = "/uploads/assistant/" + "a" * 32 + ".jpg"
     assert valid_image_path(good)
     assert not valid_image_path("/uploads/assistant/../../.env") and not valid_image_path("/uploads/assistant/x.jpg") and not valid_image_path(None)
+
+
+def test_digest_due():
+    from app.services.assistant.core import digest_due
+    assert digest_due(2, 1, None)                       # 一问一答，从没更新过
+    assert not digest_due(1, 1, None)                   # 不足一问一答
+    assert not digest_due(3, 0, None)                   # 没有学生消息
+    assert not digest_due(4, 2, 30)                     # 离上次太近
+    assert digest_due(4, 2, 61)
+    assert digest_due(10, 5, 5, min_pending=10, min_gap=0)   # 兜底路径不受防抖限制

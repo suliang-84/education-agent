@@ -1,5 +1,5 @@
 <template>
-  <div class="page-root ai-prompt" v-loading="loading">
+  <div class="page-root" v-loading="loading">
     <div class="form-topbar">
       <el-button size="small" class="btn-back" @click="$router.push('/students')">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="margin-right:4px">
@@ -8,27 +8,23 @@
         返回
       </el-button>
       <div style="flex:1" />
-      <el-button @click="handleRegenerate" :loading="regenerating">
-        <SvgIcon v-if="!regenerating" name="analyse" :size="14" style="margin-right:4px" />
-        重新生成学习摘要
+      <el-button @click="handleSave" :loading="saving">
+        <SvgIcon v-if="!saving" name="save" :size="14" style="margin-right:4px" />
+        保存信息
       </el-button>
-      <button class="btn-pink" type="button" @click="handleSave" :disabled="saving || loading">
-        <SvgIcon name="save" :size="13" style="margin-right:4px" />
-        保存
-      </button>
     </div>
 
     <div>
 
       <!-- 📚 学习信息摘要（只读） -->
-      <div class="surface section-block learning-block">
+      <div class="surface section-block">
         <div class="section-hd">
           <div class="block-hd__left">
             <span class="section-title"><SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />学习信息摘要</span>
           </div>
           <span class="block-note">训练会话结束后、五力测试完成后异步更新</span>
         </div>
-        <div class="summary-text readonly-text learning-text" v-if="summary">{{ summary.learning_summary }}</div>
+        <div class="prompt-preview prompt-preview--white" v-if="summary">{{ summary.learning_summary }}</div>
         <div class="empty-tip" v-else>暂无学习信息摘要</div>
       </div>
 
@@ -37,7 +33,6 @@
         <div class="section-hd">
           <div class="block-hd__left">
             <span class="section-title"><SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />个人洞察摘要</span>
-            <span class="block-badge block-badge--editable">AI 提取 · 管理员可编辑</span>
           </div>
         </div>
         <el-input
@@ -45,7 +40,6 @@
           type="textarea"
           :rows="6"
           placeholder="一段概括这位学生特点的文字：兴趣爱好、学习 / 类比偏好、近期状态等。AI 助教聊天累积后会自动更新这段文字，你也可以直接修改，修改后点右上角「保存」；助教聊天时会参考它..."
-          style="margin-top:8px"
         />
       </div>
 
@@ -55,12 +49,9 @@
           <div class="block-hd__left">
             <span class="section-title"><SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />当前用于 AI 助教的完整 System Prompt 预览</span>
           </div>
-          <el-button text size="small" style="color:var(--indigo)" @click="promptExpanded = !promptExpanded">
-            {{ promptExpanded ? '收起' : '展开查看' }}
-          </el-button>
         </div>
-        <div v-if="promptExpanded && summary" class="prompt-preview">{{ summary.full_prompt_preview }}</div>
-        <div v-else-if="!promptExpanded" class="prompt-collapsed">点击「展开查看」查看合并后的完整 Prompt 文本（只读）</div>
+        <div v-if="summary" class="prompt-preview">{{ summary.full_prompt_preview }}</div>
+        <div v-else class="empty-tip">暂无 Prompt 内容</div>
       </div>
 
     </div>
@@ -79,13 +70,11 @@ const route = useRoute()
 
 const loading      = ref(false)
 const saving       = ref(false)
-const regenerating = ref(false)
 
 const student        = ref<StudentDetail | null>(null)
 const summary        = ref<StudentAiPromptSummary | null>(null)
 
 const editableInsight  = ref('')
-const promptExpanded   = ref(false)
 
 async function loadAll() {
   loading.value = true
@@ -107,6 +96,7 @@ async function loadSummary() {
 }
 
 async function handleSave() {
+  if (saving.value || loading.value) return
   saving.value = true
   try {
     await studentApi.updateAiPromptSummary(Number(route.params.id), {
@@ -115,15 +105,6 @@ async function handleSave() {
     await loadSummary()
     ElMessage.success('个人洞察摘要已保存')
   } finally { saving.value = false }
-}
-
-async function handleRegenerate() {
-  regenerating.value = true
-  try {
-    await studentApi.regenerateLearningsummary(Number(route.params.id))
-    await loadSummary()
-    ElMessage.success('学习信息摘要已重新生成')
-  } finally { regenerating.value = false }
 }
 
 onMounted(loadAll)
@@ -178,37 +159,6 @@ onMounted(loadAll)
   color: var(--text-3);
 }
 
-// ── 摘要文本区域 ─────────────────────────────────────────────
-.summary-text {
-  font-size: 13.5px;
-  color: var(--text-1);
-  line-height: 1.75;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-// 只读文本框：与训练题管理详情页的只读文本（stem-display）同样的底色和字色
-.readonly-text {
-  background: var(--bg-muted);
-  border-radius: 4px;
-  padding: 14px 16px;
-
-  [data-theme="dark"] & {
-    background: #282b31;
-    color: #ffffff;
-  }
-}
-
-// 学习信息摘要：文档式排版，同「训练题管理 → 详情」页的「题目内容」子模块——文字直接排在子模块上，不加灰底文字框
-.learning-text {
-  font-size: 15px;
-  line-height: 1.85;
-  background: transparent;
-  padding: 4px 0 10px;
-
-  [data-theme="dark"] & { background: transparent; }
-}
-
 .empty-tip {
   font-size: 13px;
   color: var(--text-3);
@@ -226,37 +176,17 @@ onMounted(loadAll)
   line-height: 1.7;
   white-space: pre-wrap;
   word-break: break-word;
-  max-height: 360px;
-  overflow-y: auto;
-  margin-top: 8px;
-}
 
-.prompt-collapsed {
-  font-size: 13px;
-  color: var(--text-3);
-  background: var(--bg-muted);
-  border-radius: 4px;
-  padding: 14px 16px;
-  cursor: default;
+  // 亮色主题：浅灰底 + 深色字（同其它页面的只读文本框），不再是深色块
+  [data-theme="light"] & {
+    background: var(--bg-muted);
+    color: var(--text-1);
+  }
 
-  [data-theme="dark"] & { background: #282b31; }
-}
-</style>
-
-<style>
-/* 学习信息摘要子模块的云晕：同训练题详情页「题目内容」子模块（左上 + 右下两团，固定大小的椭圆）。
-   不加 scoped：选择器要从 html / .content-area 开头，才压得过 style.scss 里的全局玻璃面板规则。
-   注意渐变尺寸里不能用 min() / max()（浏览器会判整条 background 无效，云晕不显示）。 */
-html[data-theme="dark"] .content-area .page-root.ai-prompt .section-block.learning-block {
-  background:
-    radial-gradient(ellipse 480px 260px at 6% -6%, rgba(94, 141, 249, 0.22), transparent 72%),
-    radial-gradient(ellipse 480px 260px at 104% 106%, rgba(124, 112, 255, 0.15), transparent 72%),
-    rgba(14, 17, 22, 0.60) !important;
-}
-html[data-theme="light"] .content-area .page-root.ai-prompt .section-block.learning-block {
-  background:
-    radial-gradient(ellipse 480px 260px at 6% -6%, rgba(94, 141, 249, 0.15), transparent 72%),
-    radial-gradient(ellipse 480px 260px at 104% 106%, rgba(124, 112, 255, 0.10), transparent 72%),
-    rgba(255, 255, 255, 0.74) !important;
+  // 学习信息摘要：暗色下文字用白色（System Prompt 预览仍是原来的浅蓝灰）
+  &--white {
+    color: #ffffff;
+    [data-theme="light"] & { color: var(--text-1); }
+  }
 }
 </style>

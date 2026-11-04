@@ -644,6 +644,9 @@ async def update_personal_insight(db: AsyncSession, student_id: int, content: st
         summary = StudentAiPromptSummary(student_id=student_id)
         db.add(summary)
     summary.personal_insight = content
+    # 管理员保存的整段文字（含之前 AI 补充、被管理员认可保留的内容）都成为「已确认」部分，AI 之后只会在它后面补充，不会改写
+    summary.insight_admin_text = content
+    summary.insight_ai_text = None
     summary.personal_insight_updated_at = now
     summary.insight_updated_by = 'ADMIN'
     await db.flush()
