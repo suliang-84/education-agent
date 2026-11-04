@@ -6,8 +6,6 @@
  * ├── common.ts           公共接口：认证（login/verify2fa/logout）、健康检查
  * ├── questions.ts        题库管理：知识体系树、题目 CRUD、分析、发布、驳回
  * ├── cognitive.ts        五力测试题维护：新增、编辑、状态变更（发布/下架）、删除
- * ├── training.ts         训练参数配置：各维度参数版本管理
- * ├── system.ts           系统参数配置 + 启发策略管理
  * ├── dashboard.ts        数据看板：概览指标、各分析子页接口
  * ├── users.ts            用户管理：学生、家长、管理员
  * └── audit.ts            审计日志
@@ -26,13 +24,6 @@ export type { KnowledgeTreeNode, KnowledgeTreeResponse, QuestionListParams, Publ
 // ── 五力测试题维护 ───────────────────────────────────────────
 export { cognitiveApi } from './cognitive'
 export type { CognitiveListResponse, StatusChangeResponse, CognitiveAnswerInput, CognitiveQuestionInput } from './cognitive'
-
-// ── 训练参数配置 ─────────────────────────────────────────────
-export { trainingApi, trainingConfigApi } from './training'
-export type { TrainingDimension, DimensionConfigInput } from './training'
-
-// ── 系统参数 + 启发策略 ──────────────────────────────────────
-export { systemConfigApi, strategyApi } from './system'
 
 // ── 数据看板 ─────────────────────────────────────────────────
 export { dashboardApi } from './dashboard'

@@ -28,15 +28,6 @@
 
     <div v-if="question">
 
-      <!-- ── 题目内容（编辑态结构与训练题管理-编辑页一致）── -->
-      <div class="surface section-block stem-block">
-        <div class="section-hd">
-          <span class="section-title"><SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />题目内容</span>
-        </div>
-        <div v-if="!isEditable" class="stem-display">{{ question.stem }}</div>
-        <el-input v-else v-model="question.stem" class="stem-input" type="textarea" :rows="7" />
-      </div>
-
       <!-- ── 分析结果（可修改，仅 pending_review 状态）── -->
       <div class="surface section-block detail-block">
         <div class="section-hd">
@@ -50,6 +41,15 @@
         </div>
 
         <el-form :model="form" label-width="90px">
+
+          <!-- ── 题目内容 ── -->
+          <div class="sub-section-title">题目内容</div>
+          <div class="section-content">
+            <el-form-item label="题目">
+              <div v-if="!isEditable" class="plain-value-area">{{ question.stem }}</div>
+              <el-input v-else v-model="question.stem" class="stem-input" type="textarea" :rows="7" />
+            </el-form-item>
+          </div>
 
           <!-- ── 归属体系 ── -->
           <div class="sub-section-title">归属体系</div>
@@ -1240,16 +1240,22 @@ async function handleReject() {
    高的子模块也只在角上有光。注意不能在渐变尺寸里用 min() / max()：浏览器会判整条 background 无效，云晕整个不显示。
    不加 scoped：选择器要从 html / .content-area 开头，才压得过 style.scss 里的全局规则。 */
 
-/* 「题目详情」子模块（详情态）：右上角再加一团云晕；暗色下恢复定时反光（二级页面默认去掉了反光，这里单独打开） */
+/* 详情态子模块：边框高亮固定在左上角（覆盖 edgeHighlight 写入的随机位置） */
+.content-area .page-root.is-detail .section-block {
+  --hl-x: 0% !important;
+  --hl-y: 0% !important;
+}
+
+/* 「题目详情」子模块（详情态）：左上角云晕（右下角保留一团）；暗色下恢复定时反光（二级页面默认去掉了反光，这里单独打开） */
 html[data-theme="dark"] .content-area .page-root.is-detail .section-block.detail-block {
   background:
-    radial-gradient(ellipse 480px 260px at 100% 0%, rgba(94, 141, 249, 0.26), transparent 72%),
+    radial-gradient(ellipse 480px 260px at 0% 0%, rgba(94, 141, 249, 0.26), transparent 72%),
     radial-gradient(ellipse 480px 260px at 104% 106%, rgba(124, 112, 255, 0.15), transparent 72%),
     rgba(14, 17, 22, 0.60) !important;
 }
 html[data-theme="light"] .content-area .page-root.is-detail .section-block.detail-block {
   background:
-    radial-gradient(ellipse 480px 260px at 100% 0%, rgba(94, 141, 249, 0.17), transparent 72%),
+    radial-gradient(ellipse 480px 260px at 0% 0%, rgba(94, 141, 249, 0.17), transparent 72%),
     radial-gradient(ellipse 480px 260px at 104% 106%, rgba(124, 112, 255, 0.10), transparent 72%),
     rgba(255, 255, 255, 0.74) !important;
 }

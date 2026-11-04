@@ -100,18 +100,6 @@ const router = createRouter({
           meta: { title: '编辑测试题目' },
         },
         {
-          path: 'training-config',
-          name: 'TrainingConfig',
-          component: () => import('@/views/training-config/TrainingConfigView.vue'),
-          meta: { title: '训练配置管理' },
-        },
-        {
-          path: 'system-config',
-          name: 'SystemConfig',
-          component: () => import('@/views/system-config/SystemConfigView.vue'),
-          meta: { title: '系统参数配置' },
-        },
-        {
           path: 'students',
           name: 'StudentManage',
           component: () => import('@/views/students/StudentManageView.vue'),

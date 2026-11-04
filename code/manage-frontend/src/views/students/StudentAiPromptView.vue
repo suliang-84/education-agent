@@ -16,18 +16,6 @@
 
     <div>
 
-      <!-- 📚 学习信息摘要（只读） -->
-      <div class="surface section-block">
-        <div class="section-hd">
-          <div class="block-hd__left">
-            <span class="section-title"><SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />学习信息摘要</span>
-          </div>
-          <span class="block-note">训练会话结束后、五力测试完成后异步更新</span>
-        </div>
-        <div class="prompt-preview prompt-preview--white" v-if="summary">{{ summary.learning_summary }}</div>
-        <div class="empty-tip" v-else>暂无学习信息摘要</div>
-      </div>
-
       <!-- 💬 个人洞察摘要（可编辑） -->
       <div class="surface section-block">
         <div class="section-hd">
@@ -41,6 +29,18 @@
           :rows="6"
           placeholder="一段概括这位学生特点的文字：兴趣爱好、学习 / 类比偏好、近期状态等。AI 助教聊天累积后会自动更新这段文字，你也可以直接修改，修改后点右上角「保存」；助教聊天时会参考它..."
         />
+      </div>
+
+      <!-- 📚 学习信息摘要（只读） -->
+      <div class="surface section-block">
+        <div class="section-hd">
+          <div class="block-hd__left">
+            <span class="section-title"><SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />学习信息摘要</span>
+          </div>
+          <span class="block-note">训练会话结束后、五力测试完成后异步更新</span>
+        </div>
+        <div class="prompt-preview" v-if="summary">{{ summary.learning_summary }}</div>
+        <div class="empty-tip" v-else>暂无学习信息摘要</div>
       </div>
 
       <!-- 🔗 完整 Prompt 预览 -->
@@ -181,12 +181,6 @@ onMounted(loadAll)
   [data-theme="light"] & {
     background: var(--bg-muted);
     color: var(--text-1);
-  }
-
-  // 学习信息摘要：暗色下文字用白色（System Prompt 预览仍是原来的浅蓝灰）
-  &--white {
-    color: #ffffff;
-    [data-theme="light"] & { color: var(--text-1); }
   }
 }
 </style>

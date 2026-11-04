@@ -44,7 +44,7 @@
           </router-link>
         </div>
 
-        <!-- 数据看板、训练配置、系统参数、审计日志暂时隐藏 -->
+        <!-- 数据看板、审计日志暂时隐藏（训练参数管理、系统参数配置已移除，后续按「配置项清单」重新设计） -->
         <div class="nav-section">
           <div class="nav-section__label">运营</div>
           <router-link to="/students" class="nav-item" :class="{ active: route.path === '/students' || route.path.startsWith('/students/') }">
