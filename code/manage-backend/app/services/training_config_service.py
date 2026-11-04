@@ -73,10 +73,6 @@ def validate_smart_params(raw: dict) -> dict:
     prior = p["prior"]
     if not isinstance(prior, (list, tuple)) or len(prior) != 2:
         raise AppException("平滑先验需要两个数（错、对）", 400)
-    intervals = p["review_intervals_days"]
-    if not isinstance(intervals, (list, tuple)) or not (1 <= len(intervals) <= 8):
-        raise AppException("复习间隔需要 1~8 个天数", 400)
-    intervals = [int(_num(x, "复习间隔", 1, 365, integer=True)) for x in intervals]
     return {
         "slots": slots,
         "intent_min_slots": int(_num(p["intent_min_slots"], "近期困惑保底题数", 0, 5, integer=True)),
@@ -88,7 +84,7 @@ def validate_smart_params(raw: dict) -> dict:
         "temperature": _num(p["temperature"], "随机程度", 0.05, 2),
         "diversity_type": _num(p["diversity_type"], "同题型降权倍数", 0.1, 1),
         "diversity_kp": _num(p["diversity_kp"], "同知识点降权倍数", 0.1, 1),
-        "review_intervals_days": sorted(set(intervals)),
+        "review_interval_days": int(_num(p["review_interval_days"], "复习间隔", 1, 365, integer=True)),
     }
 
 

@@ -39,7 +39,7 @@ DEFAULT_PARAMS: dict = {
     "temperature": 0.35,            # 抽取的随机程度：越小越偏向高分，越大越随机
     "diversity_type": 0.5,          # 同题型再被选的权重倍数
     "diversity_kp": 0.7,            # 同知识点再被选的权重倍数
-    "review_intervals_days": [1, 3, 7, 14],   # 已攻克题的复习间隔
+    "review_interval_days": 7,      # 已攻克的题每隔多少天复习一次
 }
 
 REASON_LABELS = {
@@ -156,16 +156,16 @@ def _intent(q: QInfo, sig: Signals) -> float:
 
 
 def _due(q: QInfo, sig: Signals, params: dict) -> float:
-    """已攻克的题按间隔复习：距攻克（或上次作答）超过间隔才算到期，越久越急"""
+    """已攻克的题每隔 N 天复习一次：距攻克（或上次作答）满 N 天才算到期，到期时 0.5，超期越久越急，满 2N 天为 1"""
     t = sig.mastered.get(q.id)
     if t is None:
         return 0.0
     last = sig.answered.get(q.id, (t, True))[0]
     days = (sig.now - max(t, last)).total_seconds() / 86400
-    intervals = params["review_intervals_days"]
-    if days < intervals[0]:
+    n = max(float(params["review_interval_days"]), 1.0)
+    if days < n:
         return 0.0
-    return min(1.0, days / max(intervals[-1], 1))
+    return min(1.0, days / (2 * n))
 
 
 def _difficulty_fit(q: QInfo, mastery: float, slot: str) -> float:

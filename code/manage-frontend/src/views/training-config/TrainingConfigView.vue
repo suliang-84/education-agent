@@ -7,9 +7,12 @@
         <span class="section-title">
           <SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />{{ f.label }}
         </span>
-        <el-button size="small" :loading="f.saving" @click="saveDimension(f)">
-          <SvgIcon v-if="!f.saving" name="save" :size="14" style="margin-right:4px" />保存
-        </el-button>
+        <div class="hd-actions">
+          <el-button v-if="f.smart" size="small" title="只恢复页面上的数值，点「保存」后才生效" @click="resetSmart(f)">恢复算法默认值</el-button>
+          <el-button size="small" :loading="f.saving" @click="saveDimension(f)">
+            <SvgIcon v-if="!f.saving" name="save" :size="14" style="margin-right:4px" />保存
+          </el-button>
+        </div>
       </div>
 
       <el-form label-width="150px" class="cfg-form" @submit.prevent>
@@ -45,20 +48,19 @@
             </div>
           </el-form-item>
         </template>
-        <div v-else class="hint smart-tip">智能训练按下方「槽位配比」组卷，不使用题型比例和难度比例。</div>
       </el-form>
 
       <!-- 智能训练：算法参数 -->
       <template v-if="f.dimension === 'SMART' && f.smart">
-        <div class="sub-title">槽位配比（弱项强化 / 强项拓展 / 复习探索）</div>
         <el-form label-width="150px" class="cfg-form" @submit.prevent>
           <el-form-item label="槽位配比" class="title-row" />
           <el-form-item label=" ">
             <div class="ratio-row">
               <div v-for="s in SLOTS" :key="s.key" class="ratio-item">
-                <div class="ratio-item__label">{{ s.label }}（{{ pct(f.smart.slots, s.key) }}）</div>
-                <el-input-number v-model="f.smart.slots[s.key]" :min="0" :max="100" :step="0.1" :precision="2" controls-position="right" size="small" class="ratio-val" />
+                <div class="ratio-item__label"><SvgIcon :name="s.icon" :size="14" class="slot-icon" :class="`slot-icon--${s.key}`" />{{ s.label }}</div>
+                <el-input-number v-model="f.smart.slots[s.key]" :min="0" :max="100" :step="5" :precision="0" controls-position="right" size="small" class="ratio-val" />
               </div>
+              <span class="ratio-total" :class="{ bad: sumOf(f.smart.slots) !== 100 }">合计 {{ sumOf(f.smart.slots) }}%</span>
             </div>
           </el-form-item>
           <el-form-item label="近期困惑保底题数">
@@ -67,50 +69,58 @@
           </el-form-item>
         </el-form>
 
-        <div class="sub-title">打分权重（越大越优先）</div>
         <el-form label-width="150px" class="cfg-form" @submit.prevent>
-          <div class="grid">
-            <el-form-item v-for="w in WEIGHTS" :key="w.key" :label="w.label">
-              <el-input-number v-model="f.smart.weights[w.key]" :min="0" :max="5" :step="0.1" :precision="2" size="small" controls-position="right" />
-            </el-form-item>
-          </div>
+          <el-form-item label="打分权重" class="title-row" />
+          <el-form-item label=" ">
+            <div class="ratio-row">
+              <div v-for="w in WEIGHTS" :key="w.key" class="ratio-item">
+                <div class="ratio-item__label">{{ w.label }}</div>
+                <el-input-number v-model="f.smart.weights[w.key]" :min="0" :max="5" :step="0.1" :precision="2" controls-position="right" size="small" class="ratio-val" />
+              </div>
+              <span class="ratio-total">数值越大越优先</span>
+            </div>
+          </el-form-item>
         </el-form>
 
-        <div class="sub-title">时间衰减与随机性</div>
-        <el-form label-width="150px" class="cfg-form" @submit.prevent>
-          <div class="grid">
+        <div class="sub-title"><span class="sub-title__text">时间衰减与随机性</span></div>
+        <el-form label-width="150px" class="cfg-form cfg-form--lv3" @submit.prevent>
+          <div class="list-col">
             <el-form-item label="做题历史半衰期（天）">
               <el-input-number v-model="f.smart.half_life_days" :min="1" :max="365" size="small" controls-position="right" />
+              <span class="hint">学生的做题记录每过这么多天，对「薄弱度」判断的影响减半；越小越看重最近的表现，默认 14</span>
             </el-form-item>
             <el-form-item label="聊天困惑半衰期（天）">
               <el-input-number v-model="f.smart.intent_half_life_days" :min="1" :max="365" size="small" controls-position="right" />
+              <span class="hint">学生在助教里提过的困惑，每过这么多天影响减半；越小越只关注最近聊的，默认 7</span>
             </el-form-item>
             <el-form-item label="平滑先验（错）">
               <el-input-number v-model="f.smart.prior[0]" :min="0.1" :max="20" :step="0.5" :precision="1" size="small" controls-position="right" />
+              <span class="hint">做题很少时，假装多错了这么多道，避免「做 1 错 1 就判成 100% 错」；与「对」一起决定初始错误率，默认 1</span>
             </el-form-item>
             <el-form-item label="平滑先验（对）">
               <el-input-number v-model="f.smart.prior[1]" :min="0.1" :max="20" :step="0.5" :precision="1" size="small" controls-position="right" />
+              <span class="hint">做题很少时，假装多做对了这么多道；默认 错 1 : 对 2，即没有记录时错误率按 1/3 算，默认 2</span>
             </el-form-item>
             <el-form-item label="最近做过的题扣分">
               <el-input-number v-model="f.smart.recent_penalty" :min="0" :max="5" :step="0.1" :precision="2" size="small" controls-position="right" />
+              <span class="hint">最近做过的题得分减去这个值，越大越避免重复出同一道题，默认 0.8</span>
             </el-form-item>
             <el-form-item label="抽取随机程度">
               <el-input-number v-model="f.smart.temperature" :min="0.05" :max="2" :step="0.05" :precision="2" size="small" controls-position="right" />
+              <span class="hint">越小越只选得分最高的题，越大越随机，默认 0.35</span>
             </el-form-item>
             <el-form-item label="同题型降权倍数">
               <el-input-number v-model="f.smart.diversity_type" :min="0.1" :max="1" :step="0.1" :precision="2" size="small" controls-position="right" />
+              <span class="hint">同一张卷里，同题型每多出现一道，下一道同题型的得分乘这个值；越小越分散，1 表示不限制，默认 0.5</span>
             </el-form-item>
             <el-form-item label="同知识点降权倍数">
               <el-input-number v-model="f.smart.diversity_kp" :min="0.1" :max="1" :step="0.1" :precision="2" size="small" controls-position="right" />
+              <span class="hint">同一张卷里，同知识点每多出现一道，下一道同知识点的得分乘这个值；越小越分散，1 表示不限制，默认 0.7</span>
             </el-form-item>
           </div>
           <el-form-item label="已攻克题复习间隔">
-            <el-input v-model="f.reviewText" placeholder="如 1,3,7,14" style="max-width:260px" />
-            <span class="hint">单位：天，逗号分隔，最多 8 个</span>
-          </el-form-item>
-          <el-form-item>
-            <el-button size="small" @click="resetSmart(f)">恢复算法默认值</el-button>
-            <span class="hint">只恢复页面上的数值，点右上角「保存」后才生效</span>
+            <el-input-number v-model="f.smart.review_interval_days" :min="1" :max="365" :step="1" size="small" controls-position="right" />
+            <span class="hint">已攻克的题每隔多少天复习一次，默认 7 天</span>
           </el-form-item>
         </el-form>
       </template>
@@ -155,14 +165,13 @@ interface Form {
   typeR: Record<string, number>
   diffR: Record<string, number>
   smart: SmartParams | null
-  reviewText: string
   saving: boolean
 }
 
 const SLOTS = [
-  { key: 'weak', label: '弱项强化' },
-  { key: 'strong', label: '强项拓展' },
-  { key: 'review', label: '复习探索' },
+  { key: 'weak', label: '弱项强化', icon: 'slot_weak' },
+  { key: 'strong', label: '强项拓展', icon: 'slot_strong' },
+  { key: 'review', label: '复习探索', icon: 'slot_review' },
 ] as const
 const WEIGHTS = [
   { key: 'kp_weak', label: '知识点薄弱度' },
@@ -193,11 +202,6 @@ const typeLabel = (t: string) => QuestionTypeLabels[t as keyof typeof QuestionTy
 const diffLabel = (d: string) => DIFF_LABELS[d] ?? d
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v))
 
-function pct(r: Record<string, number>, key: string) {
-  const sum = Object.values(r).reduce((a, b) => a + (Number(b) || 0), 0)
-  return sum > 0 ? `${Math.round(((Number(r[key]) || 0) / sum) * 100)}%` : '—'
-}
-
 /** 把比例换算成合计 100 的整数百分比（没配置时平均分；尾差补到最大的一项） */
 function toPercent(r: Record<string, number> | null | undefined, keys: string[]): Record<string, number> {
   const w = keys.map((k) => (r ? Number(r[k]) || 0 : 1))
@@ -208,6 +212,13 @@ function toPercent(r: Record<string, number> | null | undefined, keys: string[])
   return Object.fromEntries(keys.map((k, i) => [k, vals[i]]))
 }
 
+/** 槽位配比库里存的是小数（0.6 / 0.2 / 0.2），页面按百分比（60 / 20 / 20）填写 */
+function slotsToPercent(sp: SmartParams): SmartParams {
+  const p = toPercent(sp.slots as unknown as Record<string, number>, ['weak', 'strong', 'review'])
+  sp.slots = { weak: p.weak, strong: p.strong, review: p.review }
+  return sp
+}
+
 function toForm(c: DimensionConfig): Form {
   const typeR: Record<string, number> = {}
   const tp = toPercent(c.type_ratio, cfg.question_types)
@@ -215,13 +226,13 @@ function toForm(c: DimensionConfig): Form {
   const diffR: Record<string, number> = {}
   const dp = toPercent(c.difficulty_ratio ?? cfg.default_difficulty_ratio, cfg.difficulties)
   cfg.difficulties.forEach((d) => { diffR[d] = dp[d] })
-  const smart = c.smart_params ? clone(c.smart_params) : null
+  const smart = c.smart_params ? slotsToPercent(clone(c.smart_params)) : null
   return {
     dimension: c.dimension, label: c.label,
     questions_per_session: c.questions_per_session,
     dedup_window_size: c.dedup_window_size,
     typeR, diffR,
-    smart, reviewText: smart ? smart.review_intervals_days.join(',') : '',
+    smart,
     saving: false,
   }
 }
@@ -236,11 +247,10 @@ async function load() {
 }
 
 function resetSmart(f: Form) {
-  f.smart = clone(cfg.default_smart_params)
-  f.reviewText = f.smart.review_intervals_days.join(',')
+  f.smart = slotsToPercent(clone(cfg.default_smart_params))
 }
 
-function sumOf(r: Record<string, number>) { return Object.values(r).reduce((a, b) => a + (Number(b) || 0), 0) }
+function sumOf(r: object) { return (Object.values(r) as number[]).reduce((a, b) => a + (Number(b) || 0), 0) }
 
 async function saveDimension(f: Form) {
   if (f.saving) return
@@ -254,12 +264,10 @@ async function saveDimension(f: Form) {
     difficulty_ratio: { ...f.diffR },
   }
   if (f.smart) {
-    if (sumOf(f.smart.slots as unknown as Record<string, number>) <= 0) { ElMessage.warning('槽位配比至少要有一项大于 0'); return }
-    const days = f.reviewText.split(/[,，\s]+/).filter(Boolean).map(Number)
-    if (!days.length || days.length > 8 || days.some((d) => !Number.isInteger(d) || d < 1 || d > 365)) {
-      ElMessage.warning('复习间隔需填 1~8 个 1~365 的整数天数，如 1,3,7,14'); return
-    }
-    payload.smart_params = { ...clone(f.smart), review_intervals_days: days }
+    if (sumOf(f.smart.slots) !== 100) { ElMessage.warning(`槽位配比合计需为 100%，当前为 ${sumOf(f.smart.slots)}%`); return }
+    const sp = clone(f.smart)
+    sp.slots = { weak: sp.slots.weak / 100, strong: sp.slots.strong / 100, review: sp.slots.review / 100 }
+    payload.smart_params = sp
   }
   f.saving = true
   try {
@@ -301,6 +309,11 @@ onMounted(load)
   :deep(.el-form-item__label) { font-size: 13px; color: var(--text-1) !important; }
 }
 
+.hd-actions { display: flex; align-items: center; gap: 10px; }
+.cfg-form--lv3 :deep(.el-form-item__label) { color: var(--text-2) !important; }   // 三级标题：同难度比例的小标题色
+
+.list-col { display: block; }
+
 .grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -313,13 +326,24 @@ onMounted(load)
   font-size: 12px;
   color: var(--text-3);
 }
-.smart-tip { margin: 0 0 10px 150px; }
 
 .sub-title {
   font-size: 13px;
   font-weight: 600;
   color: var(--text-1);
   margin: 10px 0 8px;
+  display: flex;
+  align-items: center;
+
+  // 与表单项标题同一列：宽 150px、右对齐、右侧留 12px（同 el-form-item__label）
+  &__text {
+    width: 150px;
+    padding-right: 12px;
+    box-sizing: border-box;
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .hint { margin-left: 0; font-weight: 400; }
 }
 
 // 比例类配置：标题独占一行（右对齐，位置不变），配置条件在下一行（起点不变）
@@ -371,6 +395,13 @@ onMounted(load)
   &--basic     { background: #E8F5D0; }
   &--advanced  { background: #FFF0D6; }
   &--challenge { background: #FFE0E0; }
+}
+.slot-icon {
+  flex-shrink: 0;
+  // 弱项强化：琥珀（向上箭头 + 底线）／强项拓展：绿（向外扩张箭头）／复习探索：青（循环箭头）
+  &--weak   { color: var(--amber); }
+  &--strong { color: var(--green); }
+  &--review { color: var(--teal); }
 }
 .ratio-val { width: 90px !important; }
 :deep(.ratio-val .el-input__inner) { text-align: left !important; }

@@ -8,7 +8,7 @@ from app.services.smart_training.core import DEFAULT_PARAMS
 def test_smart_defaults_roundtrip():
     out = svc.validate_smart_params({})
     assert out["slots"] == DEFAULT_PARAMS["slots"]
-    assert out["review_intervals_days"] == [1, 3, 7, 14]
+    assert out["review_interval_days"] == 7
 
 
 def test_smart_partial_override_keeps_rest():
@@ -20,7 +20,8 @@ def test_smart_partial_override_keeps_rest():
 @pytest.mark.parametrize("bad", [
     {"temperature": 9},
     {"slots": {"weak": 0, "strong": 0, "review": 0}},
-    {"review_intervals_days": []},
+    {"review_interval_days": 0},
+    {"review_interval_days": 1.5},
     {"prior": [1]},
     {"intent_min_slots": 1.5},
 ])

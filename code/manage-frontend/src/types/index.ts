@@ -274,7 +274,7 @@ export interface SmartParams {
   temperature: number
   diversity_type: number
   diversity_kp: number
-  review_intervals_days: number[]
+  review_interval_days: number
 }
 
 export interface DimensionConfig {
