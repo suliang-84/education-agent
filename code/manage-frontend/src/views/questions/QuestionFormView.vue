@@ -35,7 +35,7 @@
             accept="image/jpeg,image/png,image/webp"
             :on-change="handleImageChange"
           >
-            <el-button size="small" text :loading="recognizing" style="color:var(--color-primary)">
+            <el-button size="small" text class="ocr-btn" :loading="recognizing" style="color:var(--color-primary)">
               <SvgIcon v-if="!recognizing" name="camera" :size="16" color="var(--color-primary)" style="margin-right:4px" />
               {{ recognizing ? '识别中...' : '上传图片识别题目' }}
             </el-button>
@@ -256,6 +256,16 @@ async function handleSave(mode: 'draft' | 'analyze') {
 }
 
 // ── 表单分区 ─────────────────────────────────────────────────
+.ocr-btn.el-button {
+  // 文字按钮去掉自带内边距，文字离卡片边缘的距离才准；悬停时不变底色
+  margin-left: 0 !important;
+  padding: 0 !important;
+  height: auto !important;
+  background: transparent !important;
+  border-color: transparent !important;
+  &:hover, &:focus, &:active { background: transparent !important; border-color: transparent !important; }
+}
+
 .form-section {
   padding: 5px 15px 15px;
   margin-bottom: 15px;

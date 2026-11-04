@@ -134,9 +134,11 @@
         <span class="section-title">
           <SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />题目分析（大模型）
         </span>
-        <el-button size="small" text :loading="analysisSaving" style="color:var(--color-primary)" @click="saveAnalysis">
-          <SvgIcon v-if="!analysisSaving" name="save" :size="16" color="var(--color-primary)" style="margin-right:4px" />保存
-        </el-button>
+        <div class="hd-actions">
+          <el-button size="small" text :loading="analysisSaving" style="color:var(--color-primary)" @click="saveAnalysis">
+            <SvgIcon v-if="!analysisSaving" name="save" :size="16" color="var(--color-primary)" style="margin-right:4px" />保存
+          </el-button>
+        </div>
       </div>
       <el-form label-width="150px" class="cfg-form" @submit.prevent>
         <el-form-item label="批量分析并发数">
@@ -311,7 +313,20 @@ onMounted(load)
   :deep(.el-form-item__label) { font-size: 13px; color: var(--text-1) !important; }
 }
 
-.hd-actions { display: flex; align-items: center; gap: 10px; }
+.hd-actions {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  // 文字按钮去掉自带的内边距，按钮之间 / 保存与卡片右边框的距离才是 15px；悬停时不变底色
+  :deep(.el-button) {
+    margin-left: 0 !important;
+    padding: 0 !important;
+    height: auto !important;
+    background: transparent !important;
+    border-color: transparent !important;
+    &:hover, &:focus, &:active { background: transparent !important; border-color: transparent !important; }
+  }
+}
 .cfg-form--lv3 :deep(.el-form-item__label) { color: var(--text-2) !important; }   // 三级标题：同难度比例的小标题色
 
 .list-col { display: block; }
