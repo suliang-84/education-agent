@@ -1,0 +1,513 @@
+<template>
+  <div class="page-root" v-loading="loading">
+    <!-- 顶部操作栏 -->
+    <div class="form-topbar">
+      <el-button size="small" class="btn-back" @click="$router.push('/students')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="margin-right:4px">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/>
+        </svg>
+        返回
+      </el-button>
+      <div style="flex:1" />
+      <el-button size="small" text style="color:var(--color-primary)" @click="$router.push(`/students/${studentId}/ai-prompt`)">
+        <SvgIcon name="summary" :size="16" color="var(--color-primary)" style="margin-right:4px" />摘要
+      </el-button>
+      <el-button size="small" text style="color:var(--color-primary)" @click="load">
+        <SvgIcon name="analyse" :size="16" color="var(--color-primary)" style="margin-right:4px" />刷新
+      </el-button>
+    </div>
+
+    <template v-if="p">
+      <!-- 基础档案 + 综合评估 -->
+      <div class="surface section-block">
+        <div class="section-hd">
+          <span class="section-title"><SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />综合评估</span>
+          <span class="hint-text">数据更新于 {{ formatDate(p.generated_at) }}</span>
+        </div>
+
+        <div class="who">
+          <div class="who__avatar">{{ (p.basic.nickname || '?').slice(0, 1) }}</div>
+          <div class="who__info">
+            <div class="who__name">{{ p.basic.nickname || '未设置昵称' }}<span class="who__id">#{{ p.basic.id }}</span></div>
+            <div class="who__meta">
+              {{ gradeLabel }}<template v-if="p.basic.is_minor"> · 未成年</template>
+              · 注册于 {{ formatDate(p.basic.created_at, 'YYYY-MM-DD') }}
+              · 最近登录 {{ p.basic.last_login_at ? formatDate(p.basic.last_login_at) : '—' }}
+              · 近 30 天活跃 {{ p.basic.active_days_30 }} 天
+            </div>
+            <div class="who__meta">
+              已绑定家长：<template v-if="p.basic.parents.length">{{ p.basic.parents.map(x => x.nickname).join('、') }}</template><template v-else>暂无</template>
+            </div>
+          </div>
+        </div>
+
+        <div class="eval-grid">
+          <div class="eval-card">
+            <div class="eval-card__label">学习状态</div>
+            <div class="status-tag" :class="`status--${statusKey}`">{{ p.summary.status }}</div>
+            <div class="eval-card__desc">{{ p.summary.status_reason }}</div>
+          </div>
+          <div class="eval-card">
+            <div class="eval-card__label">学习投入度</div>
+            <div class="eval-card__num num">{{ p.summary.engagement_score }}<span class="unit"> / 100</span></div>
+            <div class="parts">
+              <div v-for="x in engagementParts" :key="x.label" class="part">
+                <span class="part__label">{{ x.label }}</span>
+                <div class="bar"><div class="bar__fill" :style="{ width: x.value + '%' }" /></div>
+                <span class="part__val num">{{ x.value }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="eval-card">
+            <div class="eval-card__label">近 4 周正确率</div>
+            <div ref="trendRef" class="trend-chart" />
+            <div class="eval-card__desc" v-if="p.summary.trend.slope !== null">
+              平均每周{{ p.summary.trend.slope >= 0 ? '上升' : '下降' }} {{ Math.abs(p.summary.trend.slope) }} 个百分点
+            </div>
+          </div>
+        </div>
+
+        <div class="tips" v-if="p.summary.tips.length">
+          <div class="sub-title">建议</div>
+          <div v-for="(t, i) in p.summary.tips" :key="i" class="tip"><span class="tip__no num">{{ i + 1 }}</span>{{ t }}</div>
+        </div>
+      </div>
+
+      <!-- 分维度标签页 -->
+      <div class="surface section-block tabs-block">
+        <el-tabs v-model="tab" @tab-change="onTabChange">
+          <!-- ① 认知能力 -->
+          <el-tab-pane label="认知能力" name="cognitive">
+            <template v-if="p.cognitive.has_profile">
+              <div class="cog-grid">
+                <div>
+                  <div class="seg">
+                    <button v-for="s in RADAR_SETS" :key="s.key" class="seg__btn" :class="{ on: radarSet === s.key }" @click="setRadar(s.key)">{{ s.label }}</button>
+                  </div>
+                  <div ref="radarRef" class="radar-chart" />
+                </div>
+                <div>
+                  <div class="sub-title">五力得分（综合）</div>
+                  <div v-for="k in POWERS" :key="k" class="rate-row">
+                    <span class="rate-row__label" :style="{ color: POWER_COLORS[k] }">{{ FivePowerLabels[k] }}</span>
+                    <div class="bar"><div class="bar__fill" :style="{ width: (p.cognitive.final?.[k] ?? 0) + '%', background: POWER_COLORS[k] }" /></div>
+                    <span class="rate-row__val num">{{ p.cognitive.final?.[k] ?? '—' }}</span>
+                  </div>
+                  <div class="facts">
+                    <div class="fact"><span>最强项</span><b>{{ powerName(p.cognitive.primary_strength) }}</b></div>
+                    <div class="fact"><span>最弱项</span><b>{{ powerName(p.cognitive.primary_weakness) }}</b></div>
+                    <div class="fact"><span>次弱项</span><b>{{ powerName(p.cognitive.secondary_weakness) }}</b></div>
+                    <div class="fact"><span>推荐训练模式</span><b>{{ modeName(p.cognitive.recommended_mode) }}</b></div>
+                    <div class="fact"><span>测试时间</span><b>{{ formatDate(p.cognitive.tested_at) }}</b></div>
+                    <div class="fact" v-if="p.cognitive.training_info"><span>累计训练</span><b>{{ p.cognitive.training_info.total_training_count }} 次 / {{ p.cognitive.training_info.total_question_count }} 题</b></div>
+                  </div>
+                  <div v-if="p.cognitive.tags?.length" class="tag-list">
+                    <span v-for="t in p.cognitive.tags" :key="t" class="tag">{{ t }}</span>
+                  </div>
+                </div>
+              </div>
+              <template v-if="(p.cognitive.history?.length ?? 0) > 1">
+                <div class="sub-title" style="margin-top:15px">五力成长曲线（历次测试）</div>
+                <div ref="historyRef" class="history-chart" />
+              </template>
+            </template>
+            <div v-else class="empty">该学生尚未完成五力测试，暂无能力画像</div>
+          </el-tab-pane>
+
+          <!-- ② 学业掌握 -->
+          <el-tab-pane label="学业掌握" name="mastery">
+            <div class="tiles">
+              <div class="tile"><div class="tile__num num">{{ p.mastery.answered }}</div><div class="tile__lbl">累计答题</div></div>
+              <div class="tile"><div class="tile__num num">{{ fmtPct(p.mastery.accuracy) }}</div><div class="tile__lbl">整体正确率</div></div>
+              <div class="tile"><div class="tile__num num">{{ p.mastery.wrong_pending }}</div><div class="tile__lbl">待攻克错题</div></div>
+              <div class="tile"><div class="tile__num num">{{ p.mastery.wrong_mastered }}</div><div class="tile__lbl">已攻克错题（{{ fmtPct(p.mastery.wrong_mastered_rate) }}）</div></div>
+              <div class="tile"><div class="tile__num num">{{ p.mastery.stubborn_questions }}</div><div class="tile__lbl">顽固错题（错 ≥ 3 次）</div></div>
+              <div class="tile"><div class="tile__num num">{{ p.mastery.favorites }}</div><div class="tile__lbl">收藏题数</div></div>
+            </div>
+
+            <div class="sub-title">当前学期进度</div>
+            <div class="rate-row">
+              <span class="rate-row__label">已练知识点</span>
+              <div class="bar"><div class="bar__fill" :style="{ width: (p.mastery.semester_progress.rate ?? 0) + '%' }" /></div>
+              <span class="rate-row__val num">{{ p.mastery.semester_progress.practiced }} / {{ p.mastery.semester_progress.total }}</span>
+            </div>
+
+            <div class="three-col">
+              <div>
+                <div class="sub-title">题型正确率</div>
+                <div v-for="r in p.mastery.by_type" :key="r.key" class="rate-row">
+                  <span class="rate-row__label"><SvgIcon :name="QT_ICONS[r.key] ?? 'qt_application'" :size="14" :class="`qt-i qt-i--${r.key}`" />{{ r.label }}</span>
+                  <div class="bar"><div class="bar__fill" :style="{ width: (r.accuracy ?? 0) + '%' }" /></div>
+                  <span class="rate-row__val num">{{ fmtPct(r.accuracy) }}<small>{{ r.answered }}题</small></span>
+                </div>
+                <div v-if="!p.mastery.by_type.length" class="empty-sm">暂无数据</div>
+              </div>
+              <div>
+                <div class="sub-title">难度表现</div>
+                <div v-for="r in p.mastery.by_difficulty" :key="r.key" class="rate-row">
+                  <span class="rate-row__label">{{ r.label }}</span>
+                  <div class="bar"><div class="bar__fill" :style="{ width: (r.accuracy ?? 0) + '%' }" /></div>
+                  <span class="rate-row__val num">{{ fmtPct(r.accuracy) }}<small>{{ r.answered }}题</small></span>
+                </div>
+                <div v-if="!p.mastery.by_difficulty.length" class="empty-sm">暂无数据</div>
+              </div>
+              <div>
+                <div class="sub-title">科目表现</div>
+                <div v-for="r in p.mastery.by_subject" :key="r.key" class="rate-row">
+                  <span class="rate-row__label">{{ r.label }}</span>
+                  <div class="bar"><div class="bar__fill" :style="{ width: (r.accuracy ?? 0) + '%' }" /></div>
+                  <span class="rate-row__val num">{{ fmtPct(r.accuracy) }}<small>{{ r.answered }}题</small></span>
+                </div>
+                <div v-if="!p.mastery.by_subject.length" class="empty-sm">暂无数据</div>
+              </div>
+            </div>
+
+            <div class="two-col">
+              <div>
+                <div class="sub-title">薄弱知识点 Top 5</div>
+                <el-table :data="p.mastery.weak_kps" size="small" :show-header="true" class="mini-table" empty-text="做题 2 次以上的知识点才会进入统计">
+                  <el-table-column prop="name" label="知识点" min-width="140" show-overflow-tooltip />
+                  <el-table-column prop="chapter" label="单元" min-width="120" show-overflow-tooltip />
+                  <el-table-column label="错误率" width="90"><template #default="{ row }"><span class="num" style="color:var(--red)">{{ fmtPct(row.error_rate) }}</span></template></el-table-column>
+                  <el-table-column label="做题" width="70"><template #default="{ row }"><span class="num">{{ row.errors }}/{{ row.attempts }}</span></template></el-table-column>
+                </el-table>
+              </div>
+              <div>
+                <div class="sub-title">强项知识点 Top 5</div>
+                <el-table :data="p.mastery.strong_kps" size="small" class="mini-table" empty-text="做题 2 次以上的知识点才会进入统计">
+                  <el-table-column prop="name" label="知识点" min-width="140" show-overflow-tooltip />
+                  <el-table-column prop="chapter" label="单元" min-width="120" show-overflow-tooltip />
+                  <el-table-column label="错误率" width="90"><template #default="{ row }"><span class="num" style="color:var(--green)">{{ fmtPct(row.error_rate) }}</span></template></el-table-column>
+                  <el-table-column label="做题" width="70"><template #default="{ row }"><span class="num">{{ row.errors }}/{{ row.attempts }}</span></template></el-table-column>
+                </el-table>
+              </div>
+            </div>
+          </el-tab-pane>
+
+          <!-- ③ 学习行为 -->
+          <el-tab-pane label="学习行为" name="behavior">
+            <div class="tiles">
+              <div class="tile"><div class="tile__num num">{{ p.behavior.sessions_7d }}</div><div class="tile__lbl">近 7 天训练次数</div></div>
+              <div class="tile"><div class="tile__num num">{{ p.behavior.sessions_30d }}</div><div class="tile__lbl">近 30 天训练次数</div></div>
+              <div class="tile"><div class="tile__num num">{{ p.behavior.streak_days }}</div><div class="tile__lbl">连续学习天数</div></div>
+              <div class="tile"><div class="tile__num num">{{ fmtSec(p.behavior.avg_seconds_per_question) }}</div><div class="tile__lbl">平均单题用时</div></div>
+              <div class="tile"><div class="tile__num num">{{ fmtPct(p.behavior.complete_rate) }}</div><div class="tile__lbl">答题完成度（{{ p.behavior.answered_questions }}/{{ p.behavior.issued_questions }} 题）</div></div>
+              <div class="tile"><div class="tile__num num">{{ fmtPct(p.behavior.fast_wrong_ratio) }}</div><div class="tile__lbl">「快而错」占比</div></div>
+            </div>
+            <div class="two-col">
+              <div>
+                <div class="sub-title">学习时段分布</div>
+                <div v-for="b in p.behavior.time_buckets" :key="b.key" class="rate-row">
+                  <span class="rate-row__label">{{ b.label }}</span>
+                  <div class="bar"><div class="bar__fill" :style="{ width: (b.ratio ?? 0) + '%' }" /></div>
+                  <span class="rate-row__val num">{{ fmtPct(b.ratio) }}<small>{{ b.count }}题</small></span>
+                </div>
+                <div class="foot-note">上午 6–12 点，下午 12–18 点，晚上 18–22 点，深夜 22 点至次日 6 点</div>
+              </div>
+              <div>
+                <div class="sub-title">训练方式偏好</div>
+                <div v-for="d in p.behavior.dimensions" :key="d.key" class="rate-row">
+                  <span class="rate-row__label">{{ d.label }}</span>
+                  <div class="bar"><div class="bar__fill" :style="{ width: dimRatio(d.count) + '%' }" /></div>
+                  <span class="rate-row__val num">{{ d.count }}<small>次</small></span>
+                </div>
+                <div v-if="!p.behavior.dimensions.length" class="empty-sm">暂无训练记录</div>
+                <div class="foot-note">平均提示级别 {{ p.behavior.avg_hint_level ?? '—' }}；平均每次训练作答 {{ fmtSec(p.behavior.avg_seconds_per_session) }}</div>
+              </div>
+            </div>
+          </el-tab-pane>
+
+          <!-- ④ AI 互动 -->
+          <el-tab-pane label="AI 互动" name="ai">
+            <div class="tiles">
+              <div class="tile"><div class="tile__num num">{{ p.ai_interaction.student_messages }}</div><div class="tile__lbl">学生发言数</div></div>
+              <div class="tile"><div class="tile__num num">{{ p.ai_interaction.assistant_messages }}</div><div class="tile__lbl">助教回复数</div></div>
+              <div class="tile"><div class="tile__num num">{{ p.ai_interaction.aha_count }}</div><div class="tile__lbl">顿悟次数</div></div>
+              <div class="tile"><div class="tile__num ts">{{ p.ai_interaction.last_chat_at ? formatDate(p.ai_interaction.last_chat_at) : '—' }}</div><div class="tile__lbl">最近聊天</div></div>
+            </div>
+            <div class="two-col">
+              <div>
+                <div class="sub-title">启发策略效果（得分越高越适合该学生）</div>
+                <el-table :data="p.ai_interaction.strategies" size="small" class="mini-table" empty-text="还没有用过启发策略">
+                  <el-table-column prop="name" label="策略" min-width="120" />
+                  <el-table-column label="得分" width="80"><template #default="{ row }"><span class="num">{{ row.score ?? '—' }}</span></template></el-table-column>
+                  <el-table-column prop="uses" label="使用" width="60" />
+                  <el-table-column prop="likes" label="点赞" width="60" />
+                  <el-table-column prop="dislikes" label="点踩" width="60" />
+                </el-table>
+              </div>
+              <div>
+                <div class="sub-title">近期交流概况</div>
+                <div class="text-box" v-if="p.ai_interaction.chat_summary">{{ p.ai_interaction.chat_summary }}</div>
+                <div class="empty-sm" v-else>暂无聊天概况</div>
+                <div class="sub-title" style="margin-top:10px">近期困惑</div>
+                <div v-if="intentList.length" class="tag-list">
+                  <span v-for="t in intentList" :key="t" class="tag">{{ t }}</span>
+                </div>
+                <div class="empty-sm" v-else>暂无</div>
+              </div>
+            </div>
+          </el-tab-pane>
+
+          <!-- ⑤ 个人特质 -->
+          <el-tab-pane label="个人特质" name="traits">
+            <div class="sub-title">个人洞察</div>
+            <div class="text-box" v-if="p.traits.personal_insight">{{ p.traits.personal_insight }}</div>
+            <div class="empty-sm" v-else>暂无个人洞察。学生与 AI 助教聊天后会自动生成，也可以在「摘要」页手动填写。</div>
+            <div class="foot-note" v-if="p.traits.personal_insight_updated_at">更新于 {{ formatDate(p.traits.personal_insight_updated_at) }}</div>
+            <div class="sub-title" style="margin-top:15px">学习信息摘要</div>
+            <div class="text-box" v-if="p.traits.learning_summary">{{ p.traits.learning_summary }}</div>
+            <div class="empty-sm" v-else>暂无</div>
+            <div class="foot-note">编辑请前往「摘要」页。</div>
+          </el-tab-pane>
+        </el-tabs>
+      </div>
+    </template>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { useRoute } from 'vue-router'
+import * as echarts from 'echarts'
+import { studentApi } from '@/api'
+import type { StudentProfile, FivePower } from '@/types'
+import { FivePowerLabels } from '@/types'
+import { formatDate } from '@/utils/format'
+
+const POWERS = ['INSIGHT', 'CONSTRUCT', 'DEDUCE', 'ADAPT', 'MIGRATE'] as FivePower[]
+const POWER_COLORS: Record<string, string> = {
+  INSIGHT: '#0D9488', CONSTRUCT: '#E11D48', DEDUCE: '#0EA5E9', ADAPT: '#D97706', MIGRATE: '#7C3AED',
+}
+const QT_ICONS: Record<string, string> = {
+  SINGLE_CHOICE: 'qt_single', MULTIPLE_CHOICE: 'qt_multi', TRUE_FALSE: 'qt_judge', FILL_BLANK: 'qt_fill', APPLICATION: 'qt_application',
+}
+const RADAR_SETS = [
+  { key: 'final', label: '综合' }, { key: 'ability', label: '能力' }, { key: 'preference', label: '偏好' }, { key: 'training', label: '训练表现' },
+] as const
+const GRADES: Record<string, string> = { G7: '七年级', G8: '八年级', G9: '九年级', G10: '高一', G11: '高二', G12: '高三' }
+const SEMESTERS: Record<string, string> = { S1: '上学期', S2: '下学期' }
+const MODES: Record<string, string> = { TRAIN_WEAKNESS: '补弱训练', TRAIN_STRENGTH: '强化优势', BALANCED: '均衡训练' }
+
+const route = useRoute()
+const studentId = Number(route.params.id)
+const loading = ref(false)
+const p = ref<StudentProfile>()
+const tab = ref('cognitive')
+const radarSet = ref<(typeof RADAR_SETS)[number]['key']>('final')
+const trendRef = ref<HTMLElement>()
+const radarRef = ref<HTMLElement>()
+const historyRef = ref<HTMLElement>()
+const charts: echarts.ECharts[] = []
+
+const gradeLabel = computed(() => {
+  const b = p.value?.basic
+  if (!b) return ''
+  return `${GRADES[b.grade ?? ''] ?? b.grade ?? '未设置年级'} ${SEMESTERS[b.semester ?? ''] ?? b.semester ?? ''}`.trim()
+})
+const statusKey = computed(() => ({
+  稳步提升: 'up', 状态平稳: 'flat', 遇到瓶颈: 'stuck', 近期懈怠: 'idle', 数据不足: 'none',
+}[p.value?.summary.status ?? ''] ?? 'none'))
+const engagementParts = computed(() => {
+  const e = p.value?.summary.engagement_parts
+  return e ? [
+    { label: '训练频次', value: e.frequency }, { label: '连续天数', value: e.streak },
+    { label: '答题完成度', value: e.complete }, { label: '独立作答', value: e.hint_independence },
+  ] : []
+})
+const intentList = computed(() => (p.value?.ai_interaction.intents ?? []).map((x) => {
+  if (typeof x === 'string') return x
+  const o = x as Record<string, unknown>
+  return String(o.kp_name ?? o.name ?? o.topic ?? o.label ?? '')
+}).filter(Boolean))
+const dimTotal = computed(() => (p.value?.behavior.dimensions ?? []).reduce((a, b) => a + b.count, 0) || 1)
+
+const fmtPct = (v: number | null | undefined) => (v === null || v === undefined ? '—' : `${v}%`)
+const fmtSec = (v: number | null | undefined) => (v === null || v === undefined ? '—' : v >= 60 ? `${Math.round(v / 6) / 10} 分钟` : `${v} 秒`)
+const dimRatio = (n: number) => Math.round((n / dimTotal.value) * 100)
+const powerName = (k?: string) => (k ? FivePowerLabels[k as FivePower] ?? k : '—')
+const modeName = (k?: string) => (k ? MODES[k] ?? k : '—')
+
+function cssVar(name: string, fallback: string) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback
+}
+function initChart(el?: HTMLElement) {
+  if (!el) return null
+  echarts.getInstanceByDom(el)?.dispose()
+  const c = echarts.init(el)
+  charts.push(c)
+  return c
+}
+
+function renderTrend() {
+  const c = initChart(trendRef.value)
+  if (!c || !p.value) return
+  const weeks = p.value.summary.trend.weeks
+  const primary = cssVar('--color-primary', '#608df9')
+  c.setOption({
+    grid: { left: 30, right: 10, top: 10, bottom: 22 },
+    xAxis: { type: 'category', data: weeks.map(w => (w.weeks_ago === 0 ? '本周' : `${w.weeks_ago}周前`)), axisLabel: { color: cssVar('--text-3', '#999'), fontSize: 11 }, axisLine: { show: false }, axisTick: { show: false } },
+    yAxis: { type: 'value', min: 0, max: 100, splitNumber: 2, axisLabel: { color: cssVar('--text-3', '#999'), fontSize: 11 }, splitLine: { lineStyle: { color: 'rgba(128,128,128,0.15)' } } },
+    tooltip: { trigger: 'axis', formatter: (ps: { dataIndex: number }[]) => { const w = weeks[ps[0].dataIndex]; return w.accuracy === null ? '无数据' : `正确率 ${w.accuracy}%（${w.answered} 题）` } },
+    series: [{ type: 'line', data: weeks.map(w => w.accuracy), connectNulls: true, smooth: true, symbolSize: 6, itemStyle: { color: primary }, lineStyle: { color: primary, width: 2 }, areaStyle: { color: primary, opacity: 0.12 } }],
+  })
+}
+
+function renderRadar() {
+  const c = initChart(radarRef.value)
+  const cog = p.value?.cognitive
+  if (!c || !cog?.has_profile) return
+  const data = (cog[radarSet.value] ?? {}) as Record<string, number>
+  const primary = cssVar('--color-primary', '#608df9')
+  c.setOption({
+    backgroundColor: 'transparent',
+    radar: {
+      indicator: POWERS.map(k => ({ name: FivePowerLabels[k], max: radarSet.value === 'preference' ? Math.max(30, ...Object.values(data)) : 100 })),
+      radius: 90,
+      axisName: { color: cssVar('--text-2', '#888'), fontSize: 12 },
+      splitLine: { lineStyle: { color: 'rgba(128,128,128,0.22)' } },
+      splitArea: { show: false },
+      axisLine: { lineStyle: { color: 'rgba(128,128,128,0.22)' } },
+    },
+    series: [{
+      type: 'radar',
+      data: [{ value: POWERS.map(k => data[k] ?? 0), lineStyle: { color: primary, width: 2 }, itemStyle: { color: primary }, areaStyle: { color: primary, opacity: 0.22 } }],
+    }],
+  })
+}
+function setRadar(k: (typeof RADAR_SETS)[number]['key']) {
+  radarSet.value = k
+  renderRadar()
+}
+
+function renderHistory() {
+  const c = initChart(historyRef.value)
+  const h = p.value?.cognitive.history
+  if (!c || !h || h.length < 2) return
+  c.setOption({
+    grid: { left: 36, right: 16, top: 30, bottom: 26 },
+    legend: { top: 0, textStyle: { color: cssVar('--text-2', '#888') } },
+    tooltip: { trigger: 'axis' },
+    xAxis: { type: 'category', data: h.map(x => formatDate(x.at, 'MM-DD HH:mm')), axisLabel: { color: cssVar('--text-3', '#999'), fontSize: 11 } },
+    yAxis: { type: 'value', min: 0, max: 100, splitLine: { lineStyle: { color: 'rgba(128,128,128,0.15)' } }, axisLabel: { color: cssVar('--text-3', '#999') } },
+    series: POWERS.map(k => ({ name: FivePowerLabels[k], type: 'line', smooth: true, symbolSize: 5, data: h.map(x => x.final[k]), itemStyle: { color: POWER_COLORS[k] }, lineStyle: { color: POWER_COLORS[k], width: 2 } })),
+  })
+}
+
+async function drawTab() {
+  await nextTick()
+  if (tab.value === 'cognitive') { renderRadar(); renderHistory() }
+}
+function onTabChange() { drawTab() }
+
+async function load() {
+  loading.value = true
+  try {
+    p.value = await studentApi.getProfile(studentId)
+    await nextTick()
+    renderTrend()
+    await drawTab()
+  } finally { loading.value = false }
+}
+
+function onResize() { charts.forEach(c => c.resize()) }
+onMounted(() => { load(); window.addEventListener('resize', onResize) })
+onBeforeUnmount(() => { window.removeEventListener('resize', onResize); charts.forEach(c => c.dispose()) })
+</script>
+
+<style lang="scss" scoped>
+.page-root { scrollbar-width: none; &::-webkit-scrollbar { display: none; } }
+
+.form-topbar { display: flex; align-items: center; gap: 15px; flex-shrink: 0; }
+.form-topbar :deep(.el-button + .el-button) { margin-left: 0; }
+
+.section-block {
+  padding: 5px 15px 15px;
+  flex-shrink: 0;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+  border: 1px solid rgba(96, 141, 248, 0.15) !important;
+}
+.hint-text { font-size: 12px; color: var(--text-3); }
+
+.sub-title { font-size: 13px; font-weight: 600; color: var(--text-1); margin: 10px 0 8px; }
+.foot-note { margin-top: 8px; font-size: 12px; color: var(--text-3); }
+.empty, .empty-sm { color: var(--text-3); font-size: 13px; }
+.empty { padding: 40px 0; text-align: center; }
+.empty-sm { padding: 6px 0; }
+
+// ── 学生信息 ─────────────────────────────────────────────
+.who { display: flex; align-items: center; gap: 15px; margin: 8px 0 15px; }
+.who__avatar {
+  width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; font-weight: 700; color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 16%, transparent);
+}
+.who__name { font-size: 16px; font-weight: 700; color: var(--text-1); }
+.who__id { margin-left: 8px; font-size: 12px; font-weight: 400; color: var(--text-3); }
+.who__meta { margin-top: 3px; font-size: 12.5px; color: var(--text-3); }
+
+// ── 综合评估三张卡片 ─────────────────────────────────────
+.eval-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 15px; @media (max-width: 1100px) { grid-template-columns: 1fr; } }
+.eval-card {
+  padding: 12px 15px;
+  border: 1px solid rgba(96, 141, 248, 0.15);
+  border-radius: 4px;
+  min-height: 150px;
+  &__label { font-size: 13px; color: var(--text-2); margin-bottom: 8px; }
+  &__num { font-size: 30px; font-weight: 700; color: var(--text-1); .unit { font-size: 13px; font-weight: 400; color: var(--text-3); } }
+  &__desc { margin-top: 8px; font-size: 12.5px; line-height: 1.6; color: var(--text-3); }
+}
+.status-tag {
+  display: inline-block; padding: 3px 14px; border-radius: 999px; font-size: 14px; font-weight: 600;
+  &.status--up    { background: color-mix(in srgb, var(--green) 16%, transparent); color: var(--green); }
+  &.status--flat  { background: color-mix(in srgb, var(--color-primary) 16%, transparent); color: var(--color-primary); }
+  &.status--stuck { background: color-mix(in srgb, var(--amber) 18%, transparent); color: var(--amber); }
+  &.status--idle  { background: color-mix(in srgb, var(--red) 16%, transparent); color: var(--red); }
+  &.status--none  { background: color-mix(in srgb, var(--text-3) 18%, transparent); color: var(--text-3); }
+}
+.parts { margin-top: 10px; }
+.part { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font-size: 12px; color: var(--text-2); &__label { width: 68px; } &__val { width: 28px; text-align: right; color: var(--text-3); } }
+.trend-chart { height: 100px; }
+
+.tips { margin-top: 5px; }
+.tip { display: flex; gap: 8px; margin-bottom: 5px; font-size: 13px; line-height: 1.6; color: var(--text-1); }
+.tip__no { flex-shrink: 0; width: 18px; height: 18px; margin-top: 2px; border-radius: 50%; text-align: center; line-height: 18px; font-size: 11px; color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 16%, transparent); }
+
+// ── 条形指标 ─────────────────────────────────────────────
+.bar { flex: 1; height: 6px; border-radius: 3px; background: color-mix(in srgb, var(--text-3) 18%, transparent); overflow: hidden; }
+.bar__fill { height: 100%; border-radius: 3px; background: var(--color-primary); transition: width 0.3s; }
+.rate-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 13px; }
+.rate-row__label { display: flex; align-items: center; gap: 4px; width: 84px; flex-shrink: 0; color: var(--text-2); white-space: nowrap; }
+.rate-row__val { width: 92px; flex-shrink: 0; text-align: right; color: var(--text-1); small { margin-left: 4px; font-size: 11px; color: var(--text-3); } }
+
+.tiles { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 15px; margin: 5px 0 10px; @media (max-width: 1200px) { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.tile { padding: 10px 12px; border: 1px solid rgba(96, 141, 248, 0.15); border-radius: 4px; }
+.tile__num { font-size: 22px; font-weight: 700; color: var(--text-1); &.ts { font-size: 14px; line-height: 30px; } }
+.tile__lbl { margin-top: 2px; font-size: 12px; color: var(--text-3); }
+
+.two-col { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-top: 5px; @media (max-width: 1100px) { grid-template-columns: 1fr; } }
+.three-col { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; @media (max-width: 1200px) { grid-template-columns: 1fr; } }
+.mini-table { width: 100%; }
+
+// 题型图标颜色同训练题管理「题目类型」列
+.qt-i { flex-shrink: 0; color: var(--text-3);
+  &--SINGLE_CHOICE { color: var(--qt-single); } &--MULTIPLE_CHOICE { color: var(--qt-multi); }
+  &--FILL_BLANK { color: var(--qt-fill); } &--TRUE_FALSE { color: var(--qt-judge); } &--APPLICATION { color: var(--qt-application); } }
+
+// ── 认知能力 ─────────────────────────────────────────────
+.cog-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; @media (max-width: 1100px) { grid-template-columns: 1fr; } }
+.radar-chart { height: 260px; }
+.history-chart { height: 240px; }
+.seg { display: inline-flex; gap: 15px; margin-bottom: 5px; }
+.seg__btn { padding: 0; border: none; background: transparent; font-size: 13px; color: var(--text-3); cursor: pointer; &.on { color: var(--color-primary); font-weight: 600; } }
+.facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 15px; margin-top: 10px; }
+.fact { display: flex; justify-content: space-between; font-size: 13px; color: var(--text-3); b { font-weight: 500; color: var(--text-1); } }
+.tag-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.tag { padding: 2px 10px; border-radius: 999px; font-size: 12px; color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 14%, transparent); }
+
+.text-box { padding: 10px 12px; border: 1px solid rgba(96, 141, 248, 0.15); border-radius: 4px; font-size: 13px; line-height: 1.8; color: var(--text-1); white-space: pre-wrap; word-break: break-word; }
+
+.tabs-block :deep(.el-tabs__header) { margin-bottom: 8px; }
+</style>
