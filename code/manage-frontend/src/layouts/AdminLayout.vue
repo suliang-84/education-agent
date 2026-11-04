@@ -71,6 +71,12 @@
             </span>
             <span class="nav-item__label">管理员管理</span>
           </router-link>
+          <router-link to="/training-config" class="nav-item" :class="{ active: route.path === '/training-config' }">
+            <span class="nav-item__icon">
+              <SvgIcon name="config" :size="16" />
+            </span>
+            <span class="nav-item__label">训练配置</span>
+          </router-link>
         </div>
       </nav>
 

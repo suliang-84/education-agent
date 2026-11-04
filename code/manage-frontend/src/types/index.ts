@@ -261,3 +261,43 @@ export interface UserGrowthPoint {
   new_users: number
   active_users: number
 }
+
+// ── 训练配置 ─────────────────────────────────────────────────
+export interface SmartParams {
+  slots: { weak: number; strong: number; review: number }
+  intent_min_slots: number
+  weights: { kp_weak: number; pending: number; type_weak: number; power_fit: number; intent: number; fav: number; novelty: number }
+  half_life_days: number
+  intent_half_life_days: number
+  prior: [number, number]
+  recent_penalty: number
+  temperature: number
+  diversity_type: number
+  diversity_kp: number
+  review_intervals_days: number[]
+}
+
+export interface DimensionConfig {
+  dimension: string
+  label: string
+  version_number: string
+  questions_per_session: number
+  dedup_window_size: number
+  difficulty_ratio: Record<string, number> | null
+  type_ratio: Record<string, number> | null
+  smart_params: SmartParams | null
+}
+
+export interface AnalysisConfig {
+  question_analysis_concurrency: number
+  question_analysis_timeout_sec: number
+}
+
+export interface TrainingConfigList {
+  list: DimensionConfig[]
+  question_types: string[]
+  difficulties: string[]
+  default_difficulty_ratio: Record<string, number>
+  default_smart_params: SmartParams
+  analysis: AnalysisConfig
+}

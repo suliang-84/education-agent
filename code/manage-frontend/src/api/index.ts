@@ -31,6 +31,9 @@ export { dashboardApi } from './dashboard'
 // ── 用户管理 ─────────────────────────────────────────────────
 export { studentApi, parentApi, adminUserApi } from './users'
 
+// ── 训练配置 ─────────────────────────────────────────────────
+export { trainingConfigApi } from './training'
+
 // ── 审计日志 ─────────────────────────────────────────────────
 export { auditLogApi } from './audit'
 

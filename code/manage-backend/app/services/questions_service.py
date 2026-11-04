@@ -1,4 +1,5 @@
 """题库管理业务逻辑"""
+import asyncio
 from datetime import datetime, UTC
 from sqlalchemy import select, func, and_, or_
 from sqlalchemy.orm import attributes
@@ -222,8 +223,29 @@ async def set_analyzing(db: AsyncSession, question_id: int) -> Question:
 
 # ── 触发分析（第二步：后台异步跑 LLM）───────────────────────────
 
+_analysis_sems: dict[int, "asyncio.Semaphore"] = {}
+
+
+def _analysis_semaphore(limit: int) -> "asyncio.Semaphore":
+    """按并发数取信号量：批量分析时同时只有 limit 道题在调大模型，其余排队（后台可改并发数，新设置对之后触发的分析生效）"""
+    import asyncio
+    if limit not in _analysis_sems:
+        _analysis_sems[limit] = asyncio.Semaphore(limit)
+    return _analysis_sems[limit]
+
+
 async def run_analysis(question_id: int, operator_id: int, analysis_round: int) -> None:
     """后台任务：独立 DB session 调用 LLM，完成后更新题目状态"""
+    from app.services.training_config_service import get_analysis_config
+    from app.core.database import AsyncSessionLocal as _S
+    async with _S() as cfg_db:
+        conf = await get_analysis_config(cfg_db)
+    # 排队等并发名额；超时时间从拿到名额后开始算，排队时间不算
+    async with _analysis_semaphore(conf["question_analysis_concurrency"]):
+        await _run_analysis(question_id, operator_id, analysis_round, conf["question_analysis_timeout_sec"])
+
+
+async def _run_analysis(question_id: int, operator_id: int, analysis_round: int, timeout_sec: int) -> None:
     from app.core.database import AsyncSessionLocal as async_session_factory
     from app.core.config import get_settings
     from app.core.llm import chat_json
@@ -253,7 +275,7 @@ async def run_analysis(question_id: int, operator_id: int, analysis_round: int) 
                     user_content = f"{prefix}请重新分析以下题目（上次驳回意见：{q.rejection_reason}）：\n\n{q.stem}"
                 else:
                     user_content = f"{prefix}请分析以下题目：\n\n{q.stem}"
-                result = await chat_json(system_prompt, user_content)
+                result = await asyncio.wait_for(chat_json(system_prompt, user_content), timeout=timeout_sec)
                 analysis = _write_analysis(db, q, result, current_round)
                 q.difficulty = result.get('difficulty')
                 weights = result.get('five_power_weights') or {}

@@ -118,6 +118,12 @@ const router = createRouter({
           meta: { title: '管理员管理' },
         },
         {
+          path: 'training-config',
+          name: 'TrainingConfig',
+          component: () => import('@/views/training-config/TrainingConfigView.vue'),
+          meta: { title: '训练配置' },
+        },
+        {
           path: 'students/:id',
           name: 'StudentDetail',
           component: () => import('@/views/students/StudentDetailView.vue'),
