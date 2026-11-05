@@ -317,7 +317,10 @@ export interface ProfileDiagnosis {
   repeat: { questions: number; attempts: { attempt: number; label: string; answered: number; accuracy: number | null }[]; gain: number | null }
 }
 export interface ProfileRate { key: string; label: string; answered: number; accuracy: number | null }
-export interface ProfileKp { id: number; name: string; chapter: string | null; attempts: number; errors: number; error_rate: number | null; weak_score: number; last_at: string | null }
+export interface ProfileKp {
+  id: number; name: string; chapter: string | null; attempts: number; errors: number; error_rate: number | null; weak_score: number; last_at: string | null
+  blank_errors: number; rush_errors: number; thoughtful_errors: number; trend: 'up' | 'flat' | 'down' | null; advice: string | null
+}
 export interface ProfileStrategy { strategy_id: string; name: string; uses: number; likes: number; dislikes: number; score: number | null }
 export interface StudentProfile {
   generated_at: string
@@ -351,7 +354,7 @@ export interface StudentProfile {
   diagnosis: ProfileDiagnosis
   behavior: {
     sessions_7d: number; sessions_30d: number; sessions_total: number; streak_days: number; last_active_date: string | null
-    time_buckets: { key: string; label: string; count: number; ratio: number | null }[]
+    time_buckets: { key: string; label: string; count: number; ratio: number | null; accuracy: number | null }[]
     avg_seconds_per_question: number | null; avg_seconds_per_session: number | null
     fast_wrong_ratio: number | null; fast_wrong_samples: number
     completed_sessions: number; finished_sessions: number; issued_questions: number; answered_questions: number; complete_rate: number | null

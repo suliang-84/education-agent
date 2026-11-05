@@ -134,3 +134,49 @@ def test_engagement_careful_needs_samples():
     # 样本够且「快而错」≥ 40%：这一项为 0，整体 = 前三项权重之和
     r = _summary({}, {"has_profile": True}, mastery, {**beh, "fast_wrong_samples": 30}, {}, weeks, 50)
     assert r["engagement_parts"]["careful"] == 0 and r["engagement_score"] == 85
+
+
+# ── 提分行动 ──────────────────────────────────────────────────
+
+def test_kp_trend():
+    from app.services.profile_actions import kp_trend
+    assert kp_trend([True, False]) is None                              # 做得太少不判断
+    assert kp_trend([False, False, False, True, True, True]) == "up"
+    assert kp_trend([True, True, True, False, False, False]) == "down"
+    assert kp_trend([True, False, True, True, False, True]) == "flat"
+
+
+def test_kp_advice_by_cause():
+    from app.services.profile_actions import kp_advice
+    assert kp_advice(2, 2, 2, 0, None) is None                          # 样本不够
+    assert "动笔" in kp_advice(6, 6, 5, 1, "flat")                      # 空答为主
+    assert "秒答" in kp_advice(6, 5, 1, 3, "flat")                      # 秒答为主
+    assert "不要再刷题" in kp_advice(8, 6, 0, 1, "flat")                # 认真做仍错且没进步：换讲解
+    assert "正在进步" in kp_advice(8, 6, 0, 1, "up")
+
+
+def _ctx(**kw):
+    d = {"answered": 50, "blank_rate": 10, "blank_by_type": [], "repeat": {"questions": 0, "gain": None}, "type_time": [], "retention": None}
+    ctx = {"diagnosis": d, "mastery": {"weak_kps": [], "wrong_pending": 0}, "behavior": {"time_buckets": []}, "retention": None,
+           "status": "状态平稳", "wrong_pending": 0, "cognitive": {"has_profile": True}}
+    ctx.update(kw)
+    return ctx
+
+
+def test_actions_blank_not_repeated_per_kp():
+    from app.services.profile_actions import build_actions
+    kp = {"name": "角的分类", "error_rate": 80, "advice": "80% 的错题是没作答就提交，先让学生愿意动笔"}
+    ctx = _ctx(diagnosis={**_ctx()["diagnosis"], "blank_rate": 60, "blank_by_type": [{"label": "填空题", "answered": 10, "rate": 100}]},
+               mastery={"weak_kps": [kp], "wrong_pending": 0})
+    acts = build_actions(ctx)
+    assert sum("没作答就提交" in a for a in acts) == 1                   # 总体提示过，知识点上不再重复
+
+
+def test_actions_best_time_bucket_and_cap():
+    from app.services.profile_actions import build_actions
+    b = [{"label": "上午", "count": 20, "accuracy": 70.0}, {"label": "深夜", "count": 20, "accuracy": 30.0}]
+    acts = build_actions(_ctx(behavior={"time_buckets": b}))
+    assert any("上午" in a and "深夜" in a for a in acts)
+    many = _ctx(status="近期懈怠", wrong_pending=3, mastery={"weak_kps": [{"name": f"k{i}", "error_rate": 90, "advice": "先讲解"} for i in range(3)], "wrong_pending": 3},
+                diagnosis={**_ctx()["diagnosis"], "repeat": {"questions": 6, "gain": -3}})
+    assert len(build_actions(many)) <= 5

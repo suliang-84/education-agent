@@ -215,16 +215,28 @@
             <div class="two-col">
               <div>
                 <div class="sub-title">薄弱知识点 Top 5</div>
-                <el-table :data="p.mastery.weak_kps" size="small" :show-header="true" class="mini-table" empty-text="做题 2 次以上的知识点才会进入统计">
-                  <el-table-column prop="name" label="知识点" min-width="140" show-overflow-tooltip />
-                  <el-table-column prop="chapter" label="单元" min-width="120" show-overflow-tooltip />
-                  <el-table-column label="错误率" width="90"><template #default="{ row }"><span class="num" style="color:var(--red)">{{ fmtPct(row.error_rate) }}</span></template></el-table-column>
-                  <el-table-column label="做题" width="70"><template #default="{ row }"><span class="num">{{ row.errors }}/{{ row.attempts }}</span></template></el-table-column>
+                <el-table :data="p.mastery.weak_kps" size="small" :show-header="true" class="mini-table" empty-text="还没有错误率达到 40%、且做过 2 次以上的知识点">
+                  <el-table-column prop="name" label="知识点" min-width="130" show-overflow-tooltip />
+                  <el-table-column label="错误率" width="80"><template #default="{ row }"><span class="num" style="color:var(--red)">{{ fmtPct(row.error_rate) }}</span></template></el-table-column>
+                  <el-table-column label="做题" width="60"><template #default="{ row }"><span class="num">{{ row.errors }}/{{ row.attempts }}</span></template></el-table-column>
+                  <el-table-column label="错因" min-width="170">
+                    <template #default="{ row }">
+                      <span class="cause-mini" :title="`没作答 ${row.blank_errors} · 秒答 ${row.rush_errors} · 认真做仍错 ${row.thoughtful_errors}`">
+                        空答 {{ row.blank_errors }} · 秒答 {{ row.rush_errors }} · 认真错 {{ row.thoughtful_errors }}
+                      </span>
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="走向" width="64">
+                    <template #default="{ row }">
+                      <span v-if="row.trend" class="trend-tag" :class="`trend--${row.trend}`">{{ TREND_LABELS[row.trend] }}</span>
+                      <span v-else style="color:var(--text-3)">—</span>
+                    </template>
+                  </el-table-column>
                 </el-table>
               </div>
               <div>
                 <div class="sub-title">强项知识点 Top 5</div>
-                <el-table :data="p.mastery.strong_kps" size="small" class="mini-table" empty-text="做题 2 次以上的知识点才会进入统计">
+                <el-table :data="p.mastery.strong_kps" size="small" class="mini-table" empty-text="还没有错误率低于 40%、且做过 2 次以上的知识点">
                   <el-table-column prop="name" label="知识点" min-width="140" show-overflow-tooltip />
                   <el-table-column prop="chapter" label="单元" min-width="120" show-overflow-tooltip />
                   <el-table-column label="错误率" width="90"><template #default="{ row }"><span class="num" style="color:var(--green)">{{ fmtPct(row.error_rate) }}</span></template></el-table-column>
@@ -250,7 +262,7 @@
                 <div v-for="b in p.behavior.time_buckets" :key="b.key" class="rate-row">
                   <span class="rate-row__label">{{ b.label }}</span>
                   <div class="bar"><div class="bar__fill" :style="{ width: (b.ratio ?? 0) + '%' }" /></div>
-                  <span class="rate-row__val num">{{ fmtPct(b.ratio) }}<small>{{ b.count }}题</small></span>
+                  <span class="rate-row__val num">{{ fmtPct(b.ratio) }}<small>{{ b.count }}题{{ b.accuracy !== null ? ` · 对 ${b.accuracy}%` : '' }}</small></span>
                 </div>
                 <div class="foot-note">上午 6–12 点，下午 12–18 点，晚上 18–22 点，深夜 22 点至次日 6 点</div>
               </div>
@@ -360,6 +372,7 @@ import type { StudentProfile, ProfileWarning, FivePower } from '@/types'
 import { FivePowerLabels } from '@/types'
 import { formatDate } from '@/utils/format'
 
+const TREND_LABELS: Record<string, string> = { up: '在进步', flat: '没起色', down: '在退步' }
 const MIN_CAREFUL = 20   // 与后端 MIN_CAREFUL_SAMPLES 一致
 const POWERS = ['INSIGHT', 'CONSTRUCT', 'DEDUCE', 'ADAPT', 'MIGRATE'] as FivePower[]
 const POWER_COLORS: Record<string, string> = {
@@ -614,7 +627,7 @@ onBeforeUnmount(() => { window.removeEventListener('resize', onResize); charts.f
 .bar__fill { height: 100%; border-radius: 3px; background: var(--color-primary); transition: width 0.3s; }
 .rate-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 13px; }
 .rate-row__label { display: flex; align-items: center; gap: 4px; width: 84px; flex-shrink: 0; color: var(--text-2); white-space: nowrap; }
-.rate-row__val { width: 92px; flex-shrink: 0; text-align: right; color: var(--text-1); small { margin-left: 4px; font-size: 11px; color: var(--text-3); } }
+.rate-row__val { min-width: 92px; white-space: nowrap; flex-shrink: 0; text-align: right; color: var(--text-1); small { margin-left: 4px; font-size: 11px; color: var(--text-3); } }
 
 .tiles { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 15px; margin: 5px 0 10px; @media (max-width: 1200px) { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .tile { padding: 10px 12px; border: 1px solid rgba(96, 141, 248, 0.15); border-radius: 4px; }
@@ -634,6 +647,8 @@ onBeforeUnmount(() => { window.removeEventListener('resize', onResize); charts.f
 .cog-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; @media (max-width: 1100px) { grid-template-columns: 1fr; } }
 .radar-chart { height: 260px; }
 .history-chart { height: 240px; }
+.cause-mini { font-size: 12px; color: var(--text-2); white-space: nowrap; }
+.trend-tag { font-size: 12px; font-weight: 600; &.trend--up { color: var(--green); } &.trend--flat { color: var(--amber); } &.trend--down { color: var(--red); } }
 .diag-hd { margin-bottom: 8px; font-size: 13px; color: var(--text-2); b { margin-left: 6px; font-size: 18px; color: var(--text-1); } small { margin-left: 6px; font-size: 12px; color: var(--text-3); } }
 .cause-label { width: 130px; }
 .bar__fill--warn { background: var(--amber); }
