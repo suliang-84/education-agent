@@ -151,6 +151,69 @@
         </el-form-item>
       </el-form>
     </div>
+    <!-- ── 画像预警规则 ── -->
+    <div class="surface section-block">
+      <div class="section-hd">
+        <span class="section-title">
+          <SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />画像预警规则
+        </span>
+        <div class="hd-actions">
+          <el-button size="small" text title="只恢复页面上的数值，点「保存」后才生效" style="color:var(--color-primary)" @click="resetRules">
+            <SvgIcon name="reset_default" :size="16" color="var(--color-primary)" style="margin-right:4px" />恢复默认规则
+          </el-button>
+          <el-button size="small" text :loading="rulesSaving" style="color:var(--color-primary)" @click="saveRules">
+            <SvgIcon v-if="!rulesSaving" name="save" :size="16" color="var(--color-primary)" style="margin-right:4px" />保存
+          </el-button>
+        </div>
+      </div>
+      <el-form label-width="150px" class="cfg-form" @submit.prevent>
+        <el-form-item v-for="r in rules" :key="r.code" :label="r.name">
+          <div class="rule-line">
+            <el-switch v-model="r.enabled" size="small" />
+            <el-select v-if="!r.tiered" v-model="r.level" size="small" class="rule-level">
+              <el-option v-for="l in profileLevels" :key="l.value" :label="l.label" :value="l.value" />
+            </el-select>
+            <span v-else class="hint tiered-tip">按天数分档定级</span>
+            <div v-for="f in r.fields" :key="f.key" class="rule-field">
+              <span class="rule-field__label">{{ f.label }}</span>
+              <el-select v-if="f.type === 'select'" v-model="r.params[f.key]" size="small" style="width:130px">
+                <el-option v-for="o in f.options" :key="o.value" :label="o.label" :value="o.value" />
+              </el-select>
+              <el-input-number v-else v-model="(r.params[f.key] as number)" :min="f.min" :max="f.max" :step="1" size="small" controls-position="right" class="ratio-val" />
+              <span class="rule-field__unit">{{ f.unit }}</span>
+            </div>
+          </div>
+          <div class="hint rule-desc">{{ r.desc }}</div>
+        </el-form-item>
+      </el-form>
+    </div>
+
+    <!-- ── 学习投入度权重 ── -->
+    <div class="surface section-block">
+      <div class="section-hd">
+        <span class="section-title">
+          <SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />学习投入度权重
+        </span>
+        <div class="hd-actions">
+          <el-button size="small" text :loading="weightsSaving" style="color:var(--color-primary)" @click="saveWeights">
+            <SvgIcon v-if="!weightsSaving" name="save" :size="16" color="var(--color-primary)" style="margin-right:4px" />保存
+          </el-button>
+        </div>
+      </div>
+      <el-form label-width="150px" class="cfg-form" @submit.prevent>
+        <el-form-item label="权重分配" class="title-row" />
+        <el-form-item label=" ">
+          <div class="ratio-row">
+            <div v-for="(label, k) in weightLabels" :key="k" class="ratio-item">
+              <div class="ratio-item__label">{{ label }}</div>
+              <el-input-number v-model="weights[k]" :min="0" :max="100" :step="5" :precision="0" controls-position="right" size="small" class="ratio-val" />
+            </div>
+            <span class="ratio-total" :class="{ bad: sumOf(weights) !== 100 }">合计 {{ sumOf(weights) }}%</span>
+          </div>
+        </el-form-item>
+        <div class="hint weights-tip">学习投入度 = 训练频次（近 30 天 12 次满分）、连续天数（7 天满分）、答题完成度、认真作答（「快而错」的题占比越低越高，40% 及以上为 0）按上面的比例加权，满分 100。</div>
+      </el-form>
+    </div>
   </div>
 </template>
 
@@ -159,7 +222,7 @@ import { reactive, ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { trainingConfigApi } from '@/api'
 import { QuestionTypeLabels } from '@/types'
-import type { DimensionConfig, SmartParams, TrainingConfigList, AnalysisConfig } from '@/types'
+import type { DimensionConfig, SmartParams, TrainingConfigList, AnalysisConfig, ProfileRule, ProfileConfig } from '@/types'
 
 interface Form {
   dimension: string
@@ -241,12 +304,67 @@ function toForm(c: DimensionConfig): Form {
   }
 }
 
+// ── 画像预警规则 / 学习投入度权重 ──
+const rules = ref<ProfileRule[]>([])
+const profileLevels = ref<{ value: string; label: string }[]>([])
+const weights = reactive<Record<string, number>>({})
+const weightLabels = ref<Record<string, string>>({})
+const rulesSaving = ref(false)
+const weightsSaving = ref(false)
+
+function applyProfileConfig(c: ProfileConfig) {
+  rules.value = clone(c.rules)
+  profileLevels.value = c.levels
+  weightLabels.value = c.weight_labels
+  Object.assign(weights, c.weights)
+}
+
+function resetRules() {
+  // 默认值 = 每个参数的 default；开关全开；级别回到默认级别
+  rules.value = rules.value.map((r) => ({
+    ...r, enabled: true, level: defaultLevel(r.code),
+    params: Object.fromEntries(r.fields.map((f) => [f.key, f.default])) as Record<string, number | string>,
+  }))
+}
+const defaultLevelMap: Record<string, string> = {
+  NO_TRAIN: 'notice', ACC_DROP: 'attention', KP_STREAK_WRONG: 'attention', STUBBORN_WRONG: 'notice', COMPLETION_LOW: 'notice',
+  LATE_NIGHT: 'attention', FAST_WRONG: 'notice', TEST_MISSING: 'notice', PROFILE_STALE: 'notice', CHAT_NEGATIVE: 'critical',
+}
+const defaultLevel = (code: string) => (defaultLevelMap[code] ?? 'notice') as ProfileRule['level']
+
+async function saveRules() {
+  if (rulesSaving.value) return
+  const no = rules.value.find((r) => r.code === 'NO_TRAIN')
+  if (no && !(Number(no.params.notice_days) < Number(no.params.attention_days) && Number(no.params.attention_days) < Number(no.params.critical_days))) {
+    ElMessage.warning('连续未训练的三档天数需要依次变大（提醒 < 关注 < 重点）'); return
+  }
+  rulesSaving.value = true
+  try {
+    const payload = Object.fromEntries(rules.value.map((r) => [r.code, {
+      enabled: r.enabled, level: r.level, params: r.params,
+    }]))
+    applyProfileConfig(await trainingConfigApi.saveProfileRules(payload))
+    ElMessage.success('已保存，管理员下次打开学生画像页时按新规则计算')
+  } finally { rulesSaving.value = false }
+}
+
+async function saveWeights() {
+  if (weightsSaving.value) return
+  if (sumOf(weights) !== 100) { ElMessage.warning(`学习投入度权重合计需为 100%，当前为 ${sumOf(weights)}%`); return }
+  weightsSaving.value = true
+  try {
+    Object.assign(weights, await trainingConfigApi.saveProfileWeights({ ...weights }))
+    ElMessage.success('已保存')
+  } finally { weightsSaving.value = false }
+}
+
 async function load() {
   loading.value = true
   try {
     Object.assign(cfg, await trainingConfigApi.getAll())
     forms.value = cfg.list.map(toForm)
     Object.assign(analysis, cfg.analysis)
+    applyProfileConfig(await trainingConfigApi.getProfileConfig())
   } finally { loading.value = false }
 }
 
@@ -312,6 +430,14 @@ onMounted(load)
   :deep(.el-form-item) { margin-bottom: 10px; }
   :deep(.el-form-item__label) { font-size: 13px; color: var(--text-1) !important; }
 }
+
+.rule-line { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px; width: 100%; }
+.rule-level { width: 90px; }
+.rule-field { display: flex; align-items: center; gap: 6px; }
+.rule-field__label, .rule-field__unit { font-size: 13px; color: var(--text-2); white-space: nowrap; }
+.rule-desc { margin-left: 0; margin-top: 4px; line-height: 1.6; width: 100%; }
+.tiered-tip { margin-left: 0; }
+.weights-tip { margin: 0 0 0 150px; padding-bottom: 5px; line-height: 1.7; }
 
 .hd-actions {
   display: flex;

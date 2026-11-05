@@ -1,5 +1,5 @@
 """用户管理路由模块 — §9.8"""
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Body, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.response import ok_response
@@ -25,6 +25,7 @@ async def list_students(
     grade: str | None = Query(None),
     has_profile: str | None = Query(None),   # 前端传 'true'/'false'/'' 字符串
     keyword: str | None = Query(None),
+    has_warning: str | None = Query(None),   # 'true' = 有未处理预警，'false' = 没有
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
@@ -39,6 +40,7 @@ async def list_students(
 
     data = await users_service.get_student_list(
         db, grade=grade or None, has_profile=has_profile_bool, keyword=keyword or None,
+        has_warning={'true': True, 'false': False}.get(has_warning or ''),
         page=page, limit=limit,
     )
     return ok_response(data)
@@ -103,6 +105,15 @@ async def get_kp_stats(
     return ok_response(data)
 
 
+@router.post("/profile-warnings/scan", summary="扫描全部学生，刷新画像预警")
+async def scan_profile_warnings(
+    db: AsyncSession = Depends(get_db),
+    _: AdminUser = Depends(get_current_admin),
+):
+    from app.services import profile_warning_service
+    return ok_response(await profile_warning_service.scan_all(db), "预警已刷新")
+
+
 @router.get("/students/{student_id}/profile", summary="学生画像")
 async def get_student_profile(
     student_id: int,
@@ -110,7 +121,33 @@ async def get_student_profile(
     _: AdminUser = Depends(get_current_admin),
 ):
     from app.services import profile_service
-    return ok_response(await profile_service.get_profile(db, student_id))
+    data = await profile_service.get_profile(db, student_id)
+    await db.commit()   # 预警在查看时同步落库
+    return ok_response(data)
+
+
+@router.get("/students/{student_id}/warnings", summary="学生预警列表")
+async def list_student_warnings(
+    student_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: AdminUser = Depends(get_current_admin),
+):
+    from app.services import profile_warning_service
+    return ok_response(await profile_warning_service.list_warnings(db, student_id))
+
+
+@router.post("/students/{student_id}/warnings/{warning_id}/handle", summary="标记预警已处理")
+async def handle_student_warning(
+    student_id: int,
+    warning_id: int,
+    body: dict = Body(default={}),
+    db: AsyncSession = Depends(get_db),
+    admin: AdminUser = Depends(get_current_admin),
+):
+    from app.services import profile_warning_service
+    data = await profile_warning_service.handle(db, student_id, warning_id, admin.id, body.get("note"))
+    await db.commit()
+    return ok_response(data, "已标记为已处理")
 
 
 @router.get("/students/{student_id}/ai-prompt-summary", summary="获取AI助教提示词摘要")

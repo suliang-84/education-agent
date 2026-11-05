@@ -20,8 +20,10 @@ DIM_LABELS = {"KNOWLEDGE_POINT": "按知识点", "UNIT": "按单元", "RANDOM": 
               "FAVORITES": "收藏夹", "SMART": "智能训练", "SEMESTER": "按学期"}
 TIME_BUCKETS = [("morning", "上午", 6, 12), ("afternoon", "下午", 12, 18), ("evening", "晚上", 18, 22), ("night", "深夜", 22, 30)]
 
-# 学习投入度权重（训练频次 / 连续天数 / 完成率 / 提示依赖度）
-ENGAGEMENT_WEIGHTS = (0.40, 0.20, 0.25, 0.15)
+# 学习投入度权重（训练频次 / 连续天数 / 答题完成度 / 认真作答）
+# 「认真作答」至少要有这么多道带用时的答题才有意义，不够时这一项不计入，其余三项按比例折算
+MIN_CAREFUL_SAMPLES = 20
+# 学习投入度权重默认值见 profile_config.DEFAULT_WEIGHTS（可在配置管理里修改）
 
 _BASE = """
 FROM training_answer_records a
@@ -68,6 +70,22 @@ async def _basic(db, sid):
     }
 
 
+def _daily_history(rows) -> list[dict]:
+    """成长曲线按天统计：同一天（北京时间）测试多次，每一力取当天各次综合分的平均值（保留 1 位小数）"""
+    tz = timezone(timedelta(hours=8))
+    by_day: dict = {}
+    for r in rows:
+        by_day.setdefault(r["created_at"].astimezone(tz).date(), []).append(r)
+    out = []
+    for d, rs in sorted(by_day.items()):
+        final = {}
+        for p in POWERS:
+            vals = [r[f"{p.lower()}_final"] for r in rs if r[f"{p.lower()}_final"] is not None]
+            final[p] = round(sum(vals) / len(vals), 1) if vals else None
+        out.append({"at": rs[-1]["created_at"], "date": str(d), "tests": len(rs), "final": final})
+    return out
+
+
 async def _cognitive(db, sid):
     rows = await _rows(db, "SELECT * FROM five_power_profiles WHERE student_id=:sid ORDER BY created_at", sid=sid)
     if not rows:
@@ -99,7 +117,7 @@ async def _cognitive(db, sid):
         "recommended_mode": latest["recommended_mode"],
         "confidence": _r(latest["profile_confidence"], 2),
         "tags": tags,
-        "history": [{"at": r["created_at"], "final": {p: r[f"{p.lower()}_final"] for p in POWERS}} for r in rows],
+        "history": _daily_history(rows),
     }
 
 
@@ -216,7 +234,7 @@ async def _behavior(db, sid):
 
     t = await _one(db, f"""
         SELECT avg(a.time_spent_sec) avg_t, percentile_cont(0.33) WITHIN GROUP (ORDER BY a.time_spent_sec) p33,
-               avg(a.hint_level_used) avg_hint, count(*) n {_BASE} AND a.time_spent_sec IS NOT NULL""", sid=sid)
+               count(*) n {_BASE} AND a.time_spent_sec IS NOT NULL""", sid=sid)
     fw = None
     if t and t["n"] and t["p33"] is not None:
         r = await _one(db, f"""
@@ -231,7 +249,7 @@ async def _behavior(db, sid):
         "time_buckets": buckets,
         "avg_seconds_per_question": _r(t["avg_t"]) if t else None,
         "avg_seconds_per_session": _r(per_sess["v"]) if per_sess else None,
-        "fast_wrong_ratio": fw, "avg_hint_level": _r(t["avg_hint"], 2) if t else None,
+        "fast_wrong_ratio": fw, "fast_wrong_samples": t["n"] if t else 0,
         # 退出训练不保存（视为放弃）是正常流程，所以不用「完成的训练 / 全部训练」；用「作答题数 / 发放题数」衡量答题完成度
         "completed_sessions": completed, "finished_sessions": len(finished),
         "issued_questions": issued, "answered_questions": ans_cnt["n"],
@@ -304,7 +322,7 @@ def _slope(weeks):
     return round(sum((x - mx) * (y - my) for x, y in pts) / den, 2) if den else None
 
 
-def _summary(basic, cog, mastery, beh, ai, weeks, answered_30):
+def _summary(basic, cog, mastery, beh, ai, weeks, answered_30, weights=None):
     sess = beh["_sessions"]
     now = datetime.now(timezone.utc)
     s14 = sum(1 for s in sess if s["started_at"] >= now - timedelta(days=14))
@@ -327,12 +345,19 @@ def _summary(basic, cog, mastery, beh, ai, weeks, answered_30):
     else:
         status, reason = "状态平稳", "近 4 周正确率变化不大" if slope is not None else "近 4 周有效数据不足以判断趋势，暂按平稳处理"
 
-    w_freq, w_streak, w_comp, w_hint = ENGAGEMENT_WEIGHTS
+    w = weights or {"frequency": 40, "streak": 20, "complete": 25, "careful": 15}
+    w_freq, w_streak, w_comp, w_care = (w["frequency"] / 100, w["streak"] / 100, w["complete"] / 100, w["careful"] / 100)
     f = min(1.0, beh["sessions_30d"] / 12)
     st = min(1.0, beh["streak_days"] / 7)
     comp = (beh["complete_rate"] or 0) / 100
-    hint = 0.0 if beh["avg_hint_level"] is None else 1 - min(1.0, beh["avg_hint_level"] / 3)
-    engagement = round((f * w_freq + st * w_streak + comp * w_comp + hint * w_hint) * 100)
+    # 认真作答：「快而错」（用时最短的三分之一题里答错的）占全部答题的比例越低越高，40% 及以上为 0；没有答题记录为 0
+    fw = beh["fast_wrong_ratio"]
+    careful = None if fw is None or beh["fast_wrong_samples"] < MIN_CAREFUL_SAMPLES else 1 - min(1.0, fw / 40)
+    if careful is None:   # 样本不够：这一项不计入，其余三项按比例折算到 100 分
+        rest = 1 - w_care
+        engagement = round((f * w_freq + st * w_streak + comp * w_comp) / rest * 100) if rest > 0 else 0
+    else:
+        engagement = round((f * w_freq + st * w_streak + comp * w_comp + careful * w_care) * 100)
 
     tips = []
     if mastery["weak_kps"]:
@@ -348,7 +373,7 @@ def _summary(basic, cog, mastery, beh, ai, weeks, answered_30):
         tips.append("尚未完成五力测试，先完成测试才能生成能力画像")
     return {
         "status": status, "status_reason": reason, "engagement_score": engagement,
-        "engagement_parts": {"frequency": round(f * 100), "streak": round(st * 100), "complete": round(comp * 100), "hint_independence": round(hint * 100)},
+        "engagement_parts": {"frequency": round(f * 100), "streak": round(st * 100), "complete": round(comp * 100), "careful": None if careful is None else round(careful * 100)},
         "trend": {"weeks": weeks, "slope": slope}, "tips": tips[:3],
     }
 
@@ -362,11 +387,14 @@ async def get_profile(db: AsyncSession, student_id: int) -> dict:
     traits = await _traits(db, student_id)
     weeks = await _weekly(db, student_id)
     n30 = (await _one(db, f"SELECT count(*) n {_BASE} AND a.answered_at >= now() - interval '30 days'", sid=student_id))["n"]
-    summary = _summary(basic, cog, mastery, beh, ai, weeks, n30)
+    from app.services import profile_config, profile_warning_service
+    summary = _summary(basic, cog, mastery, beh, ai, weeks, n30, await profile_config.get_weights(db))
     beh.pop("_sessions", None)
+    await profile_warning_service.sync(db, student_id, basic)
+    warnings = await profile_warning_service.list_warnings(db, student_id)
     return {
         "generated_at": datetime.now(timezone.utc),
         "summary": summary, "basic": basic, "cognitive": cog, "mastery": mastery,
         "behavior": beh, "ai_interaction": ai, "traits": traits,
-        "warnings": [],   # 二期：预警规则与预警列表
+        "warnings": warnings,
     }

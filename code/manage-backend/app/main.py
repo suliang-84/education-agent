@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -17,11 +18,36 @@ from app.core.redis import close_redis, get_redis
 settings = get_settings()
 
 
+WARNING_SCAN_DELAY_SEC = 60            # 启动后等一会儿再首次扫描，避免拖慢启动
+WARNING_SCAN_INTERVAL_SEC = 6 * 3600   # 之后每 6 小时扫描一次全部学生的画像预警
+
+
+async def _warning_scan_loop():
+    """后台定时刷新全部学生的画像预警（学生列表的预警标记靠它保持最新）；出错只记日志，不影响服务"""
+    from loguru import logger
+
+    from app.core.database import AsyncSessionLocal
+    from app.services import profile_warning_service
+
+    await asyncio.sleep(WARNING_SCAN_DELAY_SEC)
+    while True:
+        try:
+            async with AsyncSessionLocal() as db:
+                logger.info("画像预警扫描完成：{}", await profile_warning_service.scan_all(db))
+        except asyncio.CancelledError:
+            raise
+        except Exception:   # noqa: BLE001
+            logger.exception("画像预警扫描失败")
+        await asyncio.sleep(WARNING_SCAN_INTERVAL_SEC)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_logger()
     await get_redis()  # 预热连接
+    scan_task = asyncio.create_task(_warning_scan_loop())
     yield
+    scan_task.cancel()
     await close_redis()
 
 

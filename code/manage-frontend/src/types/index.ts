@@ -140,6 +140,8 @@ export interface Student {
   last_login_at: string
   created_at: string
   bound_parents_count: number  // 已绑定家长数量
+  warning_count?: number       // 未处理的画像预警条数
+  warning_level?: 'notice' | 'attention' | 'critical' | null   // 其中最高的级别
 }
 
 // 学生详情
@@ -310,7 +312,7 @@ export interface StudentProfile {
   generated_at: string
   summary: {
     status: string; status_reason: string; engagement_score: number
-    engagement_parts: { frequency: number; streak: number; complete: number; hint_independence: number }
+    engagement_parts: { frequency: number; streak: number; complete: number; careful: number | null }
     trend: { weeks: { weeks_ago: number; answered: number; accuracy: number | null }[]; slope: number | null }
     tips: string[]
   }
@@ -325,7 +327,7 @@ export interface StudentProfile {
     training_info?: { total_training_count: number; total_question_count: number; last_trained_at: string | null } | null
     primary_strength?: string; primary_weakness?: string; secondary_weakness?: string; preferred_force?: string; recommended_mode?: string
     confidence?: number | null; tags?: string[]
-    history?: { at: string; final: Record<string, number> }[]
+    history?: { at: string; date: string; tests: number; final: Record<string, number | null> }[]  // 按天，每天各次测试综合分的平均
   }
   mastery: {
     answered: number; correct: number; accuracy: number | null
@@ -339,7 +341,7 @@ export interface StudentProfile {
     sessions_7d: number; sessions_30d: number; sessions_total: number; streak_days: number; last_active_date: string | null
     time_buckets: { key: string; label: string; count: number; ratio: number | null }[]
     avg_seconds_per_question: number | null; avg_seconds_per_session: number | null
-    fast_wrong_ratio: number | null; avg_hint_level: number | null
+    fast_wrong_ratio: number | null; fast_wrong_samples: number
     completed_sessions: number; finished_sessions: number; issued_questions: number; answered_questions: number; complete_rate: number | null
     dimensions: { key: string; label: string; count: number }[]
   }
@@ -352,5 +354,26 @@ export interface StudentProfile {
     personal_insight: string | null; insight_admin_text: string | null; insight_ai_text: string | null
     personal_insight_updated_at?: string | null; learning_summary?: string | null; learning_summary_updated_at?: string | null
   }
-  warnings: unknown[]
+  warnings: { open: ProfileWarning[]; handled: ProfileWarning[] }
+}
+
+export interface ProfileWarning {
+  id: number; rule_code: string; rule_name: string; level: 'notice' | 'attention' | 'critical'; level_label: string
+  status: 'open' | 'handled' | 'closed'; message: string; triggered_at: string; handled_at: string | null; note: string | null
+}
+export interface ProfileRuleField {
+  key: string; label: string; unit: string; default: number | string
+  min?: number; max?: number                       // 数字类参数的范围
+  type?: 'select'; options?: { value: string; label: string }[]   // 下拉类参数
+}
+export interface ProfileRule {
+  code: string; name: string; desc: string; tiered: boolean; fields: ProfileRuleField[]
+  enabled: boolean; level: 'notice' | 'attention' | 'critical'; params: Record<string, number | string>
+}
+export interface ProfileConfig {
+  levels: { value: string; label: string }[]
+  rules: ProfileRule[]
+  weights: Record<string, number>
+  weight_labels: Record<string, string>
+  default_weights: Record<string, number>
 }

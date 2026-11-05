@@ -484,6 +484,7 @@ async def summarize_in_background(session_id: str, student_id: int) -> None:
             await _log_tokens(db, student_id, session_id, res)
             await db.commit()
             await _extract_insights(db, student_id, session_id, rows)
+            await _judge_emotion(db, student_id, session_id)
         from app.services.smart_training import intents
         await intents.refresh_in_background(student_id)   # 摘要更新后同步更新聊天困惑信号和后台学生摘要
     except Exception as e:
@@ -518,6 +519,34 @@ async def _extract_insights(db: AsyncSession, student_id: int, session_id: str, 
     except Exception as e:
         await db.rollback()
         logger.warning(f"更新个人洞察失败 student={student_id}: {e}")
+
+
+async def _judge_emotion(db: AsyncSession, student_id: int, session_id: str) -> None:
+    """让大模型根据学生最近说的话判断一次情绪状态，记入 emotion_history（画像预警「聊天出现负面情绪」使用）。
+    只发学生自己的话，不发助教的回复；只存等级和一句依据；失败不影响其它流程，也不改动已有记录。"""
+    from app.services.assistant import emotion
+    try:
+        said_rows = (await db.execute(
+            select(AiChatMessage.content).where(AiChatMessage.session_id == session_id, AiChatMessage.role == "student",
+                                                 AiChatMessage.content != "").order_by(AiChatMessage.id.desc()).limit(15)
+        )).scalars().all()
+        said = [t.strip()[:150] for t in reversed(said_rows) if t.strip()]
+        if not said:
+            return
+        res = await _llm([{"role": "system", "content": emotion.EMOTION_PROMPT},
+                          {"role": "user", "content": "【学生最近说的话】\n" + "\n".join(f"- {t}" for t in said)}],
+                         max_tokens=300, temperature=0.0)
+        await _log_tokens(db, student_id, session_id, res)
+        judgment = emotion.parse(res["text"])
+        if judgment is None:
+            logger.warning(f"情绪判断结果无法解析 student={student_id}")
+            await db.commit()
+            return
+        await emotion.record(db, student_id, judgment)
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        logger.warning(f"情绪判断失败 student={student_id}: {e}")
 
 
 # ── 快捷建议问题 ─────────────────────────────────────────────────────────────

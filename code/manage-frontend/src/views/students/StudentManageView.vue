@@ -15,6 +15,14 @@
         <el-option label="有画像" value="true" />
         <el-option label="未测试" value="false" />
       </el-select>
+      <el-select v-model="filters.has_warning" placeholder="预警" clearable style="width:100px" @change="search">
+        <el-option label="有预警" value="true" />
+        <el-option label="无预警" value="false" />
+      </el-select>
+      <div style="flex:1" />
+      <el-button size="small" text :loading="scanning" class="scan-btn" style="color:var(--color-primary)" @click="scanWarnings">
+        <SvgIcon v-if="!scanning" name="reset_default" :size="16" color="var(--color-primary)" style="margin-right:4px" />刷新预警
+      </el-button>
     </div>
     <div class="surface surface--table">
       <el-table :data="students" v-loading="loading" style="width:100%">
@@ -47,6 +55,17 @@
           </template>
         </el-table-column>
 
+
+        <el-table-column label="预警" width="90" align="center">
+          <template #default="{ row }">
+            <span v-if="row.warning_count" class="warn-badge" :class="`warn-badge--${row.warning_level}`"
+                  :title="`未处理预警 ${row.warning_count} 条，最高级别：${LEVEL_LABELS[row.warning_level] ?? ''}`"
+                  @click="$router.push(`/students/${row.id}`)">
+              {{ LEVEL_LABELS[row.warning_level] }} {{ row.warning_count }}
+            </span>
+            <span v-else style="color:var(--text-3);font-size:12px">—</span>
+          </template>
+        </el-table-column>
 
         <el-table-column label="绑定家长" width="90" align="center" prop="bound_parents_count" />
 
@@ -140,7 +159,19 @@ function sortedPowers(scores: Record<string, number>) {
     .map(([key, val]) => ({ key, val }))
     .sort((a, b) => b.val - a.val)
 }
-const filters = reactive({ grade: '', has_profile: '', keyword: '' })
+const filters = reactive({ grade: '', has_profile: '', has_warning: '', keyword: '' })
+const LEVEL_LABELS: Record<string, string> = { notice: '提醒', attention: '关注', critical: '重点' }
+const scanning = ref(false)
+
+async function scanWarnings() {
+  if (scanning.value) return
+  scanning.value = true
+  try {
+    const r = await studentApi.scanWarnings()
+    ElMessage.success(`已刷新 ${r.students} 名学生的预警，当前共 ${r.open_warnings} 条未处理${r.failed ? `（${r.failed} 人计算失败）` : ''}`)
+    await loadData()
+  } finally { scanning.value = false }
+}
 
 async function loadData() {
   loading.value = true
@@ -149,6 +180,7 @@ async function loadData() {
     if (filters.grade) params.grade = filters.grade
     if (filters.keyword) params.keyword = filters.keyword
     if (filters.has_profile !== '') params.has_profile = filters.has_profile === 'true'
+    if (filters.has_warning !== '') params.has_warning = filters.has_warning === 'true'
     const res = await studentApi.getList(params as Parameters<typeof studentApi.getList>[0])
     students.value = res.list
     total.value = res.total
@@ -198,6 +230,17 @@ onMounted(loadData)
 </script>
 
 <style lang="scss" scoped>
+.scan-btn.el-button {
+  margin-left: 0 !important; padding: 0 !important; height: auto !important;
+  background: transparent !important; border-color: transparent !important;
+  &:hover, &:focus, &:active { background: transparent !important; border-color: transparent !important; }
+}
+.warn-badge {
+  display: inline-block; min-width: 54px; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; cursor: pointer;
+  &--notice    { background: color-mix(in srgb, var(--color-primary) 16%, transparent); color: var(--color-primary); }
+  &--attention { background: color-mix(in srgb, var(--amber) 18%, transparent); color: var(--amber); }
+  &--critical  { background: color-mix(in srgb, var(--red) 16%, transparent); color: var(--red); }
+}
 .power-dist {
   display: inline-flex;
   align-items: center;

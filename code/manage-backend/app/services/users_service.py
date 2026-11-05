@@ -40,6 +40,7 @@ async def get_student_list(
     grade: str | None = None,
     has_profile: bool | None = None,
     keyword: str | None = None,
+    has_warning: bool | None = None,
     page: int = 1,
     limit: int = 20,
 ):
@@ -55,6 +56,10 @@ async def get_student_list(
         q = q.where(Student.grade == grade)
     if keyword:
         q = q.where(Student.nickname.ilike(f'%{keyword}%'))
+    if has_warning is not None:
+        from app.models.profile import StudentWarning
+        open_ids = select(StudentWarning.student_id).where(StudentWarning.status == 'open')
+        q = q.where(Student.id.in_(open_ids) if has_warning else Student.id.not_in(open_ids))
 
     total_q = select(func.count()).select_from(q.subquery())
     total = (await db.execute(total_q)).scalar_one()
@@ -114,12 +119,17 @@ async def get_student_list(
     )
     binding_map = {r[0]: r[1] for r in binding_cnt_res.all()}
 
+    from app.services import profile_warning_service
+    warn_map = await profile_warning_service.warning_summary(db, student_ids)
+
     items = []
     for s in rows:
         items.append({
             'id': s.id,
             'nickname': s.nickname,
             'grade': s.grade,
+            'warning_count': warn_map.get(s.id, {}).get('count', 0),
+            'warning_level': warn_map.get(s.id, {}).get('level'),
             'phone_masked': s.phone_masked,
             'is_minor': s.is_minor,
             'has_five_power_profile': s.id in profile_set,

@@ -28,6 +28,7 @@ export const studentApi = {
   getList: (params: {
     grade?: string          // G7~G12
     has_profile?: boolean
+    has_warning?: boolean   // true = 只看有未处理预警的学生
     keyword?: string        // 模糊搜索昵称或手机号
     page?: number
     limit?: number
@@ -48,9 +49,17 @@ export const studentApi = {
    * POST /api/v1/admin/students/{student_id}/bind-parent
    * 接口文档：§9.8.8
    */
+  /** 扫描全部学生并刷新画像预警：POST /api/v1/admin/profile-warnings/scan */
+  scanWarnings: () =>
+    request.post<unknown, { students: number; failed: number; open_warnings: number }>('/profile-warnings/scan'),
+
   /** 学生画像（管理员视图）：GET /api/v1/admin/students/{id}/profile */
   getProfile: (studentId: number) =>
     request.get<unknown, StudentProfile>(`/students/${studentId}/profile`),
+
+  /** 标记预警已处理：POST /api/v1/admin/students/{id}/warnings/{wid}/handle */
+  handleWarning: (studentId: number, warningId: number, note: string) =>
+    request.post<unknown, unknown>(`/students/${studentId}/warnings/${warningId}/handle`, { note }),
 
   bindParent: (studentId: number, data: { parent_phone: string }) =>
     request.post<unknown, { binding_id: number; parent_id: number; parent_created: boolean }>(

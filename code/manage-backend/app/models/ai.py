@@ -161,6 +161,7 @@ class StudentAiPromptSummary(Base, TimestampMixin):
     insight_updated_by: Mapped[str | None] = mapped_column(String(20), nullable=True)
     insight_admin_text: Mapped[str | None] = mapped_column(Text, nullable=True)   # 管理员确认的部分（AI 不改写）
     insight_ai_text: Mapped[str | None] = mapped_column(Text, nullable=True)      # AI 补充的部分（AI 只改这一块）
+    emotion_history: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)   # 对话情绪判断记录（最近 10 条）
     is_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
 

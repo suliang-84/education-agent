@@ -9,11 +9,11 @@
         返回
       </el-button>
       <div style="flex:1" />
-      <el-button size="small" text style="color:var(--color-primary)" @click="$router.push(`/students/${studentId}/ai-prompt`)">
-        <SvgIcon name="summary" :size="16" color="var(--color-primary)" style="margin-right:4px" />摘要
+      <el-button @click="$router.push(`/students/${studentId}/ai-prompt`)">
+        <SvgIcon name="summary" :size="14" style="margin-right:4px" />摘要
       </el-button>
-      <el-button size="small" text style="color:var(--color-primary)" @click="load">
-        <SvgIcon name="analyse" :size="16" color="var(--color-primary)" style="margin-right:4px" />刷新
+      <el-button @click="load">
+        <SvgIcon name="analyse" :size="14" style="margin-right:4px" />刷新
       </el-button>
     </div>
 
@@ -53,9 +53,12 @@
             <div class="parts">
               <div v-for="x in engagementParts" :key="x.label" class="part">
                 <span class="part__label">{{ x.label }}</span>
-                <div class="bar"><div class="bar__fill" :style="{ width: x.value + '%' }" /></div>
-                <span class="part__val num">{{ x.value }}</span>
+                <div class="bar"><div class="bar__fill" :style="{ width: (x.value ?? 0) + '%' }" /></div>
+                <span class="part__val num">{{ x.value ?? '—' }}</span>
               </div>
+            </div>
+            <div v-if="p.summary.engagement_parts.careful === null" class="eval-card__desc">
+              带用时的答题不足 {{ MIN_CAREFUL }} 道（现有 {{ p.behavior.fast_wrong_samples }} 道），「认真作答」暂不计入，其余三项按比例折算
             </div>
           </div>
           <div class="eval-card">
@@ -72,6 +75,50 @@
           <div v-for="(t, i) in p.summary.tips" :key="i" class="tip"><span class="tip__no num">{{ i + 1 }}</span>{{ t }}</div>
         </div>
       </div>
+
+      <!-- 预警 -->
+      <div class="surface section-block">
+        <div class="section-hd">
+          <span class="section-title"><SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />预警（{{ p.warnings.open.length }}）</span>
+          <span class="hint-text">规则和阈值可在「配置管理」里修改</span>
+        </div>
+        <div v-if="p.warnings.open.length" class="warn-list">
+          <div v-for="w in p.warnings.open" :key="w.id" class="warn-item">
+            <span class="level-tag" :class="`level--${w.level}`">{{ w.level_label }}</span>
+            <div class="warn-item__main">
+              <div class="warn-item__title">{{ w.rule_name }}</div>
+              <div class="warn-item__msg">{{ w.message }}</div>
+            </div>
+            <span class="warn-item__time">{{ formatDate(w.triggered_at) }}</span>
+            <el-button size="small" text class="plain-act" @click="openHandle(w)">
+              <SvgIcon name="check_circle" :size="16" color="var(--color-primary)" style="margin-right:4px" />标为已处理
+            </el-button>
+          </div>
+        </div>
+        <div v-else class="empty-sm">目前没有需要关注的预警</div>
+
+        <template v-if="p.warnings.handled.length">
+          <div class="sub-title" style="margin-top:12px">最近处理过的预警</div>
+          <div v-for="w in p.warnings.handled" :key="w.id" class="warn-item warn-item--done">
+            <span class="level-tag" :class="`level--${w.level}`">{{ w.level_label }}</span>
+            <div class="warn-item__main">
+              <div class="warn-item__title">{{ w.rule_name }}</div>
+              <div class="warn-item__msg">{{ w.message }}<template v-if="w.note">　处理备注：{{ w.note }}</template></div>
+            </div>
+            <span class="warn-item__time">{{ formatDate(w.handled_at) }} 处理</span>
+          </div>
+        </template>
+      </div>
+
+      <el-dialog v-model="handleVisible" title="标记为已处理" width="440px" :close-on-click-modal="false">
+        <div class="handle-msg" v-if="handling">{{ handling.rule_name }}：{{ handling.message }}</div>
+        <el-input v-model="handleNote" type="textarea" :rows="3" maxlength="500" show-word-limit placeholder="处理备注（选填），比如已联系家长、已调整训练计划" />
+        <div class="foot-note">标记后，同一规则 7 天内不会再次提醒；条件消失时未处理的预警也会自动关闭。</div>
+        <template #footer>
+          <el-button @click="handleVisible = false">取消</el-button>
+          <el-button type="primary" :loading="handleSaving" @click="submitHandle">确认</el-button>
+        </template>
+      </el-dialog>
 
       <!-- 分维度标签页 -->
       <div class="surface section-block tabs-block">
@@ -107,7 +154,7 @@
                 </div>
               </div>
               <template v-if="(p.cognitive.history?.length ?? 0) > 1">
-                <div class="sub-title" style="margin-top:15px">五力成长曲线（历次测试）</div>
+                <div class="sub-title" style="margin-top:15px">五力成长曲线（按天，同一天多次测试取平均）</div>
                 <div ref="historyRef" class="history-chart" />
               </template>
             </template>
@@ -212,7 +259,7 @@
                   <span class="rate-row__val num">{{ d.count }}<small>次</small></span>
                 </div>
                 <div v-if="!p.behavior.dimensions.length" class="empty-sm">暂无训练记录</div>
-                <div class="foot-note">平均提示级别 {{ p.behavior.avg_hint_level ?? '—' }}；平均每次训练作答 {{ fmtSec(p.behavior.avg_seconds_per_session) }}</div>
+                <div class="foot-note">平均每次训练作答 {{ fmtSec(p.behavior.avg_seconds_per_session) }}</div>
               </div>
             </div>
           </el-tab-pane>
@@ -271,10 +318,12 @@ import { ref, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
 import * as echarts from 'echarts'
 import { studentApi } from '@/api'
-import type { StudentProfile, FivePower } from '@/types'
+import { ElMessage } from 'element-plus'
+import type { StudentProfile, ProfileWarning, FivePower } from '@/types'
 import { FivePowerLabels } from '@/types'
 import { formatDate } from '@/utils/format'
 
+const MIN_CAREFUL = 20   // 与后端 MIN_CAREFUL_SAMPLES 一致
 const POWERS = ['INSIGHT', 'CONSTRUCT', 'DEDUCE', 'ADAPT', 'MIGRATE'] as FivePower[]
 const POWER_COLORS: Record<string, string> = {
   INSIGHT: '#0D9488', CONSTRUCT: '#E11D48', DEDUCE: '#0EA5E9', ADAPT: '#D97706', MIGRATE: '#7C3AED',
@@ -285,7 +334,8 @@ const QT_ICONS: Record<string, string> = {
 const RADAR_SETS = [
   { key: 'final', label: '综合' }, { key: 'ability', label: '能力' }, { key: 'preference', label: '偏好' }, { key: 'training', label: '训练表现' },
 ] as const
-const GRADES: Record<string, string> = { G7: '七年级', G8: '八年级', G9: '九年级', G10: '高一', G11: '高二', G12: '高三' }
+// 年级名称与学生列表保持一致
+const GRADES: Record<string, string> = { G7: '初一', G8: '初二', G9: '初三', G10: '高一', G11: '高二', G12: '高三' }
 const SEMESTERS: Record<string, string> = { S1: '上学期', S2: '下学期' }
 const MODES: Record<string, string> = { TRAIN_WEAKNESS: '补弱训练', TRAIN_STRENGTH: '强化优势', BALANCED: '均衡训练' }
 
@@ -300,6 +350,26 @@ const radarRef = ref<HTMLElement>()
 const historyRef = ref<HTMLElement>()
 const charts: echarts.ECharts[] = []
 
+const handleVisible = ref(false)
+const handleSaving = ref(false)
+const handleNote = ref('')
+const handling = ref<ProfileWarning | null>(null)
+function openHandle(w: ProfileWarning) {
+  handling.value = w
+  handleNote.value = ''
+  handleVisible.value = true
+}
+async function submitHandle() {
+  if (!handling.value || handleSaving.value) return
+  handleSaving.value = true
+  try {
+    await studentApi.handleWarning(studentId, handling.value.id, handleNote.value.trim())
+    ElMessage.success('已标记为已处理')
+    handleVisible.value = false
+    await load()
+  } finally { handleSaving.value = false }
+}
+
 const gradeLabel = computed(() => {
   const b = p.value?.basic
   if (!b) return ''
@@ -312,7 +382,7 @@ const engagementParts = computed(() => {
   const e = p.value?.summary.engagement_parts
   return e ? [
     { label: '训练频次', value: e.frequency }, { label: '连续天数', value: e.streak },
-    { label: '答题完成度', value: e.complete }, { label: '独立作答', value: e.hint_independence },
+    { label: '答题完成度', value: e.complete }, { label: '认真作答', value: e.careful },
   ] : []
 })
 const intentList = computed(() => (p.value?.ai_interaction.intents ?? []).map((x) => {
@@ -388,7 +458,7 @@ function renderHistory() {
     grid: { left: 36, right: 16, top: 30, bottom: 26 },
     legend: { top: 0, textStyle: { color: cssVar('--text-2', '#888') } },
     tooltip: { trigger: 'axis' },
-    xAxis: { type: 'category', data: h.map(x => formatDate(x.at, 'MM-DD HH:mm')), axisLabel: { color: cssVar('--text-3', '#999'), fontSize: 11 } },
+    xAxis: { type: 'category', data: h.map(x => x.date.slice(5)), axisLabel: { color: cssVar('--text-3', '#999'), fontSize: 11 } },
     yAxis: { type: 'value', min: 0, max: 100, splitLine: { lineStyle: { color: 'rgba(128,128,128,0.15)' } }, axisLabel: { color: cssVar('--text-3', '#999') } },
     series: POWERS.map(k => ({ name: FivePowerLabels[k], type: 'line', smooth: true, symbolSize: 5, data: h.map(x => x.final[k]), itemStyle: { color: POWER_COLORS[k] }, lineStyle: { color: POWER_COLORS[k], width: 2 } })),
   })
@@ -418,7 +488,7 @@ onBeforeUnmount(() => { window.removeEventListener('resize', onResize); charts.f
 <style lang="scss" scoped>
 .page-root { scrollbar-width: none; &::-webkit-scrollbar { display: none; } }
 
-.form-topbar { display: flex; align-items: center; gap: 15px; flex-shrink: 0; }
+.form-topbar { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .form-topbar :deep(.el-button + .el-button) { margin-left: 0; }
 
 .section-block {
@@ -508,6 +578,23 @@ onBeforeUnmount(() => { window.removeEventListener('resize', onResize); charts.f
 .tag { padding: 2px 10px; border-radius: 999px; font-size: 12px; color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 14%, transparent); }
 
 .text-box { padding: 10px 12px; border: 1px solid rgba(96, 141, 248, 0.15); border-radius: 4px; font-size: 13px; line-height: 1.8; color: var(--text-1); white-space: pre-wrap; word-break: break-word; }
+
+.warn-list { margin-top: 5px; }
+.warn-item { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid rgba(96, 141, 248, 0.1); &:last-child { border-bottom: none; } }
+.warn-item--done { opacity: 0.7; }
+.warn-item__main { flex: 1; min-width: 0; }
+.warn-item__title { font-size: 13px; font-weight: 600; color: var(--text-1); }
+.warn-item__msg { margin-top: 2px; font-size: 12.5px; line-height: 1.6; color: var(--text-3); }
+.warn-item__time { flex-shrink: 0; font-size: 12px; color: var(--text-3); }
+.level-tag {
+  flex-shrink: 0; width: 44px; text-align: center; padding: 2px 0; border-radius: 999px; font-size: 12px; font-weight: 600;
+  &.level--notice    { background: color-mix(in srgb, var(--color-primary) 16%, transparent); color: var(--color-primary); }
+  &.level--attention { background: color-mix(in srgb, var(--amber) 18%, transparent); color: var(--amber); }
+  &.level--critical  { background: color-mix(in srgb, var(--red) 16%, transparent); color: var(--red); }
+}
+.plain-act { padding: 0 !important; height: auto !important; margin-left: 0 !important; color: var(--color-primary); background: transparent !important; border-color: transparent !important; flex-shrink: 0;
+  &:hover, &:focus { background: transparent !important; border-color: transparent !important; } }
+.handle-msg { margin-bottom: 10px; font-size: 13px; line-height: 1.7; color: var(--text-2); }
 
 .tabs-block :deep(.el-tabs__header) { margin-bottom: 8px; }
 </style>

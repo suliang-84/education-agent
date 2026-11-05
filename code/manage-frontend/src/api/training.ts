@@ -7,7 +7,7 @@
  * - 题目分析（大模型）的并发数与超时
  */
 import request from './request'
-import type { TrainingConfigList, DimensionConfig, AnalysisConfig } from '@/types'
+import type { TrainingConfigList, DimensionConfig, AnalysisConfig, ProfileConfig } from '@/types'
 
 export const trainingConfigApi = {
   /** GET /api/v1/admin/training-configs */
@@ -20,4 +20,15 @@ export const trainingConfigApi = {
   /** PUT /api/v1/admin/analysis-config（对之后触发的题目分析生效） */
   saveAnalysis: (data: AnalysisConfig) =>
     request.put<unknown, AnalysisConfig>('/analysis-config', data),
+
+  /** GET /api/v1/admin/profile-config：画像预警规则 + 学习投入度权重 */
+  getProfileConfig: () => request.get<unknown, ProfileConfig>('/profile-config'),
+
+  /** PUT /api/v1/admin/profile-config/rules */
+  saveProfileRules: (rules: Record<string, unknown>) =>
+    request.put<unknown, ProfileConfig>('/profile-config/rules', { rules }),
+
+  /** PUT /api/v1/admin/profile-config/weights */
+  saveProfileWeights: (data: Record<string, number>) =>
+    request.put<unknown, Record<string, number>>('/profile-config/weights', data),
 }

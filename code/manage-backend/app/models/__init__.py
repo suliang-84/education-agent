@@ -14,6 +14,7 @@ from app.models.ai import (
 from app.models.audit import AdminAuditLog
 from app.models.base import Base
 from app.models.cognitive import CognitiveTestQuestion
+from app.models.profile import StudentWarning
 from app.models.knowledge import Chapter, Grade, KnowledgePoint, Semester, Subject
 from app.models.question import Question, QuestionAnalysis
 from app.models.student import (
@@ -37,6 +38,7 @@ from app.models.training import (
 
 __all__ = [
     "Base",
+    "StudentWarning",
     # Admin
     "AdminUser",
     # Questions
