@@ -134,18 +134,3 @@ def test_engagement_careful_needs_samples():
     # 样本够且「快而错」≥ 40%：这一项为 0，整体 = 前三项权重之和
     r = _summary({}, {"has_profile": True}, mastery, {**beh, "fast_wrong_samples": 30}, {}, weeks, 50)
     assert r["engagement_parts"]["careful"] == 0 and r["engagement_score"] == 85
-
-
-def test_daily_history_averages_same_day():
-    from app.services.profile_service import _daily_history
-    tz8 = timezone(timedelta(hours=8))
-
-    def row(day, hour, v):
-        r = {"created_at": datetime(2026, 11, day, hour, tzinfo=tz8)}
-        r.update({f"{p}_final": v for p in ("insight", "construct", "deduce", "adapt", "migrate")})
-        return r
-
-    h = _daily_history([row(2, 9, 60), row(2, 20, 71), row(3, 10, 80)])
-    assert [x["date"] for x in h] == ["2026-11-02", "2026-11-03"]
-    assert h[0]["final"]["INSIGHT"] == 65.5 and h[0]["tests"] == 2   # 同一天取平均，不取最后一次
-    assert h[1]["final"]["MIGRATE"] == 80 and h[1]["tests"] == 1

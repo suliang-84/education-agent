@@ -153,12 +153,15 @@
                   </div>
                 </div>
               </div>
-              <template v-if="(p.cognitive.history?.length ?? 0) > 1">
-                <div class="sub-title" style="margin-top:15px">五力成长曲线（按天，同一天多次测试取平均）</div>
-                <div ref="historyRef" class="history-chart" />
-              </template>
             </template>
             <div v-else class="empty">该学生尚未完成五力测试，暂无能力画像</div>
+
+            <div class="sub-title" style="margin-top:15px">五力训练趋势（最近 8 周，每周各力的做题正确率）</div>
+            <template v-if="p.cognitive.power_trend?.has_data">
+              <div ref="trendPowerRef" class="history-chart" />
+              <div class="foot-note">某一周某一力答题少于 3 道时不画点；这是学生实际做题时各项能力的表现，和上面的测试得分是两回事。</div>
+            </template>
+            <div v-else class="empty-sm">最近 8 周还没有足够的做题数据</div>
           </el-tab-pane>
 
           <!-- ② 学业掌握 -->
@@ -262,6 +265,40 @@
                 <div class="foot-note">平均每次训练作答 {{ fmtSec(p.behavior.avg_seconds_per_session) }}</div>
               </div>
             </div>
+
+            <div class="sub-title" style="margin-top:15px">答题诊断</div>
+            <div v-if="p.diagnosis.answered" class="three-col">
+              <div>
+                <div class="diag-hd">没作答就提交 <b class="num">{{ fmtPct(p.diagnosis.blank_rate) }}</b><small>（{{ p.diagnosis.blank }} / {{ p.diagnosis.answered }} 道）</small></div>
+                <div v-for="r in p.diagnosis.blank_by_type" :key="r.key" class="rate-row">
+                  <span class="rate-row__label"><SvgIcon :name="QT_ICONS[r.key] ?? 'qt_application'" :size="14" :class="`qt-i qt-i--${r.key}`" />{{ r.label }}</span>
+                  <div class="bar"><div class="bar__fill bar__fill--warn" :style="{ width: (r.rate ?? 0) + '%' }" /></div>
+                  <span class="rate-row__val num">{{ fmtPct(r.rate) }}<small>{{ r.blank }}/{{ r.answered }}</small></span>
+                </div>
+              </div>
+              <div>
+                <div class="diag-hd">错题是怎么错的 <small>（共 {{ p.diagnosis.wrong }} 道错题）</small></div>
+                <div v-for="c in p.diagnosis.causes" :key="c.key" class="rate-row">
+                  <span class="rate-row__label cause-label">{{ c.label }}</span>
+                  <div class="bar"><div class="bar__fill" :class="c.key === 'thoughtful' ? '' : 'bar__fill--warn'" :style="{ width: (c.ratio ?? 0) + '%' }" /></div>
+                  <span class="rate-row__val num">{{ fmtPct(c.ratio) }}<small>{{ c.count }}道</small></span>
+                </div>
+                <div class="foot-note" v-if="diagVerdict.cause">{{ diagVerdict.cause }}</div>
+              </div>
+              <div>
+                <div class="diag-hd">同一道题反复做有没有进步 <small>（{{ p.diagnosis.repeat.questions }} 道题做过 2 次以上）</small></div>
+                <template v-if="p.diagnosis.repeat.attempts.length">
+                  <div v-for="a in p.diagnosis.repeat.attempts" :key="a.attempt" class="rate-row">
+                    <span class="rate-row__label cause-label">{{ a.label }}</span>
+                    <div class="bar"><div class="bar__fill" :style="{ width: (a.accuracy ?? 0) + '%' }" /></div>
+                    <span class="rate-row__val num">{{ fmtPct(a.accuracy) }}<small>{{ a.answered }}题</small></span>
+                  </div>
+                  <div class="foot-note" v-if="diagVerdict.repeat">{{ diagVerdict.repeat }}</div>
+                </template>
+                <div v-else class="empty-sm">还没有重复做过的题</div>
+              </div>
+            </div>
+            <div v-else class="empty-sm">还没有答题记录</div>
           </el-tab-pane>
 
           <!-- ④ AI 互动 -->
@@ -347,7 +384,7 @@ const tab = ref('cognitive')
 const radarSet = ref<(typeof RADAR_SETS)[number]['key']>('final')
 const trendRef = ref<HTMLElement>()
 const radarRef = ref<HTMLElement>()
-const historyRef = ref<HTMLElement>()
+const trendPowerRef = ref<HTMLElement>()
 const charts: echarts.ECharts[] = []
 
 const handleVisible = ref(false)
@@ -390,6 +427,25 @@ const intentList = computed(() => (p.value?.ai_interaction.intents ?? []).map((x
   const o = x as Record<string, unknown>
   return String(o.kp_name ?? o.name ?? o.topic ?? o.label ?? '')
 }).filter(Boolean))
+// 诊断结论：只在数据足够时给出，避免对很少的样本下结论
+const diagVerdict = computed(() => {
+  const d = p.value?.diagnosis
+  const out = { cause: '', repeat: '' }
+  if (!d) return out
+  if (d.wrong >= 10) {
+    const blank = d.causes.find(c => c.key === 'blank')
+    const thoughtful = d.causes.find(c => c.key === 'thoughtful')
+    if ((blank?.ratio ?? 0) >= 50) out.cause = '大部分错题是没作答就提交的，更像是在跳题或没有投入，而不是知识不会；建议先了解原因（题太难、没时间、不想做）'
+    else if ((thoughtful?.ratio ?? 0) >= 50) out.cause = '大部分错题是认真做了仍然错，说明有真正的知识缺口，适合针对性讲解和训练'
+  }
+  const r = d.repeat
+  if (r.questions >= 5 && r.gain !== null) {
+    out.repeat = r.gain <= 0
+      ? `重复做之后正确率没有提高（后面几次比第 1 次${r.gain === 0 ? '持平' : `低 ${Math.abs(r.gain)} 个百分点`}），反复刷题帮助不大，建议配合讲解（智能解答 / AI 助教）`
+      : `重复做之后正确率提高了 ${r.gain} 个百分点，反复练习有效果`
+  }
+  return out
+})
 const dimTotal = computed(() => (p.value?.behavior.dimensions ?? []).reduce((a, b) => a + b.count, 0) || 1)
 
 const fmtPct = (v: number | null | undefined) => (v === null || v === undefined ? '—' : `${v}%`)
@@ -450,23 +506,31 @@ function setRadar(k: (typeof RADAR_SETS)[number]['key']) {
   renderRadar()
 }
 
-function renderHistory() {
-  const c = initChart(historyRef.value)
-  const h = p.value?.cognitive.history
-  if (!c || !h || h.length < 2) return
+function renderPowerTrend() {
+  const c = initChart(trendPowerRef.value)
+  const t = p.value?.cognitive.power_trend
+  if (!c || !t?.has_data) return
   c.setOption({
     grid: { left: 36, right: 16, top: 30, bottom: 26 },
     legend: { top: 0, textStyle: { color: cssVar('--text-2', '#888') } },
-    tooltip: { trigger: 'axis' },
-    xAxis: { type: 'category', data: h.map(x => x.date.slice(5)), axisLabel: { color: cssVar('--text-3', '#999'), fontSize: 11 } },
+    tooltip: {
+      trigger: 'axis',
+      formatter: (ps: { dataIndex: number; seriesName: string; marker: string; value: number | null }[]) =>
+        `${t.weeks[ps[0].dataIndex].label}<br/>` + ps.map((x) => `${x.marker}${x.seriesName}：${x.value === null || x.value === undefined ? '数据不足' : x.value + '%'}`).join('<br/>'),
+    },
+    xAxis: { type: 'category', data: t.weeks.map(w => w.label), axisLabel: { color: cssVar('--text-3', '#999'), fontSize: 11 } },
     yAxis: { type: 'value', min: 0, max: 100, splitLine: { lineStyle: { color: 'rgba(128,128,128,0.15)' } }, axisLabel: { color: cssVar('--text-3', '#999') } },
-    series: POWERS.map(k => ({ name: FivePowerLabels[k], type: 'line', smooth: true, symbolSize: 5, data: h.map(x => x.final[k]), itemStyle: { color: POWER_COLORS[k] }, lineStyle: { color: POWER_COLORS[k], width: 2 } })),
+    series: POWERS.map(k => ({
+      name: FivePowerLabels[k], type: 'line', smooth: true, symbolSize: 7, connectNulls: true,
+      data: t.weeks.map(w => w.powers[k]?.accuracy ?? null),
+      itemStyle: { color: POWER_COLORS[k] }, lineStyle: { color: POWER_COLORS[k], width: 2 },
+    })),
   })
 }
 
 async function drawTab() {
   await nextTick()
-  if (tab.value === 'cognitive') { renderRadar(); renderHistory() }
+  if (tab.value === 'cognitive') { renderRadar(); renderPowerTrend() }
 }
 function onTabChange() { drawTab() }
 
@@ -570,6 +634,9 @@ onBeforeUnmount(() => { window.removeEventListener('resize', onResize); charts.f
 .cog-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; @media (max-width: 1100px) { grid-template-columns: 1fr; } }
 .radar-chart { height: 260px; }
 .history-chart { height: 240px; }
+.diag-hd { margin-bottom: 8px; font-size: 13px; color: var(--text-2); b { margin-left: 6px; font-size: 18px; color: var(--text-1); } small { margin-left: 6px; font-size: 12px; color: var(--text-3); } }
+.cause-label { width: 130px; }
+.bar__fill--warn { background: var(--amber); }
 .seg { display: inline-flex; gap: 15px; margin-bottom: 5px; }
 .seg__btn { padding: 0; border: none; background: transparent; font-size: 13px; color: var(--text-3); cursor: pointer; &.on { color: var(--color-primary); font-weight: 600; } }
 .facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 15px; margin-top: 10px; }

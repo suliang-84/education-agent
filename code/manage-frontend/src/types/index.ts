@@ -305,6 +305,17 @@ export interface TrainingConfigList {
 }
 
 // ── 学生画像（管理员视图，一期）────────────────────────────────
+export interface PowerTrend {
+  weeks: { weeks_ago: number; label: string; powers: Record<string, { answered: number; accuracy: number | null }> }[]
+  answered: number; has_data: boolean
+}
+export interface ProfileDiagnosis {
+  answered: number; blank: number; blank_rate: number | null
+  blank_by_type: { key: string; label: string; answered: number; blank: number; rate: number | null }[]
+  wrong: number
+  causes: { key: string; label: string; count: number; ratio: number | null }[]
+  repeat: { questions: number; attempts: { attempt: number; label: string; answered: number; accuracy: number | null }[]; gain: number | null }
+}
 export interface ProfileRate { key: string; label: string; answered: number; accuracy: number | null }
 export interface ProfileKp { id: number; name: string; chapter: string | null; attempts: number; errors: number; error_rate: number | null; weak_score: number; last_at: string | null }
 export interface ProfileStrategy { strategy_id: string; name: string; uses: number; likes: number; dislikes: number; score: number | null }
@@ -327,7 +338,7 @@ export interface StudentProfile {
     training_info?: { total_training_count: number; total_question_count: number; last_trained_at: string | null } | null
     primary_strength?: string; primary_weakness?: string; secondary_weakness?: string; preferred_force?: string; recommended_mode?: string
     confidence?: number | null; tags?: string[]
-    history?: { at: string; date: string; tests: number; final: Record<string, number | null> }[]  // 按天，每天各次测试综合分的平均
+    power_trend?: PowerTrend
   }
   mastery: {
     answered: number; correct: number; accuracy: number | null
@@ -337,6 +348,7 @@ export interface StudentProfile {
     stubborn_questions: number; favorites: number
     semester_progress: { practiced: number; total: number; rate: number | null }
   }
+  diagnosis: ProfileDiagnosis
   behavior: {
     sessions_7d: number; sessions_30d: number; sessions_total: number; streak_days: number; last_active_date: string | null
     time_buckets: { key: string; label: string; count: number; ratio: number | null }[]

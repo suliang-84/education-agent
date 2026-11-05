@@ -70,22 +70,6 @@ async def _basic(db, sid):
     }
 
 
-def _daily_history(rows) -> list[dict]:
-    """成长曲线按天统计：同一天（北京时间）测试多次，每一力取当天各次综合分的平均值（保留 1 位小数）"""
-    tz = timezone(timedelta(hours=8))
-    by_day: dict = {}
-    for r in rows:
-        by_day.setdefault(r["created_at"].astimezone(tz).date(), []).append(r)
-    out = []
-    for d, rs in sorted(by_day.items()):
-        final = {}
-        for p in POWERS:
-            vals = [r[f"{p.lower()}_final"] for r in rs if r[f"{p.lower()}_final"] is not None]
-            final[p] = round(sum(vals) / len(vals), 1) if vals else None
-        out.append({"at": rs[-1]["created_at"], "date": str(d), "tests": len(rs), "final": final})
-    return out
-
-
 async def _cognitive(db, sid):
     rows = await _rows(db, "SELECT * FROM five_power_profiles WHERE student_id=:sid ORDER BY created_at", sid=sid)
     if not rows:
@@ -117,7 +101,6 @@ async def _cognitive(db, sid):
         "recommended_mode": latest["recommended_mode"],
         "confidence": _r(latest["profile_confidence"], 2),
         "tags": tags,
-        "history": _daily_history(rows),
     }
 
 
@@ -259,6 +242,67 @@ async def _behavior(db, sid):
     }
 
 
+async def _power_trend(db, sid):
+    """五力训练趋势：最近 8 周每周各力的做题正确率（该周该力答题少于 3 道的点不画）"""
+    rows = await _rows(db, f"""
+        SELECT floor(extract(epoch FROM (now() - a.answered_at)) / 604800)::int w, a.power_type p,
+               count(*) n, count(*) FILTER (WHERE a.is_correct) c
+        {_BASE} AND a.answered_at >= now() - interval '56 days' AND a.power_type IS NOT NULL GROUP BY 1, 2""", sid=sid)
+    by = {(r["w"], r["p"]): r for r in rows}
+    weeks = []
+    for w in range(7, -1, -1):
+        item = {"weeks_ago": w, "label": "本周" if w == 0 else f"{w}周前", "powers": {}}
+        for p in POWERS:
+            r = by.get((w, p))
+            item["powers"][p] = {"answered": r["n"] if r else 0, "accuracy": _pct(r["c"], r["n"]) if r and r["n"] >= 3 else None}
+        weeks.append(item)
+    total = sum(r["n"] for r in rows)
+    return {"weeks": weeks, "answered": total, "has_data": any(v["accuracy"] is not None for w in weeks for v in w["powers"].values())}
+
+
+RUSH_SECONDS = 3   # 非空作答、用时不超过这个秒数的错题，视为「秒答」（可能没读题或乱选）
+
+
+async def _diagnosis(db, sid):
+    """答题诊断：跳题（未作答就提交）、错因构成、同一道题反复做是否有进步"""
+    blank_sql = "coalesce(btrim(a.student_answer), '') = ''"
+    tot = await _one(db, f"SELECT count(*) n, count(*) FILTER (WHERE {blank_sql}) blank {_BASE}", sid=sid)
+    by_type = await _rows(db, f"SELECT q.question_type k, count(*) n, count(*) FILTER (WHERE {blank_sql}) blank {_BASE} GROUP BY 1", sid=sid)
+    wrong = await _one(db, f"""
+        SELECT count(*) n, count(*) FILTER (WHERE {blank_sql}) blank,
+               count(*) FILTER (WHERE NOT ({blank_sql}) AND a.time_spent_sec <= :rush) rush {_BASE} AND NOT a.is_correct""", sid=sid, rush=RUSH_SECONDS)
+    att = await _rows(db, f"""
+        SELECT least(x.att, 3) k, count(*) n, count(*) FILTER (WHERE x.is_correct) c FROM (
+            SELECT a.is_correct, row_number() OVER (PARTITION BY a.question_id ORDER BY a.answered_at) att,
+                   count(*) OVER (PARTITION BY a.question_id) tot {_BASE}) x
+        WHERE x.tot >= 2 GROUP BY 1 ORDER BY 1""", sid=sid)
+    rep = await _one(db, f"""SELECT count(*) q FROM (SELECT a.question_id {_BASE} GROUP BY 1 HAVING count(*) >= 2) t""", sid=sid)
+    w = wrong["n"] or 0
+    causes = []
+    if w:
+        thoughtful = w - wrong["blank"] - wrong["rush"]
+        causes = [
+            {"key": "blank", "label": "没作答就提交", "count": wrong["blank"], "ratio": _pct(wrong["blank"], w)},
+            {"key": "rush", "label": f"{RUSH_SECONDS} 秒内答完就错", "count": wrong["rush"], "ratio": _pct(wrong["rush"], w)},
+            {"key": "thoughtful", "label": "认真做了仍然错", "count": thoughtful, "ratio": _pct(thoughtful, w)},
+        ]
+    attempts = [{"attempt": r["k"], "label": "第 1 次" if r["k"] == 1 else "第 2 次" if r["k"] == 2 else "第 3 次及以后",
+                 "answered": r["n"], "accuracy": _pct(r["c"], r["n"])} for r in att]
+    gain = None
+    if len(attempts) >= 2 and attempts[0]["accuracy"] is not None:
+        later_n = sum(a["answered"] for a in attempts[1:])
+        later_c = sum(round((a["accuracy"] or 0) * a["answered"] / 100) for a in attempts[1:])
+        gain = round(_pct(later_c, later_n) - attempts[0]["accuracy"], 1) if later_n else None
+    return {
+        "answered": tot["n"], "blank": tot["blank"], "blank_rate": _pct(tot["blank"], tot["n"]),
+        "blank_by_type": sorted([{"key": r["k"], "label": TYPE_LABELS.get(r["k"], r["k"]), "answered": r["n"], "blank": r["blank"],
+                                  "rate": _pct(r["blank"], r["n"])} for r in by_type if r["k"]],
+                                key=lambda x: list(TYPE_LABELS).index(x["key"]) if x["key"] in TYPE_LABELS else 9),
+        "wrong": w, "causes": causes,
+        "repeat": {"questions": rep["q"], "attempts": attempts, "gain": gain},
+    }
+
+
 async def _ai(db, sid):
     msgs = await _one(db, """
         SELECT count(*) FILTER (WHERE m.role='student') stu, count(*) FILTER (WHERE m.role='assistant') ast,
@@ -385,6 +429,8 @@ async def get_profile(db: AsyncSession, student_id: int) -> dict:
     beh = await _behavior(db, student_id)
     ai = await _ai(db, student_id)
     traits = await _traits(db, student_id)
+    cog["power_trend"] = await _power_trend(db, student_id)
+    diagnosis = await _diagnosis(db, student_id)
     weeks = await _weekly(db, student_id)
     n30 = (await _one(db, f"SELECT count(*) n {_BASE} AND a.answered_at >= now() - interval '30 days'", sid=student_id))["n"]
     from app.services import profile_config, profile_warning_service
@@ -395,6 +441,6 @@ async def get_profile(db: AsyncSession, student_id: int) -> dict:
     return {
         "generated_at": datetime.now(timezone.utc),
         "summary": summary, "basic": basic, "cognitive": cog, "mastery": mastery,
-        "behavior": beh, "ai_interaction": ai, "traits": traits,
+        "behavior": beh, "diagnosis": diagnosis, "ai_interaction": ai, "traits": traits,
         "warnings": warnings,
     }
