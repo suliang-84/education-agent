@@ -165,7 +165,7 @@
           </el-tab-pane>
 
           <!-- ② 学业掌握 -->
-          <el-tab-pane label="学业掌握" name="mastery">
+          <el-tab-pane label="学业掌握" name="mastery" lazy>
             <div class="tiles">
               <div class="tile"><div class="tile__num num">{{ p.mastery.answered }}</div><div class="tile__lbl">累计答题</div></div>
               <div class="tile"><div class="tile__num num">{{ fmtPct(p.mastery.accuracy) }}</div><div class="tile__lbl">整体正确率</div></div>
@@ -212,7 +212,7 @@
               </div>
             </div>
 
-            <div class="two-col">
+            <div class="two-col two-col--stack">
               <div>
                 <div class="sub-title">薄弱知识点 Top 5</div>
                 <el-table :data="p.mastery.weak_kps" size="small" :show-header="true" class="mini-table" empty-text="还没有错误率达到 40%、且做过 2 次以上的知识点">
@@ -225,6 +225,9 @@
                         空答 {{ row.blank_errors }} · 秒答 {{ row.rush_errors }} · 认真错 {{ row.thoughtful_errors }}
                       </span>
                     </template>
+                  </el-table-column>
+                  <el-table-column label="可能的前置" min-width="120" show-overflow-tooltip>
+                    <template #default="{ row }"><span v-if="row.root_kp" class="cause-mini">{{ row.root_kp.name }}</span><span v-else style="color:var(--text-3)">—</span></template>
                   </el-table-column>
                   <el-table-column label="走向" width="64">
                     <template #default="{ row }">
@@ -247,7 +250,7 @@
           </el-tab-pane>
 
           <!-- ③ 学习行为 -->
-          <el-tab-pane label="学习行为" name="behavior">
+          <el-tab-pane label="学习行为" name="behavior" lazy>
             <div class="tiles">
               <div class="tile"><div class="tile__num num">{{ p.behavior.sessions_7d }}</div><div class="tile__lbl">近 7 天训练次数</div></div>
               <div class="tile"><div class="tile__num num">{{ p.behavior.sessions_30d }}</div><div class="tile__lbl">近 30 天训练次数</div></div>
@@ -311,10 +314,54 @@
               </div>
             </div>
             <div v-else class="empty-sm">还没有答题记录</div>
+
+            <div class="sub-title" style="margin-top:15px">更多发现</div>
+            <div class="three-col">
+              <div>
+                <div class="diag-hd">做题时越做越累吗 <small>（同一次训练前半段 vs 后半段）</small></div>
+                <template v-if="p.insights.fatigue.early && p.insights.fatigue.late">
+                  <div v-for="x in fatigueRows" :key="x.label" class="rate-row">
+                    <span class="rate-row__label cause-label">{{ x.label }}</span>
+                    <div class="bar"><div class="bar__fill" :style="{ width: (x.accuracy ?? 0) + '%' }" /></div>
+                    <span class="rate-row__val num">{{ fmtPct(x.accuracy) }}<small>没作答 {{ fmtPct(x.blank) }}</small></span>
+                  </div>
+                  <div class="foot-note">{{ p.insights.fatigue.verdict || '前后半段差别不大，或答题数还不够下结论' }}</div>
+                </template>
+                <div v-else class="empty-sm">每次抽题 4 道以上、答题足够多后才能分析</div>
+              </div>
+              <div>
+                <div class="diag-hd">看过智能解答有用吗 <small>（{{ p.insights.explanation.questions }} 道题看过解答）</small></div>
+                <template v-if="p.insights.explanation.questions">
+                  <div class="rate-row">
+                    <span class="rate-row__label cause-label">看解答之前</span>
+                    <div class="bar"><div class="bar__fill" :style="{ width: (p.insights.explanation.before.accuracy ?? 0) + '%' }" /></div>
+                    <span class="rate-row__val num">{{ fmtPct(p.insights.explanation.before.accuracy) }}<small>{{ p.insights.explanation.before.answered }}题</small></span>
+                  </div>
+                  <div class="rate-row">
+                    <span class="rate-row__label cause-label">看解答之后</span>
+                    <div class="bar"><div class="bar__fill" :style="{ width: (p.insights.explanation.after.accuracy ?? 0) + '%' }" /></div>
+                    <span class="rate-row__val num">{{ fmtPct(p.insights.explanation.after.accuracy) }}<small>{{ p.insights.explanation.after.answered }}题</small></span>
+                  </div>
+                  <div class="foot-note">{{ p.insights.explanation.verdict || '看过解答后再做的题还不够多，暂不下结论' }}</div>
+                </template>
+                <div v-else class="empty-sm">还没有看过智能解答</div>
+              </div>
+              <div>
+                <div class="diag-hd">是不是总选同一个答案</div>
+                <div v-for="m in p.insights.misconceptions" :key="m.question_id" class="mis-item">{{ m.text }}</div>
+                <div v-for="b in p.insights.bias.items" :key="b.type" class="rate-row">
+                  <span class="rate-row__label cause-label">{{ b.label }}最常选「{{ b.answer }}」</span>
+                  <div class="bar"><div class="bar__fill" :style="{ width: b.share + '%' }" /></div>
+                  <span class="rate-row__val num">{{ b.share }}%<small>{{ b.answered }}题</small></span>
+                </div>
+                <div class="foot-note" v-if="p.insights.bias.text">{{ p.insights.bias.text }}</div>
+                <div v-if="!p.insights.misconceptions.length && !p.insights.bias.items.length" class="empty-sm">选择 / 判断题答得还不够多</div>
+              </div>
+            </div>
           </el-tab-pane>
 
           <!-- ④ AI 互动 -->
-          <el-tab-pane label="AI 互动" name="ai">
+          <el-tab-pane label="AI 互动" name="ai" lazy>
             <div class="tiles">
               <div class="tile"><div class="tile__num num">{{ p.ai_interaction.student_messages }}</div><div class="tile__lbl">学生发言数</div></div>
               <div class="tile"><div class="tile__num num">{{ p.ai_interaction.assistant_messages }}</div><div class="tile__lbl">助教回复数</div></div>
@@ -346,7 +393,7 @@
           </el-tab-pane>
 
           <!-- ⑤ 个人特质 -->
-          <el-tab-pane label="个人特质" name="traits">
+          <el-tab-pane label="个人特质" name="traits" lazy>
             <div class="sub-title">个人洞察</div>
             <div class="text-box" v-if="p.traits.personal_insight">{{ p.traits.personal_insight }}</div>
             <div class="empty-sm" v-else>暂无个人洞察。学生与 AI 助教聊天后会自动生成，也可以在「摘要」页手动填写。</div>
@@ -459,6 +506,14 @@ const diagVerdict = computed(() => {
   }
   return out
 })
+const fatigueRows = computed(() => {
+  const f = p.value?.insights.fatigue
+  if (!f?.early || !f.late) return []
+  return [
+    { label: '前半段', accuracy: f.early.accuracy, blank: f.early.blank_rate },
+    { label: '后半段', accuracy: f.late.accuracy, blank: f.late.blank_rate },
+  ]
+})
 const dimTotal = computed(() => (p.value?.behavior.dimensions ?? []).reduce((a, b) => a + b.count, 0) || 1)
 
 const fmtPct = (v: number | null | undefined) => (v === null || v === undefined ? '—' : `${v}%`)
@@ -545,7 +600,11 @@ async function drawTab() {
   await nextTick()
   if (tab.value === 'cognitive') { renderRadar(); renderPowerTrend() }
 }
-function onTabChange() { drawTab() }
+function onTabChange() {
+  drawTab()
+  // 表格在没显示的标签页里算不出列宽，切过来后通知它重新布局
+  nextTick(() => window.dispatchEvent(new Event('resize')))
+}
 
 async function load() {
   loading.value = true
@@ -635,6 +694,8 @@ onBeforeUnmount(() => { window.removeEventListener('resize', onResize); charts.f
 .tile__lbl { margin-top: 2px; font-size: 12px; color: var(--text-3); }
 
 .two-col { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-top: 5px; @media (max-width: 1100px) { grid-template-columns: 1fr; } }
+.two-col--stack { grid-template-columns: minmax(0, 1fr) !important; }
+.two-col > div, .three-col > div, .cog-grid > div { min-width: 0; }   // 否则表格的最小列宽会把网格撑宽
 .three-col { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; @media (max-width: 1200px) { grid-template-columns: 1fr; } }
 .mini-table { width: 100%; }
 
@@ -647,6 +708,7 @@ onBeforeUnmount(() => { window.removeEventListener('resize', onResize); charts.f
 .cog-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; @media (max-width: 1100px) { grid-template-columns: 1fr; } }
 .radar-chart { height: 260px; }
 .history-chart { height: 240px; }
+.mis-item { margin-bottom: 8px; padding: 8px 10px; border: 1px solid rgba(96, 141, 248, 0.15); border-radius: 4px; font-size: 12.5px; line-height: 1.6; color: var(--text-1); }
 .cause-mini { font-size: 12px; color: var(--text-2); white-space: nowrap; }
 .trend-tag { font-size: 12px; font-weight: 600; &.trend--up { color: var(--green); } &.trend--flat { color: var(--amber); } &.trend--down { color: var(--red); } }
 .diag-hd { margin-bottom: 8px; font-size: 13px; color: var(--text-2); b { margin-left: 6px; font-size: 18px; color: var(--text-1); } small { margin-left: 6px; font-size: 12px; color: var(--text-3); } }

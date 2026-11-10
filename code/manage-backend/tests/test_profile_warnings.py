@@ -180,3 +180,31 @@ def test_actions_best_time_bucket_and_cap():
     many = _ctx(status="近期懈怠", wrong_pending=3, mastery={"weak_kps": [{"name": f"k{i}", "error_rate": 90, "advice": "先讲解"} for i in range(3)], "wrong_pending": 3},
                 diagnosis={**_ctx()["diagnosis"], "repeat": {"questions": 6, "gain": -3}})
     assert len(build_actions(many)) <= 5
+
+
+def test_find_prerequisites():
+    from app.services.profile_actions import find_prerequisites
+
+    def kp(i, order, err, att=6, ch=1):
+        return {"id": i, "name": f"k{i}", "chapter_id": ch, "order": (0, 0, order), "attempts": att, "error_rate": err}
+
+    roots = find_prerequisites([kp(1, 1, 80), kp(2, 2, 90), kp(3, 3, 70), kp(4, 4, 20), kp(5, 1, 90, ch=2)])
+    assert roots[2]["id"] == 1 and roots[3]["id"] == 1          # 单元内最靠前的薄弱知识点是根源
+    assert 1 not in roots                                       # 最靠前的那个自己没有前置
+    assert 4 not in roots                                       # 不薄弱的不处理
+    assert 5 not in roots                                       # 别的单元不算
+    assert find_prerequisites([kp(1, 1, 80, att=2), kp(2, 2, 90)]) == {}   # 前置样本不够不下结论
+
+
+def test_actions_include_new_insights():
+    from app.services.profile_actions import build_actions
+    ctx = _ctx(insights={
+        "fatigue": {"verdict": "每次训练后半段正确率明显下降"},
+        "explanation": {"verdict": "看过智能解答后再做正确率提高了"},
+        "misconceptions": [{"text": "某题总选同一个错误答案"}],
+        "bias": {"text": "单选题 80% 都选 A"},
+    }, mastery={"weak_kps": [{"name": "B", "error_rate": 80, "advice": None, "root_kp": {"name": "A"}}], "wrong_pending": 0})
+    acts = build_actions(ctx)
+    assert len(acts) <= 5
+    joined = "".join(acts)
+    assert "先补「A」再练「B」" in joined and "后半段" in joined and "同一个错误答案" in joined

@@ -38,6 +38,19 @@ def kp_advice(att: int, errors: int, blank: int, rush: int, trend: str | None) -
     return None
 
 
+def find_prerequisites(kps: list[dict]) -> dict[int, dict]:
+    """可能的前置薄弱点：同一单元里排在前面、同样薄弱的知识点（没有真正的前置关系图，用单元内先后顺序近似）。
+    返回 {薄弱知识点 id: {id, name}}，root 取单元内排得最靠前的薄弱知识点。"""
+    weak = [k for k in kps if k["attempts"] >= MIN_KP_ATTEMPTS and (k["error_rate"] or 0) >= 40]
+    out: dict[int, dict] = {}
+    for k in weak:
+        earlier = [x for x in weak if x["chapter_id"] == k["chapter_id"] and x["order"] < k["order"]]
+        if earlier:
+            root = min(earlier, key=lambda x: x["order"])
+            out[k["id"]] = {"id": root["id"], "name": root["name"]}
+    return out
+
+
 def build_actions(ctx: dict) -> list[str]:
     """ctx：mastery / diagnosis / behavior / retention / cognitive / status / wrong_pending 等画像数据；返回最多 5 条建议"""
     items: list[tuple[int, str]] = []
@@ -58,12 +71,27 @@ def build_actions(ctx: dict) -> list[str]:
         items.append((1, f"{d['blank_rate']}% 的题没作答就提交了{where}：先解决「愿意动笔」，再谈知识；可以要求这类题至少写出第一步"))
 
     for k in ctx["mastery"]["weak_kps"][:3]:
+        if k.get("root_kp"):
+            items.append((2, f"「{k['name']}」可能是被前面的「{k['root_kp']['name']}」拖累（同一单元里排在前面、同样薄弱），建议先补「{k['root_kp']['name']}」再练「{k['name']}」"))
+            break
         if k.get("advice") and not (blank_given and "没作答就提交" in k["advice"]):   # 总体已经提示过「不动笔」，知识点上不再重复
             items.append((2, f"「{k['name']}」（错误率 {k['error_rate']}%）：{k['advice']}"))
 
     rep = d["repeat"]
     if rep["questions"] >= 5 and rep["gain"] is not None and rep["gain"] <= 0:
         items.append((2, "同一道题反复做，正确率没有提高：把「再做一遍」换成「先看讲解再做」"))
+
+    ins = ctx.get("insights") or {}
+    fat = ins.get("fatigue") or {}
+    if fat.get("verdict"):
+        items.append((2, fat["verdict"]))
+    ex = ins.get("explanation") or {}
+    if ex.get("verdict"):
+        items.append((3, ex["verdict"]))
+    for m in (ins.get("misconceptions") or [])[:1]:
+        items.append((2, m["text"]))
+    if (ins.get("bias") or {}).get("text"):
+        items.append((3, ins["bias"]["text"]))
 
     ret = ctx["retention"]
     if ret and ret["answered"] >= 5 and ret["accuracy"] is not None and ret["accuracy"] < 60:

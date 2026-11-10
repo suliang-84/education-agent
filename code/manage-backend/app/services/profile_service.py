@@ -112,7 +112,7 @@ async def _kp_stats(db, sid):
     from app.services import profile_actions as pa
 
     rows = await _rows(db, f"""
-        SELECT kp.id, kp.name, ch.name AS chapter, a.is_correct, a.answered_at, a.time_spent_sec t,
+        SELECT kp.id, kp.name, kp.chapter_id, kp.sort_order AS kso, ch.sort_order AS cso, ch.name AS chapter, a.is_correct, a.answered_at, a.time_spent_sec t,
                (coalesce(btrim(a.student_answer), '') = '') AS blank
         FROM training_answer_records a
         JOIN training_sessions s ON s.id = a.session_id
@@ -124,7 +124,8 @@ async def _kp_stats(db, sid):
         ORDER BY kp.id, a.answered_at""", sid=sid)
     by: dict[int, dict] = {}
     for r in rows:
-        e = by.setdefault(r["id"], {"id": r["id"], "name": r["name"], "chapter": r["chapter"], "flags": [], "blank": 0, "rush": 0, "last_at": None})
+        e = by.setdefault(r["id"], {"id": r["id"], "name": r["name"], "chapter": r["chapter"], "chapter_id": r["chapter_id"], "order": (r["cso"] or 0, r["kso"] or 0, r["id"]),   # 排序字段目前大多是 0，用 id（录入顺序≈教材顺序）兜底
+                                    "flags": [], "blank": 0, "rush": 0, "last_at": None})
         e["flags"].append(bool(r["is_correct"]))
         if not r["is_correct"]:
             if r["blank"]:
@@ -138,11 +139,14 @@ async def _kp_stats(db, sid):
         att = len(e["flags"])
         err = att - sum(e["flags"])
         trend = pa.kp_trend(e["flags"])
-        out.append({"id": e["id"], "name": e["name"], "chapter": e["chapter"], "attempts": att, "errors": err,
+        out.append({"id": e["id"], "name": e["name"], "chapter": e["chapter"], "chapter_id": e["chapter_id"], "order": e["order"], "attempts": att, "errors": err,
                     "error_rate": _pct(err, att), "weak_score": round(smoothed_error(att, err, prior), 3), "last_at": e["last_at"],
                     "blank_errors": e["blank"], "rush_errors": e["rush"], "thoughtful_errors": err - e["blank"] - e["rush"],
                     "trend": trend, "advice": pa.kp_advice(att, err, e["blank"], e["rush"], trend)})
     return out
+
+
+from app.services.profile_actions import find_prerequisites as pa_find_prerequisites  # noqa: E402
 
 
 async def _mastery(db, sid, grade, semester):
@@ -163,6 +167,9 @@ async def _mastery(db, sid, grade, semester):
     kps = await _kp_stats(db, sid)
     valid = [k for k in kps if k["attempts"] >= 2]
     # 薄弱：错误率 ≥ 40% 里最差的；强项：错误率 ≤ 40% 里最好的。整体都做得不好时，强项为空，而不是把「相对没那么差」的当强项
+    roots = pa_find_prerequisites(kps)
+    for k in kps:
+        k["root_kp"] = roots.get(k["id"])
     weak = sorted([k for k in valid if (k["error_rate"] or 0) >= 40], key=lambda k: -k["weak_score"])[:5]
     strong = sorted([k for k in valid if (k["error_rate"] or 0) <= 40], key=lambda k: k["weak_score"])[:5]
 
@@ -192,7 +199,8 @@ async def _mastery(db, sid, grade, semester):
         "by_subject": rate(subj, {}),
         "by_type": sorted(rate(by_type, TYPE_LABELS), key=lambda x: list(TYPE_LABELS).index(x["key"]) if x["key"] in TYPE_LABELS else 9),
         "by_difficulty": sorted(rate(by_diff, DIFF_LABELS), key=lambda x: list(DIFF_LABELS).index(x["key"]) if x["key"] in DIFF_LABELS else 9),
-        "weak_kps": weak, "strong_kps": strong, "kp_total_practiced": len(kps),
+        "weak_kps": [{k: v for k, v in x.items() if k != "order"} for x in weak],
+        "strong_kps": [{k: v for k, v in x.items() if k != "order"} for x in strong], "kp_total_practiced": len(kps),
         "wrong_pending": w.get("unreview", 0), "wrong_mastered": w.get("aha_achieved", 0),
         "wrong_mastered_rate": _pct(w.get("aha_achieved", 0), sum(w.values())),
         "stubborn_questions": stubborn["n"], "favorites": fav["n"],
@@ -331,6 +339,98 @@ async def _diagnosis(db, sid):
     }
 
 
+MIN_HALF_ANSWERS = 10     # 疲劳对比：前后半段各至少答题数
+FATIGUE_DROP_PP = 10      # 后半段比前半段正确率低这么多，算明显下滑
+BLANK_RISE_PP = 15        # 后半段空答率比前半段高这么多，算更容易跳题
+MIN_AFTER_EXPLAIN = 5     # 看过讲解后再做的题至少这么多道才评价讲解效果
+MISCONCEPTION_MIN = 3     # 同一道题至少答错几次才看是不是总选同一个错误答案
+MISCONCEPTION_SHARE = 0.7  # 其中同一个错误答案的占比
+BIAS_MIN_ANSWERS = 10     # 选项倾向：至少答了几道才判断
+BIAS_SHARE = 0.6          # 单选 / 判断题里同一个答案占比达到这个值，算有倾向
+
+
+async def _insights(db, sid):
+    """更深入的挖掘：题序疲劳、看过智能解答后的效果、反复选同一个错误答案（概念性误解）、选项倾向"""
+    blank_sql = "coalesce(btrim(a.student_answer), '') = ''"
+    out: dict = {}
+
+    # ① 题序疲劳：同一次训练里，前半段 vs 后半段
+    r = await _rows(db, f"""
+        SELECT (a.question_index * 2 >= s.total_questions) AS late, count(*) n, count(*) FILTER (WHERE a.is_correct) c,
+               count(*) FILTER (WHERE {blank_sql}) b {_BASE} AND s.total_questions >= 4 GROUP BY 1""", sid=sid)
+    half = {bool(x["late"]): x for x in r}
+    fat: dict = {"early": None, "late": None, "verdict": None}
+    for key, flag in (("early", False), ("late", True)):
+        x = half.get(flag)
+        if x:
+            fat[key] = {"answered": x["n"], "accuracy": _pct(x["c"], x["n"]), "blank_rate": _pct(x["b"], x["n"])}
+    e, l = fat["early"], fat["late"]
+    if e and l and e["answered"] >= MIN_HALF_ANSWERS and l["answered"] >= MIN_HALF_ANSWERS:
+        if e["accuracy"] - l["accuracy"] >= FATIGUE_DROP_PP:
+            fat["verdict"] = f"每次训练后半段正确率（{l['accuracy']}%）比前半段（{e['accuracy']}%）低，容易疲劳或失去耐心，建议每次少抽几道题，或中途休息"
+        elif l["blank_rate"] - e["blank_rate"] >= BLANK_RISE_PP:
+            fat["verdict"] = f"每次训练后半段更容易没作答就提交（{l['blank_rate']}%，前半段 {e['blank_rate']}%），建议每次少抽几道题"
+    out["fatigue"] = fat
+
+    # ② 看过智能解答之后再做同一道题：正确率有没有提高
+    r = await _one(db, f"""
+        WITH t AS (
+            SELECT a.question_id, min(a.answered_at) FILTER (WHERE coalesce(a.rag_content, '') <> '') AS seen_at {_BASE} GROUP BY a.question_id)
+        SELECT count(*) FILTER (WHERE a.answered_at <= t.seen_at) bn, count(*) FILTER (WHERE a.answered_at <= t.seen_at AND a.is_correct) bc,
+               count(*) FILTER (WHERE a.answered_at > t.seen_at) an, count(*) FILTER (WHERE a.answered_at > t.seen_at AND a.is_correct) ac,
+               count(DISTINCT t.question_id) qs
+        FROM training_answer_records a JOIN training_sessions s ON s.id = a.session_id JOIN t ON t.question_id = a.question_id
+        WHERE s.student_id = :sid AND COALESCE(a.is_seed_data, false) = false AND t.seen_at IS NOT NULL""", sid=sid)
+    ex = {"questions": r["qs"], "before": {"answered": r["bn"], "accuracy": _pct(r["bc"], r["bn"])},
+          "after": {"answered": r["an"], "accuracy": _pct(r["ac"], r["an"])}, "verdict": None}
+    if r["an"] >= MIN_AFTER_EXPLAIN and ex["before"]["accuracy"] is not None:
+        gain = round(ex["after"]["accuracy"] - ex["before"]["accuracy"], 1)
+        ex["verdict"] = (f"看过智能解答后再做同一道题，正确率从 {ex['before']['accuracy']}% 提高到 {ex['after']['accuracy']}%，讲解对这个学生有帮助，遇到不会的题建议先看解答"
+                         if gain >= 10 else
+                         f"看过智能解答后再做同一道题，正确率没有明显提高（{ex['before']['accuracy']}% → {ex['after']['accuracy']}%），建议配合 AI 助教一步步引导，而不只是看解答")
+    out["explanation"] = ex
+
+    # ③ 同一道选择 / 判断题总选同一个错误答案 → 概念性误解
+    rows = await _rows(db, f"""
+        SELECT a.question_id, kp.name AS kp, a.student_answer ans, count(*) n
+        FROM training_answer_records a JOIN training_sessions s ON s.id = a.session_id JOIN questions q ON q.id = a.question_id
+        LEFT JOIN LATERAL (SELECT k.name FROM knowledge_points k WHERE k.id = (CASE WHEN q.knowledge_point_ids->>0 ~ '^[0-9]+$' THEN (q.knowledge_point_ids->>0)::bigint END)) kp ON true
+        WHERE s.student_id = :sid AND COALESCE(a.is_seed_data, false) = false AND NOT a.is_correct AND NOT ({blank_sql})
+          AND q.question_type IN ('SINGLE_CHOICE', 'MULTIPLE_CHOICE', 'TRUE_FALSE')
+        GROUP BY a.question_id, kp.name, a.student_answer""", sid=sid)
+    per_q: dict[int, list] = {}
+    for x in rows:
+        per_q.setdefault(x["question_id"], []).append(x)
+    mis = []
+    for qid, xs in per_q.items():
+        total = sum(x["n"] for x in xs)
+        top = max(xs, key=lambda x: x["n"])
+        if total >= MISCONCEPTION_MIN and top["n"] / total >= MISCONCEPTION_SHARE:
+            mis.append({"question_id": qid, "kp": top["kp"], "answer": top["ans"], "wrong_times": total, "same_times": top["n"]})
+    mis.sort(key=lambda m: -m["same_times"])
+    for m in mis:
+        where = f"「{m['kp']}」里的一道题" if m["kp"] else f"题目 #{m['question_id']}"
+        m["text"] = f"{where}答错了 {m['wrong_times']} 次，其中 {m['same_times']} 次都选「{m['answer']}」，很可能存在固定的错误理解，建议讲清楚这个错误答案错在哪里"
+    out["misconceptions"] = mis[:5]
+
+    # ④ 选项倾向：单选总选同一个字母 / 判断总答同一边，多半在猜
+    r = await _rows(db, f"""
+        SELECT q.question_type k, a.student_answer ans, count(*) n {_BASE} AND NOT ({blank_sql})
+          AND q.question_type IN ('SINGLE_CHOICE', 'TRUE_FALSE') GROUP BY 1, 2""", sid=sid)
+    bias = {"text": None, "items": []}
+    for qt, label in (("SINGLE_CHOICE", "单选题"), ("TRUE_FALSE", "判断题")):
+        xs = [x for x in r if x["k"] == qt]
+        tot = sum(x["n"] for x in xs)
+        if tot >= BIAS_MIN_ANSWERS:
+            top = max(xs, key=lambda x: x["n"])
+            share = round(top["n"] / tot * 100, 1)
+            bias["items"].append({"type": qt, "label": label, "answer": top["ans"], "share": share, "answered": tot})
+            if share >= BIAS_SHARE * 100 and not bias["text"]:
+                bias["text"] = f"{label}有 {share}% 都选「{top['ans']}」（共 {tot} 道），像是在猜答案，建议让学生每题写出选择理由"
+    out["bias"] = bias
+    return out
+
+
 async def _ai(db, sid):
     msgs = await _one(db, """
         SELECT count(*) FILTER (WHERE m.role='student') stu, count(*) FILTER (WHERE m.role='assistant') ast,
@@ -394,7 +494,7 @@ def _slope(weeks):
     return round(sum((x - mx) * (y - my) for x, y in pts) / den, 2) if den else None
 
 
-def _summary(basic, cog, mastery, beh, ai, weeks, answered_30, weights=None, diagnosis=None):
+def _summary(basic, cog, mastery, beh, ai, weeks, answered_30, weights=None, diagnosis=None, insights=None):
     sess = beh["_sessions"]
     now = datetime.now(timezone.utc)
     s14 = sum(1 for s in sess if s["started_at"] >= now - timedelta(days=14))
@@ -434,7 +534,7 @@ def _summary(basic, cog, mastery, beh, ai, weeks, answered_30, weights=None, dia
     from app.services import profile_actions
     ctx = {"diagnosis": diagnosis or {"answered": 0, "blank_rate": None, "blank_by_type": [], "repeat": {"questions": 0, "gain": None}, "type_time": []},
            "mastery": mastery, "behavior": beh, "retention": (diagnosis or {}).get("retention"), "status": status,
-           "wrong_pending": mastery["wrong_pending"],
+           "wrong_pending": mastery["wrong_pending"], "insights": insights or {},
            "cognitive": {**cog, "primary_weakness_label": POWER_LABELS.get(cog.get("primary_weakness") or "")}}
     tips = profile_actions.build_actions(ctx)
     return {
@@ -453,16 +553,17 @@ async def get_profile(db: AsyncSession, student_id: int) -> dict:
     traits = await _traits(db, student_id)
     cog["power_trend"] = await _power_trend(db, student_id)
     diagnosis = await _diagnosis(db, student_id)
+    insights = await _insights(db, student_id)
     weeks = await _weekly(db, student_id)
     n30 = (await _one(db, f"SELECT count(*) n {_BASE} AND a.answered_at >= now() - interval '30 days'", sid=student_id))["n"]
     from app.services import profile_config, profile_warning_service
-    summary = _summary(basic, cog, mastery, beh, ai, weeks, n30, await profile_config.get_weights(db), diagnosis)
+    summary = _summary(basic, cog, mastery, beh, ai, weeks, n30, await profile_config.get_weights(db), diagnosis, insights)
     beh.pop("_sessions", None)
     await profile_warning_service.sync(db, student_id, basic)
     warnings = await profile_warning_service.list_warnings(db, student_id)
     return {
         "generated_at": datetime.now(timezone.utc),
         "summary": summary, "basic": basic, "cognitive": cog, "mastery": mastery,
-        "behavior": beh, "diagnosis": diagnosis, "ai_interaction": ai, "traits": traits,
+        "behavior": beh, "diagnosis": diagnosis, "insights": insights, "ai_interaction": ai, "traits": traits,
         "warnings": warnings,
     }

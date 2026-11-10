@@ -316,10 +316,17 @@ export interface ProfileDiagnosis {
   causes: { key: string; label: string; count: number; ratio: number | null }[]
   repeat: { questions: number; attempts: { attempt: number; label: string; answered: number; accuracy: number | null }[]; gain: number | null }
 }
+export interface ProfileInsights {
+  fatigue: { early: { answered: number; accuracy: number | null; blank_rate: number | null } | null; late: { answered: number; accuracy: number | null; blank_rate: number | null } | null; verdict: string | null }
+  explanation: { questions: number; before: { answered: number; accuracy: number | null }; after: { answered: number; accuracy: number | null }; verdict: string | null }
+  misconceptions: { question_id: number; kp: string | null; answer: string; wrong_times: number; same_times: number; text: string }[]
+  bias: { text: string | null; items: { type: string; label: string; answer: string; share: number; answered: number }[] }
+}
 export interface ProfileRate { key: string; label: string; answered: number; accuracy: number | null }
 export interface ProfileKp {
   id: number; name: string; chapter: string | null; attempts: number; errors: number; error_rate: number | null; weak_score: number; last_at: string | null
   blank_errors: number; rush_errors: number; thoughtful_errors: number; trend: 'up' | 'flat' | 'down' | null; advice: string | null
+  root_kp: { id: number; name: string } | null   // 可能被它拖累的前置薄弱点（同一单元里排在前面）
 }
 export interface ProfileStrategy { strategy_id: string; name: string; uses: number; likes: number; dislikes: number; score: number | null }
 export interface StudentProfile {
@@ -352,6 +359,7 @@ export interface StudentProfile {
     semester_progress: { practiced: number; total: number; rate: number | null }
   }
   diagnosis: ProfileDiagnosis
+  insights: ProfileInsights
   behavior: {
     sessions_7d: number; sessions_30d: number; sessions_total: number; streak_days: number; last_active_date: string | null
     time_buckets: { key: string; label: string; count: number; ratio: number | null; accuracy: number | null }[]
