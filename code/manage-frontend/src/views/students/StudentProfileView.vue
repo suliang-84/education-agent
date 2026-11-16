@@ -26,36 +26,20 @@
 
     <template v-if="p">
       <!-- 基础档案 + 综合评估 -->
-      <div class="surface section-block">
-        <div class="section-hd">
-          <span class="section-title"><SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />综合评估</span>
-          <span class="hint-text">答题和行为数据按「{{ rangeLabel }}」统计，错题、知识点、五力测试等当前状态不随范围变化　·　更新于 {{ formatDate(p.generated_at) }}</span>
-        </div>
-
-        <div class="who">
-          <div class="who__avatar">{{ (p.basic.nickname || '?').slice(0, 1) }}</div>
-          <div class="who__info">
-            <div class="who__name">{{ p.basic.nickname || '未设置昵称' }}<span class="who__id">#{{ p.basic.id }}</span></div>
-            <div class="who__meta">
-              {{ gradeLabel }}<template v-if="p.basic.is_minor"> · 未成年</template>
-              · 注册于 {{ formatDate(p.basic.created_at, 'YYYY-MM-DD') }}
-              · 最近登录 {{ p.basic.last_login_at ? formatDate(p.basic.last_login_at) : '—' }}
-              · 近 30 天活跃 {{ p.basic.active_days_30 }} 天
-            </div>
-            <div class="who__meta">
-              已绑定家长：<template v-if="p.basic.parents.length">{{ p.basic.parents.map(x => x.nickname).join('、') }}</template><template v-else>暂无</template>
-            </div>
-          </div>
-        </div>
-
+      <div class="overview">
         <div class="eval-grid">
           <div class="eval-card">
             <div class="eval-card__label">学习状态</div>
             <div class="st-metrics">
               <div v-for="m in p.summary.status_detail.metrics" :key="m.key" class="st-metric">
                 <div class="st-metric__lbl">{{ m.label }}</div>
-                <div class="st-metric__val num" :class="m.tone && `tone--${m.tone}`">{{ m.value }}</div>
-                <div class="st-metric__hint" :class="m.tone && `tone--${m.tone}`">{{ m.hint || '\u00a0' }}</div>
+                <div class="st-metric__val num" :class="m.delta == null && m.tone && `tone--${m.tone}`">{{ m.value }}</div>
+                <div v-if="m.delta != null" class="st-metric__hint">
+                  <span class="delta" :class="m.delta > 0 ? 'delta--up' : m.delta < 0 ? 'delta--down' : ''" :title="[m.prev, `较前一周期${m.delta >= 0 ? '上升' : '下降'} ${Math.abs(m.delta)}${m.unit === '%' ? ' 个百分点' : m.unit}`].filter(Boolean).join('，')">
+                    <SvgIcon v-if="m.delta !== 0" name="arrow_up" :size="11" :class="{ 'delta__down': m.delta < 0 }" />{{ Math.abs(m.delta) }}{{ m.unit }}
+                  </span>
+                </div>
+                <div v-else class="st-metric__hint" :class="m.tone && `tone--${m.tone}`">{{ m.hint || '\u00a0' }}</div>
               </div>
             </div>
             <div v-if="p.summary.status_detail.drivers.length" class="st-drivers">
@@ -80,54 +64,10 @@
             </div>
           </div>
           <div class="eval-card">
-            <div class="eval-card__label eval-card__label--row">
-              <span>{{ rangeLabel }}正确率</span>
-              <span v-if="periodDelta !== null" class="delta" :class="periodDelta > 0 ? 'delta--up' : periodDelta < 0 ? 'delta--down' : ''" :title="`较前 ${p.range.days} 天${periodDelta >= 0 ? '上升' : '下降'} ${Math.abs(periodDelta)} 个百分点`">
-                <SvgIcon v-if="periodDelta !== 0" name="arrow_up" :size="12" :class="{ 'delta__down': periodDelta < 0 }" />{{ Math.abs(periodDelta) }}%
-              </span>
-            </div>
+            <div class="eval-card__label">{{ rangeLabel }}正确率</div>
             <div ref="trendRef" class="trend-chart" />
           </div>
         </div>
-
-        <div class="tips" v-if="p.summary.tips.length">
-          <div class="sub-title">建议</div>
-          <div v-for="(t, i) in p.summary.tips" :key="i" class="tip"><span class="tip__no num">{{ i + 1 }}</span>{{ t }}</div>
-        </div>
-      </div>
-
-      <!-- 预警 -->
-      <div class="surface section-block">
-        <div class="section-hd">
-          <span class="section-title"><SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />预警（{{ p.warnings.open.length }}）</span>
-          <span class="hint-text">规则和阈值可在「配置管理」里修改</span>
-        </div>
-        <div v-if="p.warnings.open.length" class="warn-list">
-          <div v-for="w in p.warnings.open" :key="w.id" class="warn-item">
-            <span class="level-tag" :class="`level--${w.level}`">{{ w.level_label }}</span>
-            <div class="warn-item__main">
-              <div class="warn-item__title">{{ w.rule_name }}</div>
-              <div class="warn-item__msg">{{ w.message }}</div>
-            </div>
-            <span class="warn-item__time">{{ formatDate(w.triggered_at) }}</span>
-            <el-button size="small" text class="plain-act" @click="openHandle(w)">
-              <SvgIcon name="check_circle" :size="16" color="var(--color-primary)" style="margin-right:4px" />标为已处理
-            </el-button>
-          </div>
-        </div>
-        <div v-else class="empty-sm">目前没有需要关注的预警</div>
-
-        <template v-if="p.warnings.handled.length">
-          <div class="sub-title" style="margin-top:12px">最近处理过的预警</div>
-          <div v-for="w in p.warnings.handled" :key="w.id" class="warn-item warn-item--done">
-            <span class="level-tag" :class="`level--${w.level}`">{{ w.level_label }}</span>
-            <div class="warn-item__main">
-              <div class="warn-item__title">{{ w.rule_name }}</div>
-              <div class="warn-item__msg">{{ w.message }}<template v-if="w.note">　处理备注：{{ w.note }}</template></div>
-            </div>
-            <span class="warn-item__time">{{ formatDate(w.handled_at) }} 处理</span>
-          </div>
-        </template>
       </div>
 
       <el-dialog v-model="handleVisible" title="标记为已处理" width="440px" :close-on-click-modal="false">
@@ -148,29 +88,59 @@
             <template v-if="p.cognitive.has_profile">
               <div class="cog-grid">
                 <div>
-                  <div class="seg">
-                    <button v-for="s in RADAR_SETS" :key="s.key" class="seg__btn" :class="{ on: radarSet === s.key }" @click="setRadar(s.key)">{{ s.label }}</button>
-                  </div>
                   <div ref="radarRef" class="radar-chart" />
                 </div>
                 <div>
-                  <div class="sub-title">五力得分（综合）</div>
-                  <div v-for="k in POWERS" :key="k" class="rate-row">
-                    <span class="rate-row__label" :style="{ color: POWER_COLORS[k] }">{{ FivePowerLabels[k] }}</span>
-                    <div class="bar"><div class="bar__fill" :style="{ width: (p.cognitive.final?.[k] ?? 0) + '%', background: POWER_COLORS[k] }" /></div>
-                    <span class="rate-row__val num">{{ p.cognitive.final?.[k] ?? '—' }}</span>
-                  </div>
+                  <div class="sub-title">五力训练态势</div>
+                  <template v-if="p.cognitive.power_trend?.has_data">
+                    <div ref="trendPowerRef" class="history-chart" />
+                  </template>
+                  <div v-else class="empty-sm">{{ rangeLabel }}还没有足够的做题数据</div>
                 </div>
               </div>
+              <div class="cog-compare">
+                <div class="sub-title">测试得分 vs 实战表现</div>
+                <el-table v-if="cogInsights" :data="cogInsights.powers" size="small" class="mini-table cog-table">
+                  <el-table-column label="能力" width="70"><template #default="{ row }"><span :style="{ color: POWER_COLORS[row.key], fontWeight: 600 }">{{ row.label }}</span></template></el-table-column>
+                  <el-table-column label="测试得分" min-width="120">
+                    <template #default="{ row }">
+                      <div class="cog-bar"><div class="bar"><div class="bar__fill" :style="{ width: (row.test ?? 0) + '%', background: POWER_COLORS[row.key] }" /></div><span class="num">{{ row.test ?? '—' }}</span></div>
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="实战正确率" min-width="120">
+                    <template #default="{ row }">
+                      <div class="cog-bar"><div class="bar"><div class="bar__fill bar__fill--real" :style="{ width: (row.accuracy ?? 0) + '%' }" /></div><span class="num">{{ fmtPct(row.accuracy) }}</span><small>{{ row.answered }}题</small></div>
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="较前期" width="76">
+                    <template #default="{ row }">
+                      <span v-if="row.delta !== null" class="delta" :class="row.delta > 0 ? 'delta--up' : row.delta < 0 ? 'delta--down' : ''" :title="`前一周期正确率 ${row.prev_accuracy}%`">
+                        <SvgIcon v-if="row.delta !== 0" name="arrow_up" :size="11" :class="{ 'delta__down': row.delta < 0 }" />{{ Math.abs(row.delta) }}%
+                      </span>
+                      <span v-else class="cause-mini">—</span>
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="做题占比" width="76"><template #default="{ row }"><span class="num">{{ fmtPct(row.share) }}</span></template></el-table-column>
+                  <el-table-column label="评价" width="92">
+                    <template #default="{ row }">
+                      <el-tooltip :content="row.status === 'below' ? `实战比测试低 ${Math.abs(row.gap)} 个百分点` : row.status === 'above' ? `实战比测试高 ${row.gap} 个百分点` : row.status === 'few' ? `${rangeLabel}答题不足 6 道，暂不比较` : '实战表现和测试得分基本相符'" placement="top">
+                        <span class="cog-chip" :class="`cog-chip--${row.status}`">{{ COG_STATUS[row.status] }}</span>
+                      </el-tooltip>
+                    </template>
+                  </el-table-column>
+                </el-table>
+              </div>
+              <div v-if="cogInsights?.highlights.length" class="cog-hl">
+                <div class="sub-title">认知洞察</div>
+                <div v-for="(h, i) in cogInsights.highlights" :key="i" class="hl-item"><span class="hl-item__dot" :class="`tone--${h.tone}`" />{{ h.text }}</div>
+              </div>
             </template>
-            <div v-else class="empty">该学生尚未完成五力测试，暂无能力画像</div>
-
-            <div class="sub-title" style="margin-top:15px">五力训练趋势（{{ rangeLabel }}，每{{ p.cognitive.power_trend?.unit === 'day' ? '天' : '周' }}各力的做题正确率）</div>
-            <template v-if="p.cognitive.power_trend?.has_data">
-              <div ref="trendPowerRef" class="history-chart" />
-              <div class="foot-note">某{{ p.cognitive.power_trend.unit === 'day' ? '一天' : '一周' }}某一力答题少于 {{ p.cognitive.power_trend.min_answers }} 道时不画点；这是学生实际做题时各项能力的表现，和上面的测试得分是两回事。</div>
+            <template v-else>
+              <div class="empty">该学生尚未完成五力测试，暂无能力画像</div>
+              <div class="sub-title" style="margin-top:15px">五力训练态势</div>
+              <div v-if="p.cognitive.power_trend?.has_data" ref="trendPowerRef" class="history-chart" />
+              <div v-else class="empty-sm">{{ rangeLabel }}还没有足够的做题数据</div>
             </template>
-            <div v-else class="empty-sm">{{ rangeLabel }}还没有足够的做题数据</div>
           </el-tab-pane>
 
           <!-- ② 学业掌握 -->
@@ -183,7 +153,6 @@
               <div class="tile"><div class="tile__num num">{{ p.mastery.stubborn_questions }}</div><div class="tile__lbl">顽固错题（错 ≥ 3 次）</div></div>
               <div class="tile"><div class="tile__num num">{{ p.mastery.favorites }}</div><div class="tile__lbl">收藏题数</div></div>
             </div>
-            <div class="foot-note" style="margin-top:0">答题量、正确率和下面的题型 / 难度 / 科目表现按「{{ rangeLabel }}」统计；错题、知识点掌握和学期进度是当前累计状态，不随时间范围变化。</div>
 
             <div class="sub-title">当前学期进度</div>
             <div class="rate-row">
@@ -269,7 +238,6 @@
               <div class="tile"><div class="tile__num num">{{ fmtPct(p.behavior.complete_rate) }}</div><div class="tile__lbl">答题完成度（{{ p.behavior.answered_questions }}/{{ p.behavior.issued_questions }} 题）</div></div>
               <div class="tile"><div class="tile__num num">{{ fmtPct(p.behavior.fast_wrong_ratio) }}</div><div class="tile__lbl">「快而错」占比</div></div>
             </div>
-            <div class="foot-note" style="margin-top:0">平均用时、答题完成度、「快而错」、学习时段、训练方式偏好、答题诊断按「{{ rangeLabel }}」统计；连续学习天数是当前状态；「同一道题反复做」「看过智能解答」「总选同一个答案」需要看全部历史，不受范围限制。</div>
             <div class="two-col">
               <div>
                 <div class="sub-title">学习时段分布</div>
@@ -414,6 +382,44 @@
             <div class="empty-sm" v-else>暂无</div>
             <div class="foot-note">编辑请前往「摘要」页。</div>
           </el-tab-pane>
+          <!-- ⑥ 预警 -->
+          <el-tab-pane :label="`预警（${p.warnings.open.length}）`" name="warnings" lazy>
+            <div class="hint-text" style="margin-bottom:8px">规则和阈值可在「配置管理」里修改</div>
+            <div v-if="p.warnings.open.length" class="warn-list">
+              <div v-for="w in p.warnings.open" :key="w.id" class="warn-item">
+                <span class="level-tag" :class="`level--${w.level}`">{{ w.level_label }}</span>
+                <div class="warn-item__main">
+                  <div class="warn-item__title">{{ w.rule_name }}</div>
+                  <div class="warn-item__msg">{{ w.message }}</div>
+                </div>
+                <span class="warn-item__time">{{ formatDate(w.triggered_at) }}</span>
+                <el-button size="small" text class="plain-act" @click="openHandle(w)">
+                  <SvgIcon name="check_circle" :size="16" color="var(--color-primary)" style="margin-right:4px" />标为已处理
+                </el-button>
+              </div>
+            </div>
+            <div v-else class="empty-sm">目前没有需要关注的预警</div>
+
+            <template v-if="p.warnings.handled.length">
+              <div class="sub-title" style="margin-top:12px">最近处理过的预警</div>
+              <div v-for="w in p.warnings.handled" :key="w.id" class="warn-item warn-item--done">
+                <span class="level-tag" :class="`level--${w.level}`">{{ w.level_label }}</span>
+                <div class="warn-item__main">
+                  <div class="warn-item__title">{{ w.rule_name }}</div>
+                  <div class="warn-item__msg">{{ w.message }}<template v-if="w.note">　处理备注：{{ w.note }}</template></div>
+                </div>
+                <span class="warn-item__time">{{ formatDate(w.handled_at) }} 处理</span>
+              </div>
+            </template>
+          </el-tab-pane>
+
+          <!-- ⑦ 建议 -->
+          <el-tab-pane label="建议" name="tips" lazy>
+            <div v-if="p.summary.tips.length" class="tips">
+              <div v-for="(t, i) in p.summary.tips" :key="i" class="tip"><span class="tip__no num">{{ i + 1 }}</span>{{ t }}</div>
+            </div>
+            <div v-else class="empty-sm">暂无建议</div>
+          </el-tab-pane>
         </el-tabs>
       </div>
     </template>
@@ -438,9 +444,7 @@ const POWER_COLORS: Record<string, string> = {
 const QT_ICONS: Record<string, string> = {
   SINGLE_CHOICE: 'qt_single', MULTIPLE_CHOICE: 'qt_multi', TRUE_FALSE: 'qt_judge', FILL_BLANK: 'qt_fill', APPLICATION: 'qt_application',
 }
-const RADAR_SETS = [
-  { key: 'final', label: '综合' }, { key: 'ability', label: '能力' }, { key: 'preference', label: '偏好' }, { key: 'training', label: '训练表现' },
-] as const
+const COG_STATUS: Record<string, string> = { below: '发挥不稳', above: '实战更强', ok: '与测试相符', few: '做题太少' }
 // 年级名称与学生列表保持一致
 const GRADES: Record<string, string> = { G7: '初一', G8: '初二', G9: '初三', G10: '高一', G11: '高二', G12: '高三' }
 const SEMESTERS: Record<string, string> = { S1: '上学期', S2: '下学期' }
@@ -472,7 +476,6 @@ function onRangeChange() {
   }
   load()
 }
-const radarSet = ref<(typeof RADAR_SETS)[number]['key']>('final')
 const trendRef = ref<HTMLElement>()
 const radarRef = ref<HTMLElement>()
 const trendPowerRef = ref<HTMLElement>()
@@ -548,7 +551,7 @@ const fatigueRows = computed(() => {
     { label: '后半段', accuracy: f.late.accuracy, blank: f.late.blank_rate },
   ]
 })
-const periodDelta = computed(() => p.value?.summary.trend.period_delta ?? null)
+const cogInsights = computed(() => p.value?.cognitive.insights)
 const dimTotal = computed(() => (p.value?.behavior.dimensions ?? []).reduce((a, b) => a + b.count, 0) || 1)
 
 const fmtPct = (v: number | null | undefined) => (v === null || v === undefined ? '—' : `${v}%`)
@@ -591,27 +594,29 @@ function renderRadar() {
   const c = initChart(radarRef.value)
   const cog = p.value?.cognitive
   if (!c || !cog?.has_profile) return
-  const data = (cog[radarSet.value] ?? {}) as Record<string, number>
   const primary = cssVar('--color-primary', '#608df9')
-  c.setOption({
-    backgroundColor: 'transparent',
-    radar: {
-      indicator: POWERS.map(k => ({ name: FivePowerLabels[k], max: radarSet.value === 'preference' ? Math.max(30, ...Object.values(data)) : 100 })),
-      radius: 90,
-      axisName: { color: cssVar('--text-2', '#888'), fontSize: 12 },
-      splitLine: { lineStyle: { color: 'rgba(128,128,128,0.22)' } },
-      splitArea: { show: false },
-      axisLine: { lineStyle: { color: 'rgba(128,128,128,0.22)' } },
-    },
-    series: [{
-      type: 'radar',
-      data: [{ value: POWERS.map(k => data[k] ?? 0), lineStyle: { color: primary, width: 2 }, itemStyle: { color: primary }, areaStyle: { color: primary, opacity: 0.22 } }],
-    }],
-  })
-}
-function setRadar(k: (typeof RADAR_SETS)[number]['key']) {
-  radarSet.value = k
-  renderRadar()
+  {
+    // 测试综合得分 vs 所选范围内的实战正确率：两个多边形的差距就是「会但没发挥出来」或「实战超预期」
+    const real = Object.fromEntries((cog.insights?.powers ?? []).map(x => [x.key, x.accuracy ?? 0]))
+    const green = cssVar('--green', '#22c55e')
+    c.setOption({
+      backgroundColor: 'transparent',
+      legend: { bottom: 0, itemWidth: 12, itemHeight: 8, textStyle: { color: cssVar('--text-2', '#888'), fontSize: 12 } },
+      tooltip: {},
+      radar: {
+        indicator: POWERS.map(k => ({ name: FivePowerLabels[k], max: 100 })), radius: 85, center: ['50%', '47%'],
+        axisName: { color: cssVar('--text-2', '#888'), fontSize: 12 },
+        splitLine: { lineStyle: { color: 'rgba(128,128,128,0.22)' } }, splitArea: { show: false }, axisLine: { lineStyle: { color: 'rgba(128,128,128,0.22)' } },
+      },
+      series: [{
+        type: 'radar',
+        data: [
+          { name: '测试得分', value: POWERS.map(k => cog.final?.[k] ?? 0), lineStyle: { color: primary, width: 2 }, itemStyle: { color: primary }, areaStyle: { color: primary, opacity: 0.18 } },
+          { name: `实战正确率`, value: POWERS.map(k => real[k] ?? 0), lineStyle: { color: green, width: 2, type: 'dashed' }, itemStyle: { color: green }, areaStyle: { color: green, opacity: 0.12 } },
+        ],
+      }],
+    })
+  }
 }
 
 function renderPowerTrend() {
@@ -662,7 +667,7 @@ onBeforeUnmount(() => { trendObserver?.disconnect(); window.removeEventListener(
 </script>
 
 <style lang="scss" scoped>
-.page-root { scrollbar-width: none; &::-webkit-scrollbar { display: none; } }
+.page-root { gap: 15px; scrollbar-width: none; &::-webkit-scrollbar { display: none; } }
 // 暗色主题下全局 --text-3 (#4B5563) 在深色底上偏暗：本页的次要文字（指标名、提示、脚注、空状态等）统一提亮，仍比 --text-2 暗一档
 :global([data-theme="dark"]) .page-root { --text-3: #7A8496; }
 
@@ -676,42 +681,45 @@ onBeforeUnmount(() => { trendObserver?.disconnect(); window.removeEventListener(
   box-shadow: none !important;
   border: 1px solid rgba(96, 141, 248, 0.15) !important;
 }
-.hint-text { font-size: 12px; color: var(--text-3); }
-
-.sub-title { font-size: 13px; font-weight: 600; color: var(--text-1); margin: 10px 0 8px; }
-.foot-note { margin-top: 8px; font-size: 12px; color: var(--text-3); }
-.empty, .empty-sm { color: var(--text-3); font-size: 13px; }
-.empty { padding: 40px 0; text-align: center; }
-.empty-sm { padding: 6px 0; }
-
-// ── 学生信息 ─────────────────────────────────────────────
-.who { display: flex; align-items: center; gap: 15px; margin: 8px 0 15px; }
-.who__avatar {
-  width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 20px; font-weight: 700; color: var(--color-primary);
-  background: color-mix(in srgb, var(--color-primary) 16%, transparent);
+// ── 状态卡片质感（参考图：大圆角、深色半透明玻璃、渐变光晕、柔和描边） ──
+.eval-card {
+  --card-glow-a: rgba(124, 112, 255, 0.22);
+  --card-glow-b: rgba(94, 141, 249, 0.14);
+  --card-bg: rgba(14, 17, 30, 0.62);
+  --card-edge: rgba(255, 255, 255, 0.08);
+  --card-shadow: 0 8px 24px rgba(8, 10, 30, 0.35);
+  position: relative;
+  border-radius: 14px;
+  border: 1px solid var(--card-edge);
+  background:
+    radial-gradient(380px circle at 0% -30%, var(--card-glow-a), transparent 62%),
+    radial-gradient(360px circle at 105% 130%, var(--card-glow-b), transparent 62%),
+    var(--card-bg);
+  box-shadow: var(--card-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  backdrop-filter: blur(16px) saturate(150%);
 }
-.who__name { font-size: 16px; font-weight: 700; color: var(--text-1); }
-.who__id { margin-left: 8px; font-size: 12px; font-weight: 400; color: var(--text-3); }
-.who__meta { margin-top: 3px; font-size: 12.5px; color: var(--text-3); }
-
+:global(html[data-theme="light"]) .page-root .eval-card {
+  --card-glow-a: rgba(124, 112, 255, 0.12);
+  --card-glow-b: rgba(94, 141, 249, 0.08);
+  --card-bg: rgba(255, 255, 255, 0.78);
+  --card-edge: rgba(96, 141, 249, 0.16);
+  --card-shadow: 0 6px 20px rgba(94, 100, 200, 0.10);
+}
 // ── 综合评估三张卡片 ─────────────────────────────────────
-.eval-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr); gap: 15px; @media (max-width: 1100px) { grid-template-columns: 1fr; } }
+.eval-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr); gap: 15px; }
 .eval-card {
   padding: 12px 15px;
-  border: 1px solid rgba(96, 141, 248, 0.15);
-  border-radius: 4px;
   min-height: 150px;
   display: flex; flex-direction: column;
-  &__label { font-size: 13px; color: var(--text-2); margin-bottom: 8px; &--row { display: flex; align-items: center; justify-content: space-between; gap: 8px; } }
+  &__label { font-size: 13px; color: var(--text-2); margin-bottom: 8px; }
   &__num { font-size: 30px; font-weight: 700; color: var(--text-1); .unit { font-size: 13px; font-weight: 400; color: var(--text-3); } }
   &__desc { margin-top: 8px; font-size: 12.5px; line-height: 1.6; color: var(--text-3); }
 }
 .delta { display: inline-flex; align-items: center; gap: 2px; font-size: 13px; font-weight: 600; color: var(--text-3); cursor: default;
   &--up { color: var(--green); } &--down { color: var(--red); }
   &__down { transform: rotate(180deg); } }
-.st-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.st-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .st-metric { &__lbl { font-size: 12px; color: var(--text-3); } &__val { margin-top: 2px; font-size: 18px; font-weight: 700; color: var(--text-1); } &__hint { margin-top: 1px; font-size: 11.5px; color: var(--text-3); } }
 .tone--good { color: var(--green) !important; }
 .tone--warn { color: var(--amber) !important; }
@@ -752,16 +760,25 @@ onBeforeUnmount(() => { trendObserver?.disconnect(); window.removeEventListener(
 
 // ── 认知能力 ─────────────────────────────────────────────
 .cog-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; @media (max-width: 1100px) { grid-template-columns: 1fr; } }
-.radar-chart { height: 260px; }
-.history-chart { height: 240px; }
+.radar-chart { height: 270px; }
+.history-chart { height: 270px; }
+.cog-table :deep(.el-table__cell) { padding: 6px 0; }
+.cog-bar { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-1); .bar { flex: 1; min-width: 36px; } small { font-size: 11px; color: var(--text-3); } }
+.bar__fill--real { background: var(--green); }
+.cog-chip { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; cursor: default;
+  &--below { background: color-mix(in srgb, var(--red) 16%, transparent); color: var(--red); }
+  &--above { background: color-mix(in srgb, var(--green) 16%, transparent); color: var(--green); }
+  &--ok, &--few { background: color-mix(in srgb, var(--text-3) 18%, transparent); color: var(--text-3); } }
+.cog-compare { margin-top: 15px; }
+.cog-hl { margin-top: 15px; }
+.hl-item { position: relative; padding-left: 14px; margin-bottom: 5px; font-size: 13px; line-height: 1.7; color: var(--text-1);
+  &__dot { position: absolute; left: 2px; top: 9px; width: 6px; height: 6px; border-radius: 50%; background: currentColor; } }
 .mis-item { margin-bottom: 8px; padding: 8px 10px; border: 1px solid rgba(96, 141, 248, 0.15); border-radius: 4px; font-size: 12.5px; line-height: 1.6; color: var(--text-1); }
 .cause-mini { font-size: 12px; color: var(--text-2); white-space: nowrap; }
 .trend-tag { font-size: 12px; font-weight: 600; &.trend--up { color: var(--green); } &.trend--flat { color: var(--amber); } &.trend--down { color: var(--red); } }
 .diag-hd { margin-bottom: 8px; font-size: 13px; color: var(--text-2); b { margin-left: 6px; font-size: 18px; color: var(--text-1); } small { margin-left: 6px; font-size: 12px; color: var(--text-3); } }
 .cause-label { width: 130px; }
 .bar__fill--warn { background: var(--amber); }
-.seg { display: inline-flex; gap: 15px; margin-bottom: 5px; }
-.seg__btn { padding: 0; border: none; background: transparent; font-size: 13px; color: var(--text-3); cursor: pointer; &.on { color: var(--color-primary); font-weight: 600; } }
 .tag-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .tag { padding: 2px 10px; border-radius: 999px; font-size: 12px; color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 14%, transparent); }
 

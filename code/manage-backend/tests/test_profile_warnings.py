@@ -245,13 +245,14 @@ def test_status_detail_drivers():
                "wrong_pending": 12, "stubborn_questions": 0}
     diag = {"wrong": 20, "causes": [{"key": "blank", "label": "没作答就提交", "ratio": 60}, {"key": "thoughtful", "label": "认真做了仍然错", "ratio": 40}]}
     r = _status_detail("近期懈怠", {"streak_days": 0}, mastery, {}, diag, {}, {"n": 40, "acc": 50.0, "n_prev": 40, "acc_prev": 70.0}, 9, 1, 5, 6)
-    assert [m["key"] for m in r["metrics"]] == ["idle", "sessions", "accuracy", "answered"]
-    assert r["metrics"][0]["value"] == "9 天" and r["metrics"][2]["hint"] == "较前 30 天-20.0pp"
+    assert [m["key"] for m in r["metrics"]] == ["sessions", "accuracy", "answered"]
+    assert [(m.get("delta"), m.get("unit")) for m in r["metrics"]] == [(-4, "次"), (-20.0, "%"), (0, "题")]
+    assert r["metrics"][1]["hint"] == "较前 30 天-20.0pp"
     assert len(r["drivers"]) <= 4 and all(d["tone"] == "warn" for d in r["drivers"])
     assert "9 天没有训练" in r["drivers"][0]["text"]
     # 样本不足时不做对比、不下错因结论
     r = _status_detail("状态平稳", {"streak_days": 0}, {}, {}, {"wrong": 3, "causes": []}, {}, {"n": 5, "acc": 80, "n_prev": 2, "acc_prev": 10}, 0, 0, 0, None)
-    assert r["metrics"][2]["hint"] is None and r["drivers"] == []
+    assert r["metrics"][1]["hint"] is None and r["drivers"] == []
 
 
 def _range_summary(recent, answered=20, days=7, **beh_over):
@@ -268,7 +269,7 @@ def test_range_week_status_and_engagement():
     r = _range_summary({"n": 20, "acc": 80.0, "n_prev": 20, "acc_prev": 60.0})
     assert r["status"] == "稳步提升" and "提高 20.0 个百分点" in r["status_reason"]
     assert r["trend"]["unit"] == "day" and r["trend"]["delta"] == 20.0 and r["engagement_parts"]["frequency"] == 100
-    assert r["status_detail"]["metrics"][1]["label"] == "近 7 天训练" and r["status_detail"]["metrics"][3]["label"] == "近 7 天答题"
+    assert r["status_detail"]["metrics"][0]["label"] == "训练次数" and r["status_detail"]["metrics"][2]["label"] == "答题数"
     r = _range_summary({"n": 20, "acc": 57.0, "n_prev": 20, "acc_prev": 60.0})
     assert r["status"] == "状态平稳"
     r = _range_summary({"n": 20, "acc": 40.0, "n_prev": 20, "acc_prev": 60.0})
@@ -299,3 +300,32 @@ def test_range_build_and_thresholds():
         with pytest.raises(AppException):
             Range.build(*bad)
     assert Range.build(str(today_bj() - timedelta(days=89)), None).days == 90
+
+
+def test_cognitive_insights():
+    from datetime import datetime, timezone
+    from app.services.profile_service import Range, _cognitive_insights
+    rng = Range.last(7)
+    cog = {"final": {"INSIGHT": 72, "CONSTRUCT": 59, "DEDUCE": 68, "ADAPT": 63, "MIGRATE": 53},
+           "previous_test": {"tested_at": datetime(2026, 10, 1, tzinfo=timezone.utc), "final": {"INSIGHT": 70, "CONSTRUCT": 59, "DEDUCE": 68, "ADAPT": 55, "MIGRATE": 53}}}
+    st = {  # n, c, blank, sec, n0, c0
+        "INSIGHT": {"n": 20, "c": 17, "blank": 0, "sec": 20, "n0": 10, "c0": 5},      # 85%，比前一段 +35，高于测试 72 → 实战更强
+        "CONSTRUCT": {"n": 20, "c": 7, "blank": 10, "sec": 40, "n0": 10, "c0": 5},     # 35%，低于测试 59 达 24，50% 空答
+        "DEDUCE": {"n": 20, "c": 12, "blank": 1, "sec": 30, "n0": 8, "c0": 6},
+        "ADAPT": {"n": 4, "c": 3, "blank": 0, "sec": 30, "n0": 0, "c0": 0},           # 做得太少
+        "MIGRATE": {"n": 2, "c": 1, "blank": 0, "sec": 30, "n0": 0, "c0": 0},         # 最弱却几乎没练：占比 2/66≈3%
+    }
+    r = _cognitive_insights(cog, st, rng)
+    by = {x["key"]: x for x in r["powers"]}
+    assert by["INSIGHT"]["status"] == "above" and by["INSIGHT"]["delta"] == 35.0
+    assert by["CONSTRUCT"]["status"] == "below" and by["CONSTRUCT"]["gap"] == -24.0 and by["CONSTRUCT"]["blank_rate"] == 50.0
+    assert by["ADAPT"]["status"] == "few" and by["ADAPT"]["gap"] is None and by["ADAPT"]["test_change"] == 8
+    texts = [h["text"] for h in r["highlights"]]
+    assert any("迁移力" in t and "只占" in t for t in texts)                 # 最弱却没练
+    assert any("建构力" in t and "低 24.0 个百分点" in t and "50.0% 的题没作答" in t for t in texts)
+    assert any("洞察力" in t and "比前 7 天提高 35.0" in t for t in texts) and any("较上次测试" in t and "调适力 +8" in t for t in texts)
+    assert [h["tone"] for h in r["highlights"]] == sorted([h["tone"] for h in r["highlights"]], key=lambda t: t != "warn")   # 需要关注的在前
+    assert r["balance"]["level"] == "略有偏科" and r["balance"]["weakest"] == "MIGRATE"
+    # 样本很少时不下结论
+    r = _cognitive_insights(cog, {"INSIGHT": {"n": 3, "c": 3}}, rng)
+    assert r["highlights"] == [] or all("只占" not in h["text"] for h in r["highlights"])

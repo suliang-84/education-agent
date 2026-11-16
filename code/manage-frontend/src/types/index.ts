@@ -309,6 +309,17 @@ export interface PowerTrend {
   weeks: { weeks_ago: number; label: string; powers: Record<string, { answered: number; accuracy: number | null }> }[]
   answered: number; has_data: boolean; unit: 'day' | 'week'; min_answers: number
 }
+export interface CognitivePower {
+  key: string; label: string; test: number | null; answered: number; accuracy: number | null; prev_accuracy: number | null
+  delta: number | null; gap: number | null; share: number | null; blank_rate: number | null; avg_seconds: number | null
+  test_change: number | null; status: 'below' | 'above' | 'ok' | 'few'
+}
+export interface CognitiveInsights {
+  powers: CognitivePower[]
+  highlights: { tone: 'good' | 'warn'; text: string }[]
+  balance: { spread: number; level: string; strongest: string; weakest: string } | null
+  total_answered: number
+}
 export interface ProfileDiagnosis {
   answered: number; blank: number; blank_rate: number | null
   blank_by_type: { key: string; label: string; answered: number; blank: number; rate: number | null }[]
@@ -335,10 +346,10 @@ export interface StudentProfile {
   summary: {
     status: string; status_reason: string; engagement_score: number
     engagement_parts: { frequency: number; streak: number; complete: number; careful: number | null; review: number | null; review_sessions: number; review_wrong_total: number }
-    trend: { weeks: { weeks_ago: number; label: string; answered: number; accuracy: number | null }[]; slope: number | null; delta: number | null; period_delta: number | null; unit: 'day' | 'week' }
+    trend: { weeks: { weeks_ago: number; label: string; answered: number; accuracy: number | null }[]; slope: number | null; delta: number | null; unit: 'day' | 'week' }
     tips: string[]
     status_detail: {
-      metrics: { key: string; label: string; value: string; hint: string | null; tone: 'good' | 'warn' | null }[]
+      metrics: { key: string; label: string; value: string; hint: string | null; tone: 'good' | 'warn' | null; delta?: number | null; unit?: string; prev?: string | null }[]
       drivers: { tone: 'good' | 'warn'; text: string }[]
     }
   }
@@ -354,6 +365,8 @@ export interface StudentProfile {
     primary_strength?: string; primary_weakness?: string; secondary_weakness?: string; preferred_force?: string; recommended_mode?: string
     confidence?: number | null; tags?: string[]
     power_trend?: PowerTrend
+    previous_test?: { tested_at: string; final: Record<string, number> } | null
+    insights?: CognitiveInsights
   }
   mastery: {
     answered: number; correct: number; accuracy: number | null

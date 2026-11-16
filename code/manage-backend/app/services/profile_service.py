@@ -206,6 +206,15 @@ async def _cognitive(db, sid):
 
     final = trio("final")
     ability, pref = trio("ability"), trio("preference")
+    # 上一次「成绩不同」的测试（重复测出一样的结果不算变化），用来看五力较上次测试的变化
+    previous = None
+    for r in reversed(rows):
+        if r is latest:
+            continue
+        old = {p: r[f"{p.lower()}_final"] for p in POWERS}
+        if old != final:
+            previous = {"tested_at": r["created_at"], "final": old}
+            break
     tags = []
     tp = await _one(db, "SELECT * FROM five_power_training_profiles WHERE student_id=:sid", sid=sid)
     training = None
@@ -217,7 +226,7 @@ async def _cognitive(db, sid):
                 tags.append(f"{POWER_LABELS[p]}：训练表现低于测试（发挥不稳定）")
     return {
         "has_profile": True,
-        "tested_at": latest["created_at"],
+        "tested_at": latest["created_at"], "previous_test": previous,
         "final": final, "ability": ability, "preference": pref, "training": training,
         "training_info": {"total_training_count": tp["total_training_count"], "total_question_count": tp["total_question_count"],
                           "last_trained_at": tp["last_trained_at"]} if tp else None,
@@ -227,6 +236,106 @@ async def _cognitive(db, sid):
         "confidence": _r(latest["profile_confidence"], 2),
         "tags": tags,
     }
+
+
+MIN_POWER_N = 6          # 某一力在所选范围内至少答这么多题，才拿实战表现和测试得分比较
+MIN_SHARE_TOTAL = 20     # 做题量占比：范围内总答题至少这么多道才下结论
+
+
+async def _power_stats(db, sid, rng):
+    """各力在所选范围 / 前一段同样长度时间里的做题情况（认知能力洞察用）"""
+    rows = await _rows(db, f"""
+        SELECT a.power_type p,
+               count(*) FILTER (WHERE a.answered_at >= :since AND a.answered_at < :until) n,
+               count(*) FILTER (WHERE a.answered_at >= :since AND a.answered_at < :until AND a.is_correct) c,
+               count(*) FILTER (WHERE a.answered_at >= :since AND a.answered_at < :until AND coalesce(btrim(a.student_answer), '') = '') blank,
+               avg(a.time_spent_sec) FILTER (WHERE a.answered_at >= :since AND a.answered_at < :until) sec,
+               count(*) FILTER (WHERE a.answered_at >= :prev AND a.answered_at < :since) n0,
+               count(*) FILTER (WHERE a.answered_at >= :prev AND a.answered_at < :since AND a.is_correct) c0
+        {_BASE} AND a.power_type IS NOT NULL GROUP BY 1""", sid=sid, prev=rng.prev_since, **rng.params)
+    return {r["p"]: dict(r) for r in rows}
+
+
+def _cognitive_insights(cog, stats, rng):
+    """认知能力洞察：测试得分 vs 实战表现、做题量是否偏向某些力、近期变化、五力均衡度。
+    样本不够的项不下结论；亮点最多 5 条（需要关注的在前、好的在后）。"""
+    final = cog.get("final") or {}
+    total = sum((stats.get(p) or {}).get("n", 0) for p in POWERS)
+    lab = rng.label
+    powers = []
+    for p in POWERS:
+        st = stats.get(p) or {}
+        n, c, n0, c0 = st.get("n", 0) or 0, st.get("c", 0) or 0, st.get("n0", 0) or 0, st.get("c0", 0) or 0
+        acc = _pct(c, n) if n >= 3 else None
+        delta = _delta(_pct(c, n), _pct(c0, n0)) if n >= 5 and n0 >= 5 else None
+        gap = round(acc - final[p], 1) if acc is not None and n >= MIN_POWER_N and final.get(p) is not None else None
+        pv = (cog.get("previous_test") or {}).get("final") or {}
+        powers.append({
+            "key": p, "label": POWER_LABELS[p], "test": final.get(p), "answered": n, "accuracy": acc, "prev_accuracy": _pct(c0, n0) if n0 >= 5 else None,
+            "delta": delta, "gap": gap, "share": _pct(n, total) if total else None,
+            "blank_rate": _pct(st.get("blank", 0) or 0, n) if n >= MIN_POWER_N else None,
+            "avg_seconds": _r(st.get("sec")) if n >= 3 else None,
+            "test_change": (final[p] - pv[p]) if pv.get(p) is not None and final.get(p) is not None and final[p] != pv[p] else None,
+            "status": "few" if n < MIN_POWER_N else "below" if gap is not None and gap <= -15 else "above" if gap is not None and gap >= 10 else "ok",
+        })
+    by = {x["key"]: x for x in powers}
+
+    warn, good = [], []
+    # ① 最弱的一力，做题量却很少：训练资源错配
+    if final:
+        wk = min(POWERS, key=lambda p: (final.get(p) if final.get(p) is not None else 999))
+        sh = by[wk]["share"]
+        if total >= MIN_SHARE_TOTAL and sh is not None and sh < 12 and final.get(wk) is not None:
+            warn.append(f"「{POWER_LABELS[wk]}」是测试最弱的一力（{final[wk]} 分），但只占{lab}做题量的 {sh}%，训练偏向了其他能力，建议多安排这一力的题")
+    # ② 测试得分和实战的落差
+    above_txt = None
+    below = [x for x in powers if x["status"] == "below"]
+    if below:
+        x = min(below, key=lambda y: y["gap"])
+        extra = f"，{x['blank_rate']}% 的题没作答就提交" if (x["blank_rate"] or 0) >= 30 else ""
+        warn.append(f"「{x['label']}」测试 {x['test']} 分，但{lab}实际做题正确率只有 {x['accuracy']}%（低 {abs(x['gap'])} 个百分点）{extra}——测试里的能力没有在日常做题中发挥出来")
+    above = [x for x in powers if x["status"] == "above"]
+    if above:
+        x = max(above, key=lambda y: y["gap"])
+        above_txt = f"「{x['label']}」{lab}做题正确率 {x['accuracy']}%，比测试得分（{x['test']} 分）高 {x['gap']} 个百分点，实战表现好于测试"
+    # ③ 较前一段时间的变化
+    ch = [x for x in powers if x["delta"] is not None]
+    if ch:
+        up = max(ch, key=lambda y: y["delta"])
+        dn = min(ch, key=lambda y: y["delta"])
+        if dn["delta"] <= -10:
+            warn.append(f"「{dn['label']}」{lab}正确率 {dn['accuracy']}%，比前 {rng.days} 天下降 {abs(dn['delta'])} 个百分点")
+        if up["delta"] >= 10:
+            good.append(f"「{up['label']}」{lab}正确率 {up['accuracy']}%，比前 {rng.days} 天提高 {up['delta']} 个百分点")
+    # ④ 较上次测试的变化
+    tc = [x for x in powers if x["test_change"] is not None and abs(x["test_change"]) >= 3]
+    if tc:
+        pt = cog["previous_test"]["tested_at"]
+        txt = "、".join(f"{x['label']} {'+' if x['test_change'] > 0 else ''}{x['test_change']}" for x in tc)
+        (good if sum(x["test_change"] for x in tc) > 0 else warn).append(f"较上次测试（{pt:%m-%d}）：{txt}")
+    if above_txt:
+        good.append(above_txt)      # 放在近期变化、测试变化之后：这两项更有时效
+    # ⑤ 均衡度
+    vals = {p: final[p] for p in POWERS if final.get(p) is not None}
+    balance = None
+    if len(vals) == 5:
+        hi, lo = max(vals, key=vals.get), min(vals, key=vals.get)
+        spread = vals[hi] - vals[lo]
+        level = "偏科明显" if spread >= 25 else "略有偏科" if spread >= 15 else "比较均衡"
+        balance = {"spread": spread, "level": level, "strongest": hi, "weakest": lo}
+        if spread >= 25:
+            warn.append(f"五力差距 {spread} 分（{POWER_LABELS[hi]} {vals[hi]} 分 ➜ {POWER_LABELS[lo]} {vals[lo]} 分），偏科明显，补「{POWER_LABELS[lo]}」比继续强化「{POWER_LABELS[hi]}」收益更大")
+        elif spread <= 12:
+            good.append(f"五力得分只相差 {spread} 分，发展比较均衡")
+    # ⑥ 实战中最稳的一力
+    solid = [x for x in powers if x["answered"] >= MIN_POWER_N and (x["accuracy"] or 0) >= 60]
+    if solid:
+        x = max(solid, key=lambda y: y["accuracy"])
+        if not any(f"「{x['label']}」" in t for t in good):
+            sec = f"，平均每题 {x['avg_seconds']:g} 秒" if x["avg_seconds"] is not None else ""
+            good.append(f"「{x['label']}」是{lab}做题中最稳的一力：正确率 {x['accuracy']}%（{x['answered']} 题）{sec}")
+    highlights = [{"tone": "warn", "text": t} for t in warn[:3]] + [{"tone": "good", "text": t} for t in good[:2]]
+    return {"powers": powers, "highlights": highlights[:5], "balance": balance, "total_answered": total}
 
 
 async def _kp_stats(db, sid):
@@ -647,15 +756,16 @@ def _status_detail(status, beh, mastery, cog, diagnosis, insights, recent, idle,
         delta_acc = None   # 前一个月答题太少，对比没有意义
 
     metrics = [
-        {"key": "idle", "label": "距上次训练", "value": "—" if idle is None else "今天" if idle == 0 else f"{idle} 天",
-         "hint": "超过 7 天算懈怠" if idle is not None and idle >= 7 else None, "tone": "warn" if idle is not None and idle >= 7 else None},
-        {"key": "sessions", "label": f"{cl}训练", "value": f"{s14} 次", "hint": f"前 {win} 天 {prev14} 次",
+        {"key": "sessions", "label": "训练次数", "value": f"{s14} 次", "hint": f"前 {win} 天 {prev14} 次",
+         "delta": s14 - prev14, "unit": "次", "prev": f"前 {win} 天 {prev14} 次",
          "tone": "warn" if prev14 >= 2 and s14 < prev14 / 2 else "good" if s14 > prev14 else None},
-        {"key": "accuracy", "label": f"{rng.label}正确率", "value": "—" if acc30 is None else f"{acc30}%",
+        {"key": "accuracy", "label": "正确率", "value": "—" if acc30 is None else f"{acc30}%",
          "hint": None if delta_acc is None else f"较前 {days} 天{'+' if delta_acc >= 0 else ''}{delta_acc}pp",
+         "delta": delta_acc, "unit": "%", "prev": None if recent.get("acc_prev") is None else f"前 {days} 天正确率 {recent['acc_prev']}%",
          "tone": None if delta_acc is None else "good" if delta_acc >= 5 else "warn" if delta_acc <= -5 else None},
-        {"key": "answered", "label": f"{rng.label}答题", "value": f"{recent.get('n', 0)} 题",
-         "hint": None if active_days is None else f"活跃 {active_days} 天", "tone": None},
+        {"key": "answered", "label": "答题数", "value": f"{recent.get('n', 0)} 题",
+         "hint": None if active_days is None else f"活跃 {active_days} 天", "tone": None,
+         "delta": recent.get("n", 0) - recent.get("n_prev", 0), "unit": "题", "prev": f"前 {days} 天 {recent.get('n_prev', 0)} 题"},
     ]
 
     good, warn = [], []
@@ -727,8 +837,6 @@ def _summary(basic, cog, mastery, beh, ai, weeks, answered_in_range, weights=Non
     delta = None
     if rng.daily and recent.get("n", 0) >= 10 and recent.get("n_prev", 0) >= 10:
         delta = _delta(recent.get("acc"), recent.get("acc_prev"))
-    # 较上一个周期（前一段同样长度的时间）的正确率变化，两段各需 ≥ 10 道题；供趋势卡片标题栏展示
-    period_delta = _delta(recent.get("acc"), recent.get("acc_prev")) if recent.get("n", 0) >= 10 and recent.get("n_prev", 0) >= 10 else None
     up = (delta is not None and delta >= 5) if rng.daily else (slope is not None and slope > 2)
     down = (delta is not None and delta <= -5) if rng.daily else (slope is not None and slope < -2)
     last = beh["last_active_date"]
@@ -780,7 +888,7 @@ def _summary(basic, cog, mastery, beh, ai, weeks, answered_in_range, weights=Non
         "engagement_parts": {"frequency": round(f * 100), "streak": round(st * 100), "complete": round(comp * 100), "careful": None if careful is None else round(careful * 100),
                              "review": None if review is None else round(review * 100), "review_sessions": review_n,
                              "review_wrong_total": wrong_total},
-        "trend": {"weeks": weeks, "slope": slope, "delta": delta, "period_delta": period_delta, "unit": "day" if rng.daily else "week"}, "tips": tips,
+        "trend": {"weeks": weeks, "slope": slope, "delta": delta, "unit": "day" if rng.daily else "week"}, "tips": tips,
         "status_detail": _status_detail(status, beh, mastery, cog, diagnosis, insights, recent, idle, s14, prev14, beh.get("active_days"), rng),
     }
 
@@ -797,6 +905,8 @@ async def get_profile(db: AsyncSession, student_id: int, start: str | None = Non
     ai = await _ai(db, student_id, rng)
     traits = await _traits(db, student_id)
     cog["power_trend"] = await _power_trend(db, student_id, rng)
+    if cog.get("has_profile"):
+        cog["insights"] = _cognitive_insights(cog, await _power_stats(db, student_id, rng), rng)
     diagnosis = await _diagnosis(db, student_id, rng)
     insights = await _insights(db, student_id, rng)
     weeks = await _trend(db, student_id, rng)
