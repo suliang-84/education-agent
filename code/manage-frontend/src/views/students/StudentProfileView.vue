@@ -30,7 +30,7 @@
       <div v-if="p.kpis?.length" class="kpi-strip">
         <div v-for="k in p.kpis" :key="k.key" class="kpi">
           <div class="kpi__txt">
-            <div class="kpi__lbl">{{ k.label }}<span class="kpi__badge">{{ rangeLabel }}</span>
+            <div class="kpi__lbl">{{ k.label }}
               <el-tooltip :content="k.tip" placement="top" :show-after="150" popper-class="st-popper">
                 <SvgIcon name="help" :size="12" class="part__help" />
               </el-tooltip>
@@ -737,30 +737,31 @@ onBeforeUnmount(() => { trendObserver?.disconnect(); window.removeEventListener(
 }
 // ── 综合评估三张卡片 ─────────────────────────────────────
 .kpi-strip { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 15px; flex-shrink: 0; @media (max-width: 1100px) { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-// 顶部统计小卡片（参考图：深色低调底、淡网格、右侧淡出的迷你图、等宽大数字、标题旁小胶囊）
-.kpi { position: relative; display: flex; align-items: stretch; justify-content: space-between; gap: 6px; min-width: 0; min-height: 92px; padding: 12px 14px; border-radius: 6px; overflow: hidden;
-  --spark: #8b9bff; --grid: rgba(255, 255, 255, 0.045);
+// 顶部统计小卡片（参考图）：深海军蓝底，左上略亮；1px 渐变描边（四角亮、边中淡）；
+// 右侧约一半宽、整卡高的区域铺细方格（向左淡出），迷你图画在方格上；标题灰蓝、数字用等宽字体、较大较细
+.kpi { position: relative; display: flex; align-items: stretch; min-width: 0; min-height: 96px; padding: 14px 16px; border-radius: 6px; overflow: hidden;
+  --spark: #8b9bff; --grid: rgba(190, 200, 255, 0.09); --edge-a: rgba(200, 210, 255, 0.32); --edge-b: rgba(200, 210, 255, 0.06);
   background:
-    linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 100% 20px,
-    linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 20px 100%,
-    linear-gradient(160deg, rgba(40, 46, 78, 0.55), rgba(16, 19, 32, 0.72));
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    radial-gradient(180px circle at 6% 0%, rgba(110, 122, 200, 0.22), transparent 72%),
+    linear-gradient(165deg, rgba(24, 28, 50, 0.86), rgba(13, 15, 28, 0.90));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  &::before { content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none; z-index: 2;
+    background: linear-gradient(150deg, var(--edge-a), var(--edge-b) 34%, var(--edge-b) 66%, var(--edge-a));
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
   &__txt { position: relative; z-index: 1; min-width: 0; display: flex; flex-direction: column; }
-  &__lbl { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-3); white-space: nowrap; }
-  &__badge { padding: 0 6px; height: 16px; line-height: 16px; border-radius: 8px; font-size: 10px; color: var(--text-2); background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.08); }
-  &__val { margin-top: 6px; font-size: 24px; line-height: 1.15; font-weight: 600; color: var(--text-1); white-space: nowrap; }
+  &__lbl { display: flex; align-items: center; gap: 4px; font-size: 13px; color: var(--text-3); white-space: nowrap; }
+  &__val { margin-top: 8px; font-size: 32px; line-height: 1.1; font-weight: 400; letter-spacing: -0.03em; color: var(--text-1); white-space: nowrap; }
   &__delta { margin-top: auto; padding-top: 4px; min-height: 22px; font-size: 12px; color: var(--text-3); .delta { font-size: 12px; } }
-  &__viz { position: relative; z-index: 0; flex: 0 0 38%; max-width: 110px; align-self: center; height: 52px;
-    -webkit-mask-image: linear-gradient(90deg, transparent, #000 35%); mask-image: linear-gradient(90deg, transparent, #000 35%); } }
+  &__viz { position: absolute; z-index: 0; right: 0; top: 0; bottom: 0; width: 46%; padding: 22px 16px 20px 12px;
+    &::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+      background: linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 100% 22px, linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 22px 100%;
+      -webkit-mask-image: linear-gradient(90deg, transparent, #000 55%); mask-image: linear-gradient(90deg, transparent, #000 55%); } } }
 :global(html[data-theme="light"]) .page-root .kpi {
-  --spark: var(--color-primary); --grid: rgba(94, 141, 249, 0.10);
+  --spark: var(--color-primary); --spark-hi: #cdd9ff; --grid: rgba(94, 141, 249, 0.16); --edge-a: rgba(94, 141, 249, 0.42); --edge-b: rgba(94, 141, 249, 0.10);
   background:
-    linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 100% 20px,
-    linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 20px 100%,
-    linear-gradient(160deg, rgba(236, 241, 255, 0.95), rgba(248, 250, 255, 0.9));
-  border-color: rgba(94, 141, 249, 0.18); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9); }
-:global(html[data-theme="light"]) .page-root .kpi__badge { background: rgba(94, 141, 249, 0.10); border-color: rgba(94, 141, 249, 0.2); }
+    radial-gradient(180px circle at 6% 0%, rgba(124, 112, 255, 0.14), transparent 72%),
+    linear-gradient(165deg, rgba(244, 247, 255, 0.96), rgba(252, 253, 255, 0.92));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9); }
 .eval-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr); gap: 15px; }
 .eval-card {
   padding: 12px 15px;
