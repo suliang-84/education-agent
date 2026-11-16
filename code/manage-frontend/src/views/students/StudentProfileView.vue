@@ -26,6 +26,28 @@
 
     <template v-if="p">
       <!-- 基础档案 + 综合评估 -->
+      <!-- 顶部统计小卡片 -->
+      <div v-if="p.kpis?.length" class="kpi-strip">
+        <div v-for="k in p.kpis" :key="k.key" class="kpi">
+          <div class="kpi__txt">
+            <div class="kpi__lbl">{{ k.label }}<span class="kpi__badge">{{ rangeLabel }}</span>
+              <el-tooltip :content="k.tip" placement="top" :show-after="150" popper-class="st-popper">
+                <SvgIcon name="help" :size="12" class="part__help" />
+              </el-tooltip>
+            </div>
+            <div class="kpi__val num">{{ k.value }}</div>
+            <div class="kpi__delta">
+              <span v-if="k.delta != null && k.delta !== 0" class="delta" :class="kpiTone(k)" :title="`较前一周期${k.delta > 0 ? '上升' : '下降'} ${Math.abs(k.delta)}${k.unit === '%' ? ' 个百分点' : k.unit}`">
+                <SvgIcon name="arrow_up" :size="11" :class="{ 'delta__down': k.delta < 0 }" />{{ Math.abs(k.delta) }}{{ k.unit }}
+              </span>
+              <span v-else-if="k.delta === 0" class="delta">持平</span>
+              <span v-else>&nbsp;</span>
+            </div>
+          </div>
+          <div v-if="k.series?.length > 1" class="kpi__viz"><KpiSpark :values="k.series" :kind="KPI_VIZ[k.key] ?? 'bars'" :gid="`kpi-${k.key}`" /></div>
+        </div>
+      </div>
+
       <div class="overview">
         <div class="eval-grid">
           <div class="eval-card">
@@ -432,8 +454,9 @@ import { useRoute } from 'vue-router'
 import * as echarts from 'echarts'
 import { studentApi } from '@/api'
 import { ElMessage } from 'element-plus'
-import type { StudentProfile, ProfileWarning, FivePower } from '@/types'
+import type { StudentProfile, ProfileWarning, ProfileKpi, FivePower } from '@/types'
 import { FivePowerLabels } from '@/types'
+import KpiSpark from '@/components/KpiSpark.vue'
 import { formatDate } from '@/utils/format'
 
 const TREND_LABELS: Record<string, string> = { up: '在进步', flat: '没起色', down: '在退步' }
@@ -444,6 +467,7 @@ const POWER_COLORS: Record<string, string> = {
 const QT_ICONS: Record<string, string> = {
   SINGLE_CHOICE: 'qt_single', MULTIPLE_CHOICE: 'qt_multi', TRUE_FALSE: 'qt_judge', FILL_BLANK: 'qt_fill', APPLICATION: 'qt_application',
 }
+const KPI_VIZ: Record<string, 'line' | 'bars' | 'wave' | 'dots'> = { study_time: 'line', sessions: 'bars', answered: 'wave', accuracy: 'line', ai_asks: 'bars' }
 const COG_STATUS: Record<string, string> = { below: '发挥不稳', above: '实战更强', ok: '与测试相符', few: '做题太少' }
 // 年级名称与学生列表保持一致
 const GRADES: Record<string, string> = { G7: '初一', G8: '初二', G9: '初三', G10: '高一', G11: '高二', G12: '高三' }
@@ -465,6 +489,12 @@ const rangeShortcuts = [
   { text: '近一个月', value: () => lastDays(30) },
 ]
 const disableFuture = (d: Date) => d.getTime() > Date.now()
+// 变大是好事的指标：上升绿 / 下降红；变小是好事的（空答率等）反过来；没有好坏的（每题用时）用灰色
+function kpiTone(k: ProfileKpi) {
+  if (!k.delta) return ''
+  if (!k.good) return ''
+  return (k.delta > 0) === (k.good === 'up') ? 'delta--up' : 'delta--down'
+}
 const rangeLabel = computed(() => p.value?.range.label ?? '近 7 天')
 function onRangeChange() {
   const [s, e] = dateRange.value
@@ -683,30 +713,54 @@ onBeforeUnmount(() => { trendObserver?.disconnect(); window.removeEventListener(
 }
 // ── 状态卡片质感（参考图：大圆角、深色半透明玻璃、渐变光晕、柔和描边） ──
 .eval-card {
-  --card-glow-a: rgba(124, 112, 255, 0.22);
-  --card-glow-b: rgba(94, 141, 249, 0.14);
-  --card-bg: rgba(14, 17, 30, 0.62);
-  --card-edge: rgba(255, 255, 255, 0.08);
-  --card-shadow: 0 8px 24px rgba(8, 10, 30, 0.35);
+  // 配色取自系统通用玻璃面板（style.scss 的 .section-block / .surface），暗 / 亮各一套
   position: relative;
-  border-radius: 14px;
-  border: 1px solid var(--card-edge);
+  border-radius: 6px;
   background:
-    radial-gradient(380px circle at 0% -30%, var(--card-glow-a), transparent 62%),
-    radial-gradient(360px circle at 105% 130%, var(--card-glow-b), transparent 62%),
-    var(--card-bg);
-  box-shadow: var(--card-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.07);
-  -webkit-backdrop-filter: blur(16px) saturate(150%);
-  backdrop-filter: blur(16px) saturate(150%);
+    radial-gradient(360px circle at 8% -25%, rgba(94, 141, 249, 0.20), transparent 62%),
+    radial-gradient(420px circle at 104% 125%, rgba(124, 112, 255, 0.13), transparent 62%),
+    rgba(14, 17, 22, 0.60);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  backdrop-filter: blur(20px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 :global(html[data-theme="light"]) .page-root .eval-card {
-  --card-glow-a: rgba(124, 112, 255, 0.12);
-  --card-glow-b: rgba(94, 141, 249, 0.08);
-  --card-bg: rgba(255, 255, 255, 0.78);
-  --card-edge: rgba(96, 141, 249, 0.16);
-  --card-shadow: 0 6px 20px rgba(94, 100, 200, 0.10);
+  background:
+    radial-gradient(360px circle at 8% -25%, rgba(94, 141, 249, 0.12), transparent 62%),
+    radial-gradient(420px circle at 104% 125%, rgba(124, 112, 255, 0.07), transparent 62%),
+    rgba(255, 255, 255, 0.74);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  backdrop-filter: blur(16px) saturate(160%);
+  border: 1px solid rgba(96, 141, 249, 0.14);
+  box-shadow: 0 1px 3px rgba(30, 41, 59, 0.04), 0 2px 8px rgba(94, 141, 249, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 // ── 综合评估三张卡片 ─────────────────────────────────────
+.kpi-strip { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 15px; flex-shrink: 0; @media (max-width: 1100px) { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+// 顶部统计小卡片（参考图：深色低调底、淡网格、右侧淡出的迷你图、等宽大数字、标题旁小胶囊）
+.kpi { position: relative; display: flex; align-items: stretch; justify-content: space-between; gap: 6px; min-width: 0; min-height: 92px; padding: 12px 14px; border-radius: 6px; overflow: hidden;
+  --spark: #8b9bff; --grid: rgba(255, 255, 255, 0.045);
+  background:
+    linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 100% 20px,
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 20px 100%,
+    linear-gradient(160deg, rgba(40, 46, 78, 0.55), rgba(16, 19, 32, 0.72));
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  &__txt { position: relative; z-index: 1; min-width: 0; display: flex; flex-direction: column; }
+  &__lbl { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-3); white-space: nowrap; }
+  &__badge { padding: 0 6px; height: 16px; line-height: 16px; border-radius: 8px; font-size: 10px; color: var(--text-2); background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.08); }
+  &__val { margin-top: 6px; font-size: 24px; line-height: 1.15; font-weight: 600; color: var(--text-1); white-space: nowrap; }
+  &__delta { margin-top: auto; padding-top: 4px; min-height: 22px; font-size: 12px; color: var(--text-3); .delta { font-size: 12px; } }
+  &__viz { position: relative; z-index: 0; flex: 0 0 38%; max-width: 110px; align-self: center; height: 52px;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 35%); mask-image: linear-gradient(90deg, transparent, #000 35%); } }
+:global(html[data-theme="light"]) .page-root .kpi {
+  --spark: var(--color-primary); --grid: rgba(94, 141, 249, 0.10);
+  background:
+    linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 100% 20px,
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 20px 100%,
+    linear-gradient(160deg, rgba(236, 241, 255, 0.95), rgba(248, 250, 255, 0.9));
+  border-color: rgba(94, 141, 249, 0.18); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9); }
+:global(html[data-theme="light"]) .page-root .kpi__badge { background: rgba(94, 141, 249, 0.10); border-color: rgba(94, 141, 249, 0.2); }
 .eval-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr); gap: 15px; }
 .eval-card {
   padding: 12px 15px;
@@ -742,7 +796,7 @@ onBeforeUnmount(() => { trendObserver?.disconnect(); window.removeEventListener(
 .rate-row__label { display: flex; align-items: center; gap: 4px; width: 84px; flex-shrink: 0; color: var(--text-2); white-space: nowrap; }
 .rate-row__val { min-width: 92px; white-space: nowrap; flex-shrink: 0; text-align: right; color: var(--text-1); small { margin-left: 4px; font-size: 11px; color: var(--text-3); } }
 
-.tiles { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 15px; margin: 5px 0 10px; @media (max-width: 1200px) { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.tiles { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 15px; margin: 5px 0 10px; @media (max-width: 1200px) { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .tile { padding: 10px 12px; border: 1px solid rgba(96, 141, 248, 0.15); border-radius: 4px; }
 .tile__num { font-size: 22px; font-weight: 700; color: var(--text-1); &.ts { font-size: 14px; line-height: 30px; } }
 .tile__lbl { margin-top: 2px; font-size: 12px; color: var(--text-3); }

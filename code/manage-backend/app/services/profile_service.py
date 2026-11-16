@@ -139,9 +139,9 @@ class Range:
         return {"start": str(self.start), "end": str(self.end), "days": self.days, "label": self.label, "is_recent": self.is_recent,
                 "daily": self.daily, "min_answered": self.min_answered, "freq_full": self.freq_full, "review_full": self.review_full}
 
-    def bucket_sql(self) -> str:
+    def bucket_sql(self, col: str = "a.answered_at") -> str:
         """答题落在第几个趋势点（0 = 最近一天 / 最后一周）。按天：从结束日往前数；按周：从开始日起每 7 天一格，最后一格可能不满一周"""
-        day = f"(a.answered_at AT TIME ZONE '{TZ}')::date"
+        day = f"({col} AT TIME ZONE '{TZ}')::date"
         if self.daily:
             return f"(CAST(:end_date AS date) - {day})"
         return f"({self.points - 1} - ({day} - CAST(:start_date AS date)) / 7)"
@@ -149,6 +149,11 @@ class Range:
     @property
     def bucket_params(self) -> dict:
         return {"end_date": self.end} if self.daily else {"start_date": self.start}
+
+    def bucket_of(self, dt: datetime) -> int:
+        """和 bucket_sql 同样的分格规则，给内存里的时间用"""
+        d = dt.astimezone(BJ).date()
+        return (self.end - d).days if self.daily else self.points - 1 - (d - self.start).days // 7
 
     def bucket_label(self, i: int) -> str:
         if self.daily:
@@ -893,6 +898,84 @@ def _summary(basic, cog, mastery, beh, ai, weeks, answered_in_range, weights=Non
     }
 
 
+async def _kpi_stats(db, sid, rng):
+    """顶部统计卡片用：所选范围和前一段同样长度的时间各算一遍（学习时长、AI 提问）"""
+    r = await _one(db, f"""
+        SELECT coalesce(sum(t) FILTER (WHERE cur), 0) t1, coalesce(sum(t) FILTER (WHERE prv), 0) t0
+        FROM (SELECT a.time_spent_sec t,
+                     (a.answered_at >= :since AND a.answered_at < :until) cur,
+                     (a.answered_at >= :prev AND a.answered_at < :since) prv
+              {_BASE} AND a.answered_at >= :prev AND a.answered_at < :until) x""", sid=sid, prev=rng.prev_since, **rng.params)
+    m = await _one(db, """
+        SELECT count(*) FILTER (WHERE m.created_at >= :since AND m.created_at < :until) a1,
+               count(*) FILTER (WHERE m.created_at >= :prev AND m.created_at < :since) a0
+        FROM ai_chat_messages m JOIN ai_chat_sessions cs ON cs.id = m.session_id
+        WHERE cs.student_id=:sid AND m.role='student'""", sid=sid, prev=rng.prev_since, **rng.params)
+    return {**dict(r), "ai1": m["a1"], "ai0": m["a0"]}
+
+
+async def _kpi_series(db, sid, rng, beh):
+    """顶部统计卡片右侧的小图：所选范围内每个点（按天 / 按周，从旧到新）的数值"""
+    n = rng.points
+    rows = await _rows(db, f"""
+        SELECT {rng.bucket_sql()} w, count(*) n, count(*) FILTER (WHERE a.is_correct) c, coalesce(sum(a.time_spent_sec), 0) t
+        {_base(True)} GROUP BY 1""", sid=sid, **rng.bucket_params, **rng.params)
+    by = {r["w"]: r for r in rows}
+    ai = await _rows(db, f"""
+        SELECT {rng.bucket_sql("m.created_at")} w, count(*) n
+        FROM ai_chat_messages m JOIN ai_chat_sessions cs ON cs.id = m.session_id
+        WHERE cs.student_id=:sid AND m.role='student' AND m.created_at >= :since AND m.created_at < :until GROUP BY 1""",
+        sid=sid, **rng.bucket_params, **rng.params)
+    aib = {r["w"]: r["n"] for r in ai}
+    sess = [0] * n
+    for x in beh.get("_sessions") or []:
+        if rng.since <= x["started_at"] < rng.until:
+            i = rng.bucket_of(x["started_at"])
+            if 0 <= i < n:
+                sess[n - 1 - i] += 1
+    order = range(n - 1, -1, -1)       # 从旧到新
+    g = lambda w, k, d=0: (by[w][k] if w in by else d)
+    return {
+        "study_time": [round(g(w, "t") / 60) for w in order],
+        "sessions": sess,
+        "answered": [g(w, "n") for w in order],
+        "accuracy": [_pct(by[w]["c"], by[w]["n"]) if w in by and by[w]["n"] >= (2 if rng.daily else 3) else None for w in order],
+        "ai_asks": [aib.get(w, 0) for w in order],
+    }
+
+
+def _fmt_minutes(sec):
+    m = round((sec or 0) / 60)
+    return f"{m} 分钟" if m < 60 else f"{round(m / 60, 1)} 小时"
+
+
+def _kpi_cards(k, beh, recent, rng, series=None):
+    """顶部统计小卡片（学习时长、活跃天数、训练次数、答题数、正确率、AI 提问），都随日期范围。
+    delta = 较前一段同样长度时间的变化；正确率是比例，前一段答题不足 5 道时不给对比（避免样本太小的假涨跌）。
+    good：变大是好事（up）、变小是好事（down）、无好坏（None）"""
+    recent = recent or {}
+    sess = beh.get("_sessions") or []
+    s1 = sum(1 for x in sess if rng.since <= x["started_at"] < rng.until)
+    s0 = sum(1 for x in sess if rng.prev_since <= x["started_at"] < rng.since)
+    n1, n0 = recent.get("n", 0), recent.get("n_prev", 0)
+    acc, acc0 = recent.get("acc"), recent.get("acc_prev")
+    acc_delta = round(acc - acc0, 1) if acc is not None and acc0 is not None and n0 >= 5 else None
+    ai1, ai0 = k["ai1"], k["ai0"]
+    cards = [
+        {"key": "study_time", "label": "学习时长", "value": _fmt_minutes(k["t1"]) if n1 else "—",
+         "delta": round(k["t1"] / 60) - round(k["t0"] / 60), "unit": "分钟", "good": "up", "tip": "所选范围内每道题作答用时的合计，不含看题后没提交的时间"},
+        {"key": "sessions", "label": "训练次数", "value": f"{s1} 次", "delta": s1 - s0, "unit": "次", "good": "up", "tip": "所选范围内开始的训练次数"},
+        {"key": "answered", "label": "答题数", "value": f"{n1} 题", "delta": n1 - n0, "unit": "题", "good": "up", "tip": "所选范围内作答的题目数量"},
+        {"key": "accuracy", "label": "正确率", "value": "—" if acc is None else f"{acc}%", "delta": acc_delta, "unit": "%", "good": "up",
+         "tip": "所选范围内答对的题数 ÷ 作答题数；前一段答题不足 5 道时不显示对比"},
+        {"key": "ai_asks", "label": "AI 提问", "value": f"{ai1} 次", "delta": ai1 - ai0 if ai1 + ai0 > 0 else None, "unit": "次", "good": "up",
+         "tip": "向 AI 助手提问的消息条数"},
+    ]
+    for c in cards:
+        c["series"] = (series or {}).get(c["key"], [])
+    return cards
+
+
 async def get_profile(db: AsyncSession, student_id: int, start: str | None = None, end: str | None = None) -> dict:
     """start / end：统计日期范围（YYYY-MM-DD，北京时间，含起止两天；默认近 7 天，最长 90 天）。
     答题量、正确率、行为、诊断、AI 互动、学习状态、投入度等按这个范围统计；
@@ -913,12 +996,13 @@ async def get_profile(db: AsyncSession, student_id: int, start: str | None = Non
     recent = await _recent_accuracy(db, student_id, rng)
     from app.services import profile_config, profile_warning_service
     summary = _summary(basic, cog, mastery, beh, ai, weeks, recent["n"], await profile_config.get_weights(db), diagnosis, insights, recent, rng)
+    kpis = _kpi_cards(await _kpi_stats(db, student_id, rng), beh, recent, rng, await _kpi_series(db, student_id, rng, beh))
     beh.pop("_sessions", None)
     await profile_warning_service.sync(db, student_id, basic)
     warnings = await profile_warning_service.list_warnings(db, student_id)
     return {
         "generated_at": datetime.now(timezone.utc), "range": rng.info(),
-        "summary": summary, "basic": basic, "cognitive": cog, "mastery": mastery,
+        "summary": summary, "kpis": kpis, "basic": basic, "cognitive": cog, "mastery": mastery,
         "behavior": beh, "diagnosis": diagnosis, "insights": insights, "ai_interaction": ai, "traits": traits,
         "warnings": warnings,
     }

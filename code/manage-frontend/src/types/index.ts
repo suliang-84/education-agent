@@ -340,8 +340,11 @@ export interface ProfileKp {
   root_kp: { id: number; name: string } | null   // 可能被它拖累的前置薄弱点（同一单元里排在前面）
 }
 export interface ProfileStrategy { strategy_id: string; name: string; uses: number; likes: number; dislikes: number; score: number | null }
+export interface ProfileKpi { key: string; label: string; value: string; delta: number | null; unit: string; good: 'up' | 'down' | null; tip: string; series: (number | null)[] }
+
 export interface StudentProfile {
   generated_at: string
+  kpis: ProfileKpi[]
   range: { start: string; end: string; days: number; label: string; is_recent: boolean; daily: boolean; min_answered: number; freq_full: number; review_full: number }
   summary: {
     status: string; status_reason: string; engagement_score: number

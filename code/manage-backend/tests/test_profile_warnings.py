@@ -329,3 +329,32 @@ def test_cognitive_insights():
     # 样本很少时不下结论
     r = _cognitive_insights(cog, {"INSIGHT": {"n": 3, "c": 3}}, rng)
     assert r["highlights"] == [] or all("只占" not in h["text"] for h in r["highlights"])
+
+
+def test_kpi_cards():
+    from datetime import datetime, timedelta
+    from app.services.profile_service import _kpi_cards, Range
+    rng = Range.last(7)
+    inside, before = rng.since + timedelta(hours=3), rng.prev_since + timedelta(hours=3)
+    beh = {"_sessions": [{"started_at": inside}, {"started_at": inside}, {"started_at": before}]}
+    k = {"ad1": 5, "ad0": 3, "t1": 3600, "t0": 1800, "ai1": 6, "ai0": 2}
+    recent = {"n": 20, "acc": 80.0, "n_prev": 10, "acc_prev": 70.0}
+    cards = _kpi_cards(k, beh, recent, rng)
+    assert [c["key"] for c in cards] == ["study_time", "sessions", "answered", "accuracy", "ai_asks"]
+    c = {x["key"]: x for x in cards}
+    assert c["study_time"]["value"] == "1.0 小时" and c["study_time"]["delta"] == 30
+    assert c["sessions"]["value"] == "2 次" and c["sessions"]["delta"] == 1
+    assert c["answered"]["value"] == "20 题" and c["answered"]["delta"] == 10
+    assert c["accuracy"]["value"] == "80.0%" and c["accuracy"]["delta"] == 10.0 and c["ai_asks"]["delta"] == 4
+    # 前一周期答题太少：正确率不做对比；本期没答题：显示 —
+    c2 = {x["key"]: x for x in _kpi_cards(k, beh, {"n": 0, "acc": None, "n_prev": 2, "acc_prev": 10}, rng)}
+    assert c2["accuracy"]["value"] == "—" and c2["accuracy"]["delta"] is None and c2["study_time"]["value"] == "—"
+
+
+def test_kpi_bucket_of_matches_sql_rule():
+    from datetime import timedelta
+    from app.services.profile_service import Range
+    r = Range.last(7)
+    assert r.bucket_of(r.since + timedelta(hours=1)) == 6 and r.bucket_of(r.until - timedelta(hours=1)) == 0
+    w = Range.last(30)       # 30 天按周分 5 格：开始日起每 7 天一格，0 = 最后一格
+    assert w.points == 5 and w.bucket_of(w.since + timedelta(hours=1)) == 4 and w.bucket_of(w.until - timedelta(hours=1)) == 0
