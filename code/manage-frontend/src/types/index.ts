@@ -335,7 +335,7 @@ export interface StudentProfile {
   summary: {
     status: string; status_reason: string; engagement_score: number
     engagement_parts: { frequency: number; streak: number; complete: number; careful: number | null; review: number | null; review_sessions: number; review_wrong_total: number }
-    trend: { weeks: { weeks_ago: number; label: string; answered: number; accuracy: number | null }[]; slope: number | null; delta: number | null; unit: 'day' | 'week' }
+    trend: { weeks: { weeks_ago: number; label: string; answered: number; accuracy: number | null }[]; slope: number | null; delta: number | null; period_delta: number | null; unit: 'day' | 'week' }
     tips: string[]
     status_detail: {
       metrics: { key: string; label: string; value: string; hint: string | null; tone: 'good' | 'warn' | null }[]

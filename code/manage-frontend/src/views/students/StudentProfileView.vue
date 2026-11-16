@@ -80,14 +80,13 @@
             </div>
           </div>
           <div class="eval-card">
-            <div class="eval-card__label">{{ rangeLabel }}正确率（{{ p.summary.trend.unit === 'day' ? '按天' : '按周' }}）</div>
+            <div class="eval-card__label eval-card__label--row">
+              <span>{{ rangeLabel }}正确率</span>
+              <span v-if="periodDelta !== null" class="delta" :class="periodDelta > 0 ? 'delta--up' : periodDelta < 0 ? 'delta--down' : ''" :title="`较前 ${p.range.days} 天${periodDelta >= 0 ? '上升' : '下降'} ${Math.abs(periodDelta)} 个百分点`">
+                <SvgIcon v-if="periodDelta !== 0" name="arrow_up" :size="12" :class="{ 'delta__down': periodDelta < 0 }" />{{ Math.abs(periodDelta) }}%
+              </span>
+            </div>
             <div ref="trendRef" class="trend-chart" />
-            <div class="eval-card__desc" v-if="p.summary.trend.unit === 'week' && p.summary.trend.slope !== null">
-              平均每周{{ p.summary.trend.slope >= 0 ? '上升' : '下降' }} {{ Math.abs(p.summary.trend.slope) }} 个百分点
-            </div>
-            <div class="eval-card__desc" v-else-if="p.summary.trend.unit === 'day' && p.summary.trend.delta !== null">
-              比前 {{ p.range.days }} 天{{ p.summary.trend.delta >= 0 ? '提高' : '下降' }} {{ Math.abs(p.summary.trend.delta) }} 个百分点
-            </div>
           </div>
         </div>
 
@@ -549,6 +548,7 @@ const fatigueRows = computed(() => {
     { label: '后半段', accuracy: f.late.accuracy, blank: f.late.blank_rate },
   ]
 })
+const periodDelta = computed(() => p.value?.summary.trend.period_delta ?? null)
 const dimTotal = computed(() => (p.value?.behavior.dimensions ?? []).reduce((a, b) => a + b.count, 0) || 1)
 
 const fmtPct = (v: number | null | undefined) => (v === null || v === undefined ? '—' : `${v}%`)
@@ -704,10 +704,13 @@ onBeforeUnmount(() => { trendObserver?.disconnect(); window.removeEventListener(
   border-radius: 4px;
   min-height: 150px;
   display: flex; flex-direction: column;
-  &__label { font-size: 13px; color: var(--text-2); margin-bottom: 8px; }
+  &__label { font-size: 13px; color: var(--text-2); margin-bottom: 8px; &--row { display: flex; align-items: center; justify-content: space-between; gap: 8px; } }
   &__num { font-size: 30px; font-weight: 700; color: var(--text-1); .unit { font-size: 13px; font-weight: 400; color: var(--text-3); } }
   &__desc { margin-top: 8px; font-size: 12.5px; line-height: 1.6; color: var(--text-3); }
 }
+.delta { display: inline-flex; align-items: center; gap: 2px; font-size: 13px; font-weight: 600; color: var(--text-3); cursor: default;
+  &--up { color: var(--green); } &--down { color: var(--red); }
+  &__down { transform: rotate(180deg); } }
 .st-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .st-metric { &__lbl { font-size: 12px; color: var(--text-3); } &__val { margin-top: 2px; font-size: 18px; font-weight: 700; color: var(--text-1); } &__hint { margin-top: 1px; font-size: 11.5px; color: var(--text-3); } }
 .tone--good { color: var(--green) !important; }

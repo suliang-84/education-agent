@@ -727,6 +727,8 @@ def _summary(basic, cog, mastery, beh, ai, weeks, answered_in_range, weights=Non
     delta = None
     if rng.daily and recent.get("n", 0) >= 10 and recent.get("n_prev", 0) >= 10:
         delta = _delta(recent.get("acc"), recent.get("acc_prev"))
+    # 较上一个周期（前一段同样长度的时间）的正确率变化，两段各需 ≥ 10 道题；供趋势卡片标题栏展示
+    period_delta = _delta(recent.get("acc"), recent.get("acc_prev")) if recent.get("n", 0) >= 10 and recent.get("n_prev", 0) >= 10 else None
     up = (delta is not None and delta >= 5) if rng.daily else (slope is not None and slope > 2)
     down = (delta is not None and delta <= -5) if rng.daily else (slope is not None and slope < -2)
     last = beh["last_active_date"]
@@ -778,7 +780,7 @@ def _summary(basic, cog, mastery, beh, ai, weeks, answered_in_range, weights=Non
         "engagement_parts": {"frequency": round(f * 100), "streak": round(st * 100), "complete": round(comp * 100), "careful": None if careful is None else round(careful * 100),
                              "review": None if review is None else round(review * 100), "review_sessions": review_n,
                              "review_wrong_total": wrong_total},
-        "trend": {"weeks": weeks, "slope": slope, "delta": delta, "unit": "day" if rng.daily else "week"}, "tips": tips,
+        "trend": {"weeks": weeks, "slope": slope, "delta": delta, "period_delta": period_delta, "unit": "day" if rng.daily else "week"}, "tips": tips,
         "status_detail": _status_detail(status, beh, mastery, cog, diagnosis, insights, recent, idle, s14, prev14, beh.get("active_days"), rng),
     }
 
