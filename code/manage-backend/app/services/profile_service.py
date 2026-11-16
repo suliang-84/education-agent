@@ -2,7 +2,9 @@
 
 一期只用现有表，不依赖日汇总表：直接按单个学生查询。设计见 docs/4.架构设计/09_学生画像设计方案.md。
 """
-from datetime import datetime, timedelta, timezone
+import math
+from dataclasses import dataclass
+from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,6 +25,8 @@ TIME_BUCKETS = [("morning", "上午", 6, 12), ("afternoon", "下午", 12, 18), (
 # 学习投入度权重（训练频次 / 连续天数 / 答题完成度 / 认真作答）
 # 「认真作答」至少要有这么多道带用时的答题才有意义，不够时这一项不计入，其余三项按比例折算
 MIN_CAREFUL_SAMPLES = 20
+MIN_REVIEW_WRONG = 3        # 「错题复盘」至少要有这么多道错题记录才有意义，不够时这一项不计入
+REVIEW_W_MASTERED = 0.6     # 错题复盘 = 错题攻克率 × 60% + 主动复盘 × 40%
 RUSH_SECONDS = 3   # 非空作答、用时不超过这个秒数的错题，视为「秒答」（可能没读题或乱选）
 
 # 学习投入度权重默认值见 profile_config.DEFAULT_WEIGHTS（可在配置管理里修改）
@@ -33,6 +37,125 @@ JOIN training_sessions s ON s.id = a.session_id
 JOIN questions q ON q.id = a.question_id
 WHERE s.student_id = :sid AND COALESCE(a.is_seed_data, false) = false
 """
+
+
+def _base(windowed: bool = False) -> str:
+    """答题记录的基础查询；windowed=True 时只看所选日期范围内（:since ≤ 答题时间 < :until）的答题"""
+    return _BASE + ("  AND a.answered_at >= :since AND a.answered_at < :until\n" if windowed else "")
+
+
+BJ = timezone(timedelta(hours=8))
+DEFAULT_DAYS = 7          # 默认看近一周
+MAX_RANGE_DAYS = 90       # 日期范围最长 90 天
+
+
+def today_bj() -> date:
+    return datetime.now(BJ).date()
+
+
+@dataclass(frozen=True)
+class Range:
+    """画像的统计日期范围（北京时间，含起止两天）。答题量、行为、诊断等按它统计；各种阈值按天数折算"""
+    start: date
+    end: date
+
+    @classmethod
+    def last(cls, n: int) -> "Range":
+        e = today_bj()
+        return cls(e - timedelta(days=n - 1), e)
+
+    @classmethod
+    def build(cls, start: str | None, end: str | None) -> "Range":
+        try:
+            e = date.fromisoformat(end) if end else today_bj()
+            st = date.fromisoformat(start) if start else e - timedelta(days=DEFAULT_DAYS - 1)
+        except ValueError:
+            raise AppException("日期格式应为 YYYY-MM-DD", 400)
+        if e > today_bj():
+            raise AppException("结束日期不能晚于今天", 400)
+        if st > e:
+            raise AppException("开始日期不能晚于结束日期", 400)
+        if (e - st).days + 1 > MAX_RANGE_DAYS:
+            raise AppException(f"日期范围最长 {MAX_RANGE_DAYS} 天", 400)
+        return cls(st, e)
+
+    @property
+    def days(self) -> int:
+        return (self.end - self.start).days + 1
+
+    @property
+    def since(self) -> datetime:
+        return datetime(self.start.year, self.start.month, self.start.day, tzinfo=BJ)
+
+    @property
+    def until(self) -> datetime:      # 不含
+        return self.since + timedelta(days=self.days)
+
+    @property
+    def params(self) -> dict:
+        return {"since": self.since, "until": self.until}
+
+    @property
+    def prev_since(self) -> datetime:     # 前一段同样长度的时间
+        return self.since - timedelta(days=self.days)
+
+    @property
+    def is_recent(self) -> bool:
+        return self.end == today_bj()
+
+    @property
+    def label(self) -> str:
+        return f"近 {self.days} 天" if self.is_recent else f"所选 {self.days} 天"
+
+    @property
+    def daily(self) -> bool:       # 14 天以内按天看趋势，更长按周
+        return self.days <= 14
+
+    @property
+    def cmp_len(self) -> int:      # 训练次数对比的窗口：范围本身（14 天内），或范围后半段
+        return self.days if self.days <= 14 else math.ceil(self.days / 2)
+
+    @property
+    def cmp_label(self) -> str:
+        return f"近 {self.cmp_len} 天" if self.is_recent else f"所选范围末 {self.cmp_len} 天"
+
+    @property
+    def min_answered(self) -> int:     # 范围内至少答这么多题，才对学习状态下结论（7 天 8 道，30 天 20 道）
+        return max(8, min(20, round(self.days * 2 / 3)))
+
+    @property
+    def freq_full(self) -> int:        # 训练频次满分所需的训练次数（每 30 天 12 次）
+        return max(1, math.ceil(12 * self.days / 30))
+
+    @property
+    def review_full(self) -> int:      # 主动复盘满分所需的错题集训练次数（每 30 天 4 次）
+        return max(1, round(4 * self.days / 30))
+
+    @property
+    def points(self) -> int:
+        return self.days if self.daily else math.ceil(self.days / 7)
+
+    def info(self) -> dict:
+        return {"start": str(self.start), "end": str(self.end), "days": self.days, "label": self.label, "is_recent": self.is_recent,
+                "daily": self.daily, "min_answered": self.min_answered, "freq_full": self.freq_full, "review_full": self.review_full}
+
+    def bucket_sql(self) -> str:
+        """答题落在第几个趋势点（0 = 最近一天 / 最后一周）。按天：从结束日往前数；按周：从开始日起每 7 天一格，最后一格可能不满一周"""
+        day = f"(a.answered_at AT TIME ZONE '{TZ}')::date"
+        if self.daily:
+            return f"(CAST(:end_date AS date) - {day})"
+        return f"({self.points - 1} - ({day} - CAST(:start_date AS date)) / 7)"
+
+    @property
+    def bucket_params(self) -> dict:
+        return {"end_date": self.end} if self.daily else {"start_date": self.start}
+
+    def bucket_label(self, i: int) -> str:
+        if self.daily:
+            d = self.end - timedelta(days=i)
+            return "今天" if d == today_bj() else f"{d.month}/{d.day}"
+        d = self.start + timedelta(days=(self.points - 1 - i) * 7)
+        return f"{d.month}/{d.day}起"
 
 
 def _r(v, n=1):
@@ -149,15 +272,17 @@ async def _kp_stats(db, sid):
 from app.services.profile_actions import find_prerequisites as pa_find_prerequisites  # noqa: E402
 
 
-async def _mastery(db, sid, grade, semester):
-    tot = await _one(db, f"SELECT count(*) n, count(*) FILTER (WHERE a.is_correct) c {_BASE}", sid=sid)
-    by_type = await _rows(db, f"SELECT q.question_type k, count(*) n, count(*) FILTER (WHERE a.is_correct) c {_BASE} GROUP BY 1", sid=sid)
-    by_diff = await _rows(db, f"SELECT q.difficulty k, count(*) n, count(*) FILTER (WHERE a.is_correct) c {_BASE} GROUP BY 1", sid=sid)
+async def _mastery(db, sid, grade, semester, rng):
+    """答题量 / 正确率 / 题型、难度、科目表现按时间范围统计；错题、知识点掌握、学期进度是「当前状态」，不受时间范围限制"""
+    B = _base(True)
+    tot = await _one(db, f"SELECT count(*) n, count(*) FILTER (WHERE a.is_correct) c {B}", sid=sid, **rng.params)
+    by_type = await _rows(db, f"SELECT q.question_type k, count(*) n, count(*) FILTER (WHERE a.is_correct) c {B} GROUP BY 1", sid=sid, **rng.params)
+    by_diff = await _rows(db, f"SELECT q.difficulty k, count(*) n, count(*) FILTER (WHERE a.is_correct) c {B} GROUP BY 1", sid=sid, **rng.params)
     subj = await _rows(db, f"""
         SELECT sb.name k, count(*) n, count(*) FILTER (WHERE a.is_correct) c
         FROM training_answer_records a JOIN training_sessions s ON s.id=a.session_id
         JOIN questions q ON q.id=a.question_id JOIN subjects sb ON sb.id=q.subject_id
-        WHERE s.student_id=:sid AND COALESCE(a.is_seed_data,false)=false GROUP BY 1""", sid=sid)
+        WHERE s.student_id=:sid AND COALESCE(a.is_seed_data,false)=false AND a.answered_at >= :since AND a.answered_at < :until GROUP BY 1""", sid=sid, **rng.params)
     wrong = await _rows(db, "SELECT review_status k, count(*) n FROM wrong_answer_records WHERE student_id=:sid GROUP BY 1", sid=sid)
     w = {r["k"]: r["n"] for r in wrong}
     stubborn = await _one(db, f"""
@@ -208,31 +333,30 @@ async def _mastery(db, sid, grade, semester):
     }
 
 
-async def _behavior(db, sid):
-    now = datetime.now(timezone.utc)
+async def _behavior(db, sid, rng):
+    B = _base(True)
     sess = await _rows(db, "SELECT started_at, session_status, is_early_end, training_dimension, total_questions FROM training_sessions WHERE student_id=:sid", sid=sid)
-    s7 = sum(1 for s in sess if s["started_at"] >= now - timedelta(days=7))
-    s30 = sum(1 for s in sess if s["started_at"] >= now - timedelta(days=30))
-    finished = [s for s in sess if s["session_status"] in ("completed", "abandoned")]
+    sw = [s for s in sess if rng.since <= s["started_at"] < rng.until]      # 所选范围内的训练
+    finished = [s for s in sw if s["session_status"] in ("completed", "abandoned")]
     completed = sum(1 for s in finished if s["session_status"] == "completed")
-    issued = sum(int(s["total_questions"] or 0) for s in sess)
-    ans_cnt = await _one(db, f"SELECT count(*) n {_BASE}", sid=sid)
+    issued = sum(int(s["total_questions"] or 0) for s in sw)
+    ans_cnt = await _one(db, f"SELECT count(*) n {B}", sid=sid, **rng.params)
     dims: dict[str, int] = {}
-    for s in sess:
+    for s in sw:
         dims[s["training_dimension"]] = dims.get(s["training_dimension"], 0) + 1
 
     days = await _rows(db, f"SELECT DISTINCT (a.answered_at AT TIME ZONE '{TZ}')::date d {_BASE} ORDER BY 1 DESC", sid=sid)
-    dayset = [r["d"] for r in days]
+    dayset = [r["d"] for r in days if r["d"] <= rng.end]     # 连续天数、最近训练日都以范围结束日为准
     streak = 0
     if dayset:
-        today = datetime.now(timezone(timedelta(hours=8))).date()
-        cur = dayset[0] if (today - dayset[0]).days <= 1 else None
+        cur = dayset[0] if (rng.end - dayset[0]).days <= 1 else None
         while cur and cur in dayset:
             streak += 1
             cur -= timedelta(days=1)
     last_day = dayset[0] if dayset else None
+    active_days = sum(1 for d in dayset if d >= rng.start)
 
-    hours = await _rows(db, f"SELECT extract(hour FROM a.answered_at AT TIME ZONE '{TZ}')::int h, count(*) n, count(*) FILTER (WHERE a.is_correct) c {_BASE} GROUP BY 1", sid=sid)
+    hours = await _rows(db, f"SELECT extract(hour FROM a.answered_at AT TIME ZONE '{TZ}')::int h, count(*) n, count(*) FILTER (WHERE a.is_correct) c {B} GROUP BY 1", sid=sid, **rng.params)
     total_h = sum(r["n"] for r in hours) or 0
     buckets = []
     for key, label, lo, hi in TIME_BUCKETS:
@@ -242,17 +366,17 @@ async def _behavior(db, sid):
 
     t = await _one(db, f"""
         SELECT avg(a.time_spent_sec) avg_t, percentile_cont(0.33) WITHIN GROUP (ORDER BY a.time_spent_sec) p33,
-               count(*) n {_BASE} AND a.time_spent_sec IS NOT NULL""", sid=sid)
+               count(*) n {B} AND a.time_spent_sec IS NOT NULL""", sid=sid, **rng.params)
     fw = None
     if t and t["n"] and t["p33"] is not None:
         r = await _one(db, f"""
-            SELECT count(*) FILTER (WHERE a.time_spent_sec <= :p AND NOT a.is_correct) fw, count(*) n {_BASE}
-            AND a.time_spent_sec IS NOT NULL""", sid=sid, p=t["p33"])
+            SELECT count(*) FILTER (WHERE a.time_spent_sec <= :p AND NOT a.is_correct) fw, count(*) n {B}
+            AND a.time_spent_sec IS NOT NULL""", sid=sid, p=t["p33"], **rng.params)
         fw = _pct(r["fw"], r["n"])
     per_sess = await _one(db, f"""
-        SELECT avg(x.tot) v FROM (SELECT sum(a.time_spent_sec) tot {_BASE} GROUP BY a.session_id) x""", sid=sid)
+        SELECT avg(x.tot) v FROM (SELECT sum(a.time_spent_sec) tot {B} GROUP BY a.session_id) x""", sid=sid, **rng.params)
     return {
-        "sessions_7d": s7, "sessions_30d": s30, "sessions_total": len(sess), "streak_days": streak,
+        "sessions_range": len(sw), "sessions_total": len(sess), "streak_days": streak, "active_days": active_days,
         "last_active_date": str(last_day) if last_day else None,
         "time_buckets": buckets,
         "avg_seconds_per_question": _r(t["avg_t"]) if t else None,
@@ -267,32 +391,34 @@ async def _behavior(db, sid):
     }
 
 
-async def _power_trend(db, sid):
-    """五力训练趋势：最近 8 周每周各力的做题正确率（该周该力答题少于 3 道的点不画）"""
+async def _power_trend(db, sid, rng):
+    """五力训练趋势，跟随所选日期范围：14 天以内按天（某天某力答题少于 2 道不画点），更长按周（少于 3 道不画点）"""
+    min_n = 2 if rng.daily else 3
     rows = await _rows(db, f"""
-        SELECT floor(extract(epoch FROM (now() - a.answered_at)) / 604800)::int w, a.power_type p,
-               count(*) n, count(*) FILTER (WHERE a.is_correct) c
-        {_BASE} AND a.answered_at >= now() - interval '56 days' AND a.power_type IS NOT NULL GROUP BY 1, 2""", sid=sid)
+        SELECT {rng.bucket_sql()} w, a.power_type p, count(*) n, count(*) FILTER (WHERE a.is_correct) c
+        {_base(True)} AND a.power_type IS NOT NULL GROUP BY 1, 2""", sid=sid, **rng.bucket_params, **rng.params)
     by = {(r["w"], r["p"]): r for r in rows}
     weeks = []
-    for w in range(7, -1, -1):
-        item = {"weeks_ago": w, "label": "本周" if w == 0 else f"{w}周前", "powers": {}}
+    for w in range(rng.points - 1, -1, -1):
+        item = {"weeks_ago": w, "label": rng.bucket_label(w), "powers": {}}
         for p in POWERS:
             r = by.get((w, p))
-            item["powers"][p] = {"answered": r["n"] if r else 0, "accuracy": _pct(r["c"], r["n"]) if r and r["n"] >= 3 else None}
+            item["powers"][p] = {"answered": r["n"] if r else 0, "accuracy": _pct(r["c"], r["n"]) if r and r["n"] >= min_n else None}
         weeks.append(item)
     total = sum(r["n"] for r in rows)
-    return {"weeks": weeks, "answered": total, "has_data": any(v["accuracy"] is not None for w in weeks for v in w["powers"].values())}
+    return {"weeks": weeks, "answered": total, "unit": "day" if rng.daily else "week", "min_answers": min_n,
+            "has_data": any(v["accuracy"] is not None for w in weeks for v in w["powers"].values())}
 
 
-async def _diagnosis(db, sid):
-    """答题诊断：跳题（未作答就提交）、错因构成、同一道题反复做是否有进步"""
+async def _diagnosis(db, sid, rng):
+    """答题诊断：跳题（未作答就提交）、错因构成（时间范围内）；同一道题反复做是否有进步（需要看全部历史，不受时间范围限制）"""
     blank_sql = "coalesce(btrim(a.student_answer), '') = ''"
-    tot = await _one(db, f"SELECT count(*) n, count(*) FILTER (WHERE {blank_sql}) blank {_BASE}", sid=sid)
-    by_type = await _rows(db, f"SELECT q.question_type k, count(*) n, count(*) FILTER (WHERE {blank_sql}) blank {_BASE} GROUP BY 1", sid=sid)
+    B = _base(True)
+    tot = await _one(db, f"SELECT count(*) n, count(*) FILTER (WHERE {blank_sql}) blank {B}", sid=sid, **rng.params)
+    by_type = await _rows(db, f"SELECT q.question_type k, count(*) n, count(*) FILTER (WHERE {blank_sql}) blank {B} GROUP BY 1", sid=sid, **rng.params)
     wrong = await _one(db, f"""
         SELECT count(*) n, count(*) FILTER (WHERE {blank_sql}) blank,
-               count(*) FILTER (WHERE NOT ({blank_sql}) AND a.time_spent_sec <= :rush) rush {_BASE} AND NOT a.is_correct""", sid=sid, rush=RUSH_SECONDS)
+               count(*) FILTER (WHERE NOT ({blank_sql}) AND a.time_spent_sec <= :rush) rush {B} AND NOT a.is_correct""", sid=sid, rush=RUSH_SECONDS, **rng.params)
     att = await _rows(db, f"""
         SELECT least(x.att, 3) k, count(*) n, count(*) FILTER (WHERE x.is_correct) c FROM (
             SELECT a.is_correct, row_number() OVER (PARTITION BY a.question_id ORDER BY a.answered_at) att,
@@ -302,12 +428,12 @@ async def _diagnosis(db, sid):
     tt = await _rows(db, f"""
         SELECT q.question_type k, count(*) FILTER (WHERE a.is_correct) rn, count(*) FILTER (WHERE NOT a.is_correct AND NOT ({blank_sql})) wn,
                avg(a.time_spent_sec) FILTER (WHERE a.is_correct) ar, avg(a.time_spent_sec) FILTER (WHERE NOT a.is_correct AND NOT ({blank_sql})) aw
-        {_BASE} GROUP BY 1""", sid=sid)
+        {B} GROUP BY 1""", sid=sid, **rng.params)
     ret = await _one(db, """
         SELECT count(*) n, count(*) FILTER (WHERE a.is_correct) c FROM training_answer_records a
         JOIN training_sessions s ON s.id = a.session_id
         JOIN wrong_answer_records w ON w.student_id = s.student_id AND w.question_id = a.question_id AND w.aha_at IS NOT NULL AND a.answered_at > w.aha_at
-        WHERE s.student_id = :sid AND COALESCE(a.is_seed_data, false) = false""", sid=sid)
+        WHERE s.student_id = :sid AND COALESCE(a.is_seed_data, false) = false AND a.answered_at >= :since AND a.answered_at < :until""", sid=sid, **rng.params)
     w = wrong["n"] or 0
     causes = []
     if w:
@@ -349,15 +475,15 @@ BIAS_MIN_ANSWERS = 10     # 选项倾向：至少答了几道才判断
 BIAS_SHARE = 0.6          # 单选 / 判断题里同一个答案占比达到这个值，算有倾向
 
 
-async def _insights(db, sid):
-    """更深入的挖掘：题序疲劳、看过智能解答后的效果、反复选同一个错误答案（概念性误解）、选项倾向"""
+async def _insights(db, sid, rng):
+    """更深入的挖掘：题序疲劳（时间范围内）、看过智能解答后的效果、反复选同一个错误答案（概念性误解）、选项倾向（这三项要看全部历史，不受时间范围限制）"""
     blank_sql = "coalesce(btrim(a.student_answer), '') = ''"
     out: dict = {}
 
     # ① 题序疲劳：同一次训练里，前半段 vs 后半段
     r = await _rows(db, f"""
         SELECT (a.question_index * 2 >= s.total_questions) AS late, count(*) n, count(*) FILTER (WHERE a.is_correct) c,
-               count(*) FILTER (WHERE {blank_sql}) b {_BASE} AND s.total_questions >= 4 GROUP BY 1""", sid=sid)
+               count(*) FILTER (WHERE {blank_sql}) b {_base(True)} AND s.total_questions >= 4 GROUP BY 1""", sid=sid, **rng.params)
     half = {bool(x["late"]): x for x in r}
     fat: dict = {"early": None, "late": None, "verdict": None}
     for key, flag in (("early", False), ("late", True)):
@@ -431,11 +557,13 @@ async def _insights(db, sid):
     return out
 
 
-async def _ai(db, sid):
+async def _ai(db, sid, rng):
     msgs = await _one(db, """
-        SELECT count(*) FILTER (WHERE m.role='student') stu, count(*) FILTER (WHERE m.role='assistant') ast,
-               count(*) FILTER (WHERE m.is_aha_trigger) aha, max(m.created_at) last_at, count(DISTINCT m.session_id) sess
-        FROM ai_chat_messages m JOIN ai_chat_sessions cs ON cs.id = m.session_id WHERE cs.student_id=:sid""", sid=sid)
+        SELECT count(*) FILTER (WHERE m.role='student' AND m.created_at >= :since AND m.created_at < :until) stu,
+               count(*) FILTER (WHERE m.role='assistant' AND m.created_at >= :since AND m.created_at < :until) ast,
+               count(*) FILTER (WHERE m.is_aha_trigger AND m.created_at >= :since AND m.created_at < :until) aha, max(m.created_at) last_at,
+               count(DISTINCT m.session_id) FILTER (WHERE m.created_at >= :since AND m.created_at < :until) sess
+        FROM ai_chat_messages m JOIN ai_chat_sessions cs ON cs.id = m.session_id WHERE cs.student_id=:sid""", sid=sid, **rng.params)
     strat = await _rows(db, """
         SELECT p.strategy_id, st.strategy_name, p.total_uses, p.positive_ratings, p.negative_ratings, p.effectiveness_score
         FROM ai_student_strategy_profiles p JOIN ai_heuristic_strategies st ON st.strategy_id = p.strategy_id
@@ -470,16 +598,16 @@ async def _traits(db, sid):
     return dict(r) if r else {"personal_insight": None, "insight_admin_text": None, "insight_ai_text": None}
 
 
-async def _weekly(db, sid):
-    """近 4 周（每周一个点，从旧到新）的做题量和正确率"""
+async def _trend(db, sid, rng):
+    """正确率趋势：14 天以内按天，更长按周；从旧到新"""
     rows = await _rows(db, f"""
-        SELECT floor(extract(epoch FROM (now() - a.answered_at)) / 604800)::int w, count(*) n, count(*) FILTER (WHERE a.is_correct) c
-        {_BASE} AND a.answered_at >= now() - interval '28 days' GROUP BY 1""", sid=sid)
+        SELECT {rng.bucket_sql()} w, count(*) n, count(*) FILTER (WHERE a.is_correct) c
+        {_base(True)} GROUP BY 1""", sid=sid, **rng.bucket_params, **rng.params)
     by = {r["w"]: r for r in rows}
     out = []
-    for w in (3, 2, 1, 0):
+    for w in range(rng.points - 1, -1, -1):
         r = by.get(w)
-        out.append({"weeks_ago": w, "answered": r["n"] if r else 0, "accuracy": _pct(r["c"], r["n"]) if r else None})
+        out.append({"weeks_ago": w, "label": rng.bucket_label(w), "answered": r["n"] if r else 0, "accuracy": _pct(r["c"], r["n"]) if r else None})
     return out
 
 
@@ -493,43 +621,151 @@ def _slope(weeks):
     den = sum((x - mx) ** 2 for x, _ in pts)
     return round(sum((x - mx) * (y - my) for x, y in pts) / den, 2) if den else None
 
+async def _recent_accuracy(db, sid, rng):
+    """所选范围 vs 前一段同样长度的时间的答题量和正确率（学习状态用）"""
+    r = await _one(db, f"""
+        SELECT count(*) FILTER (WHERE a.answered_at >= :since AND a.answered_at < :until) n1,
+               count(*) FILTER (WHERE a.answered_at >= :since AND a.answered_at < :until AND a.is_correct) c1,
+               count(*) FILTER (WHERE a.answered_at >= :prev AND a.answered_at < :since) n0,
+               count(*) FILTER (WHERE a.answered_at >= :prev AND a.answered_at < :since AND a.is_correct) c0
+        {_BASE}""", sid=sid, prev=rng.prev_since, **rng.params)
+    return {"n": r["n1"], "acc": _pct(r["c1"], r["n1"]), "n_prev": r["n0"], "acc_prev": _pct(r["c0"], r["n0"])}
 
-def _summary(basic, cog, mastery, beh, ai, weeks, answered_30, weights=None, diagnosis=None, insights=None):
+
+def _delta(a, b):
+    return None if a is None or b is None else round(a - b, 1)
+
+
+def _status_detail(status, beh, mastery, cog, diagnosis, insights, recent, idle, s14, prev14, active_days, rng=None):
+    """学习状态的依据和原因：关键指标 + 归因（好的 / 需要关注的）。只在样本足够时下结论。"""
+    rng = rng or Range.last(30)
+    days, win = rng.days, rng.cmp_len
+    cl = rng.cmp_label
+    recent = recent or {}
+    acc30, delta_acc = recent.get("acc"), _delta(recent.get("acc"), recent.get("acc_prev"))
+    if recent.get("n_prev", 0) < 10:
+        delta_acc = None   # 前一个月答题太少，对比没有意义
+
+    metrics = [
+        {"key": "idle", "label": "距上次训练", "value": "—" if idle is None else "今天" if idle == 0 else f"{idle} 天",
+         "hint": "超过 7 天算懈怠" if idle is not None and idle >= 7 else None, "tone": "warn" if idle is not None and idle >= 7 else None},
+        {"key": "sessions", "label": f"{cl}训练", "value": f"{s14} 次", "hint": f"前 {win} 天 {prev14} 次",
+         "tone": "warn" if prev14 >= 2 and s14 < prev14 / 2 else "good" if s14 > prev14 else None},
+        {"key": "accuracy", "label": f"{rng.label}正确率", "value": "—" if acc30 is None else f"{acc30}%",
+         "hint": None if delta_acc is None else f"较前 {days} 天{'+' if delta_acc >= 0 else ''}{delta_acc}pp",
+         "tone": None if delta_acc is None else "good" if delta_acc >= 5 else "warn" if delta_acc <= -5 else None},
+        {"key": "answered", "label": f"{rng.label}答题", "value": f"{recent.get('n', 0)} 题",
+         "hint": None if active_days is None else f"活跃 {active_days} 天", "tone": None},
+    ]
+
+    good, warn = [], []
+    # ① 训练节奏
+    if idle is not None and idle >= 7:
+        warn.append(f"已 {idle} 天没有训练，建议先通过家长或班级提醒重新开始，哪怕每天只做 5 道题")
+    elif prev14 >= 2 and s14 < prev14 / 2:
+        warn.append(f"{cl}训练 {s14} 次，不到前 {win} 天（{prev14} 次）的一半，学习节奏在放缓")
+    elif s14 >= max(2, rng.freq_full // 3) and s14 >= prev14:
+        good.append(f"{cl}训练 {s14} 次，节奏稳定" + (f"，已连续学习 {beh['streak_days']} 天" if beh.get("streak_days", 0) >= 3 else ""))
+    # ② 正确率变化
+    if delta_acc is not None:
+        if delta_acc >= 5:
+            good.append(f"{rng.label}正确率 {acc30}%，比前 {days} 天提高 {delta_acc} 个百分点")
+        elif delta_acc <= -5:
+            warn.append(f"{rng.label}正确率 {acc30}%，比前 {days} 天下降 {abs(delta_acc)} 个百分点，需要找出下降的原因")
+    # ③ 错因（样本够才下结论）
+    d = diagnosis or {}
+    if d.get("wrong", 0) >= (5 if days <= 14 else 10):
+        top = max(d.get("causes") or [{"ratio": 0}], key=lambda c: c.get("ratio") or 0)
+        if (top.get("ratio") or 0) >= 40:
+            where = {"blank": "没作答就提交，更像是跳题、没投入", "rush": "答得过快，可能没有读题或在乱选",
+                     "thoughtful": "认真做了仍然错，是真正的知识缺口"}.get(top.get("key"))
+            if where:
+                warn.append(f"{top['ratio']}% 的错题属于「{top['label']}」：{where}")
+    # ④ 最需要突破的知识点 / 最稳的知识点
+    weak = (mastery.get("weak_kps") or [])[:1]
+    if weak:
+        k = weak[0]
+        tr = {"down": "，而且越做越差", "flat": "，反复练习没起色", "up": "，但近期在进步"}.get(k.get("trend"), "")
+        warn.append(f"最薄弱的是「{k['name']}」，错误率 {k['error_rate']}%（做过 {k['attempts']} 次）{tr}")
+    strong = (mastery.get("strong_kps") or [])[:1]
+    if strong and strong[0].get("attempts", 0) >= 3:
+        good.append(f"「{strong[0]['name']}」掌握得最好，错误率仅 {strong[0]['error_rate']}%")
+    # ⑤ 错题积压
+    pending, stubborn = mastery.get("wrong_pending") or 0, mastery.get("stubborn_questions") or 0
+    if stubborn >= 3:
+        warn.append(f"有 {stubborn} 道顽固错题（同一道题错 3 次以上），单靠重复练习不容易攻克，需要讲解")
+    elif pending >= 10:
+        warn.append(f"待攻克的错题已积压 {pending} 道")
+    elif mastery.get("wrong_mastered_rate") is not None and mastery.get("wrong_mastered", 0) >= 5 and mastery["wrong_mastered_rate"] >= 60:
+        good.append(f"错题攻克率 {mastery['wrong_mastered_rate']}%，订正习惯较好")
+    # ⑥ 能力短板 / 疲劳
+    pw = (cog or {}).get("primary_weakness")
+    if pw and (cog.get("final") or {}).get(pw) is not None and POWER_LABELS.get(pw):
+        warn.append(f"五力中「{POWER_LABELS[pw]}」最弱（{cog['final'][pw]} 分），可作为补弱训练方向")
+    fat = ((insights or {}).get("fatigue") or {}).get("verdict")
+    if fat:
+        warn.append(fat)
+
+    first, second = (good, warn) if status == "稳步提升" else (warn, good)
+    tone = {id(x): ("good" if first is good else "warn") for x in first}
+    tone.update({id(x): ("warn" if first is good else "good") for x in second})
+    drivers = [{"tone": tone[id(x)], "text": x} for x in (first[:3] + second[:2])][:4]
+    return {"metrics": metrics, "drivers": drivers}
+
+
+def _summary(basic, cog, mastery, beh, ai, weeks, answered_in_range, weights=None, diagnosis=None, insights=None, recent=None, rng=None):
+    rng = rng or Range.last(30)
     sess = beh["_sessions"]
-    now = datetime.now(timezone.utc)
-    s14 = sum(1 for s in sess if s["started_at"] >= now - timedelta(days=14))
-    prev14 = sum(1 for s in sess if now - timedelta(days=28) <= s["started_at"] < now - timedelta(days=14))
-    slope = _slope(weeks)
+    n, win = rng.days, rng.cmp_len
+    # 训练次数对比：范围末 win 天 vs 再前 win 天
+    cur_from = rng.until - timedelta(days=win)
+    s14 = sum(1 for s in sess if cur_from <= s["started_at"] < rng.until)
+    prev14 = sum(1 for s in sess if cur_from - timedelta(days=win) <= s["started_at"] < cur_from)
+    recent = recent or {}
+    # 正确率走向：14 天以内点太少，和前一段同样长度的时间比；更长的看每周的变化斜率
+    slope = _slope(weeks) if not rng.daily else None
+    delta = None
+    if rng.daily and recent.get("n", 0) >= 10 and recent.get("n_prev", 0) >= 10:
+        delta = _delta(recent.get("acc"), recent.get("acc_prev"))
+    up = (delta is not None and delta >= 5) if rng.daily else (slope is not None and slope > 2)
+    down = (delta is not None and delta <= -5) if rng.daily else (slope is not None and slope < -2)
     last = beh["last_active_date"]
     idle = None
     if last:
-        today = datetime.now(timezone(timedelta(hours=8))).date()
-        idle = (today - datetime.fromisoformat(last).date()).days
+        idle = (rng.end - datetime.fromisoformat(last).date()).days     # 距范围结束日多少天没训练
 
-    if answered_30 < 20:
-        status, reason = "数据不足", f"近 30 天只答了 {answered_30} 道题，样本太少，暂不下结论"
+    if answered_in_range < rng.min_answered:
+        status, reason = "数据不足", f"{rng.label}只答了 {answered_in_range} 道题，样本太少，暂不下结论"
     elif (idle is not None and idle >= 7) or (prev14 >= 2 and s14 < prev14 / 2):
-        status, reason = "近期懈怠", f"已 {idle} 天没有训练" if idle is not None and idle >= 7 else f"近 14 天训练 {s14} 次，不足前 14 天（{prev14} 次）的一半"
-    elif slope is not None and slope > 2:
-        status, reason = "稳步提升", f"近 4 周正确率平均每周上升 {slope} 个百分点"
-    elif slope is not None and slope < -2:
-        status, reason = "遇到瓶颈", f"近 4 周正确率平均每周下降 {abs(slope)} 个百分点"
+        status, reason = "近期懈怠", f"已 {idle} 天没有训练" if idle is not None and idle >= 7 else f"{rng.cmp_label}训练 {s14} 次，不足前 {win} 天（{prev14} 次）的一半"
+    elif up:
+        status, reason = "稳步提升", f"{rng.label}正确率比前 {n} 天提高 {delta} 个百分点" if rng.daily else f"{rng.label}内正确率平均每周上升 {slope} 个百分点"
+    elif down:
+        status, reason = "遇到瓶颈", f"{rng.label}正确率比前 {n} 天下降 {abs(delta)} 个百分点" if rng.daily else f"{rng.label}内正确率平均每周下降 {abs(slope)} 个百分点"
+    elif rng.daily:
+        status, reason = "状态平稳", f"{rng.label}正确率和前 {n} 天差别不大" if delta is not None else f"{rng.label}和前 {n} 天的答题都不够多，无法对比，暂按平稳处理"
     else:
-        status, reason = "状态平稳", "近 4 周正确率变化不大" if slope is not None else "近 4 周有效数据不足以判断趋势，暂按平稳处理"
+        status, reason = "状态平稳", f"{rng.label}内正确率变化不大" if slope is not None else f"{rng.label}内有效数据不足以判断趋势，暂按平稳处理"
 
-    w = weights or {"frequency": 40, "streak": 20, "complete": 25, "careful": 15}
-    w_freq, w_streak, w_comp, w_care = (w["frequency"] / 100, w["streak"] / 100, w["complete"] / 100, w["careful"] / 100)
-    f = min(1.0, beh["sessions_30d"] / 12)
+    from app.services.profile_config import DEFAULT_WEIGHTS
+    w = {**DEFAULT_WEIGHTS, **(weights or {})}
+    f = min(1.0, beh["sessions_range"] / rng.freq_full)
     st = min(1.0, beh["streak_days"] / 7)
     comp = (beh["complete_rate"] or 0) / 100
     # 认真作答：「快而错」（用时最短的三分之一题里答错的）占全部答题的比例越低越高，40% 及以上为 0；没有答题记录为 0
     fw = beh["fast_wrong_ratio"]
     careful = None if fw is None or beh["fast_wrong_samples"] < MIN_CAREFUL_SAMPLES else 1 - min(1.0, fw / 40)
-    if careful is None:   # 样本不够：这一项不计入，其余三项按比例折算到 100 分
-        rest = 1 - w_care
-        engagement = round((f * w_freq + st * w_streak + comp * w_comp) / rest * 100) if rest > 0 else 0
-    else:
-        engagement = round((f * w_freq + st * w_streak + comp * w_comp + careful * w_care) * 100)
+    # 错题复盘：做错之后有没有回头订正（错题攻克率）、有没有主动用错题集训练（时间范围内的次数）；错题太少时不计入
+    wrong_total = (mastery.get("wrong_pending") or 0) + (mastery.get("wrong_mastered") or 0)
+    mastered_rate = mastery.get("wrong_mastered_rate")
+    review_n = sum(1 for s in sess if s["training_dimension"] == "ERROR_QUESTIONS" and rng.since <= s["started_at"] < rng.until)
+    review = None if wrong_total < MIN_REVIEW_WRONG or mastered_rate is None else \
+        REVIEW_W_MASTERED * mastered_rate / 100 + (1 - REVIEW_W_MASTERED) * min(1.0, review_n / rng.review_full)
+    # 样本不够的项不计入，其余项按权重比例折算到 100 分
+    parts = {"frequency": f, "streak": st, "complete": comp, "careful": careful, "review": review}
+    used = {k: v for k, v in parts.items() if v is not None}
+    den = sum(w[k] for k in used)
+    engagement = round(sum(v * w[k] for k, v in used.items()) / den * 100) if den > 0 else 0
 
     from app.services import profile_actions
     ctx = {"diagnosis": diagnosis or {"answered": 0, "blank_rate": None, "blank_by_type": [], "repeat": {"questions": 0, "gain": None}, "type_time": []},
@@ -539,30 +775,37 @@ def _summary(basic, cog, mastery, beh, ai, weeks, answered_30, weights=None, dia
     tips = profile_actions.build_actions(ctx)
     return {
         "status": status, "status_reason": reason, "engagement_score": engagement,
-        "engagement_parts": {"frequency": round(f * 100), "streak": round(st * 100), "complete": round(comp * 100), "careful": None if careful is None else round(careful * 100)},
-        "trend": {"weeks": weeks, "slope": slope}, "tips": tips,
+        "engagement_parts": {"frequency": round(f * 100), "streak": round(st * 100), "complete": round(comp * 100), "careful": None if careful is None else round(careful * 100),
+                             "review": None if review is None else round(review * 100), "review_sessions": review_n,
+                             "review_wrong_total": wrong_total},
+        "trend": {"weeks": weeks, "slope": slope, "delta": delta, "unit": "day" if rng.daily else "week"}, "tips": tips,
+        "status_detail": _status_detail(status, beh, mastery, cog, diagnosis, insights, recent, idle, s14, prev14, beh.get("active_days"), rng),
     }
 
 
-async def get_profile(db: AsyncSession, student_id: int) -> dict:
+async def get_profile(db: AsyncSession, student_id: int, start: str | None = None, end: str | None = None) -> dict:
+    """start / end：统计日期范围（YYYY-MM-DD，北京时间，含起止两天；默认近 7 天，最长 90 天）。
+    答题量、正确率、行为、诊断、AI 互动、学习状态、投入度等按这个范围统计；
+    错题、知识点掌握、学期进度、五力测试、个人特质、预警这类「当前状态」不随范围变化"""
+    rng = Range.build(start, end)
     basic = await _basic(db, student_id)
     cog = await _cognitive(db, student_id)
-    mastery = await _mastery(db, student_id, basic["grade"], basic["semester"])
-    beh = await _behavior(db, student_id)
-    ai = await _ai(db, student_id)
+    mastery = await _mastery(db, student_id, basic["grade"], basic["semester"], rng)
+    beh = await _behavior(db, student_id, rng)
+    ai = await _ai(db, student_id, rng)
     traits = await _traits(db, student_id)
-    cog["power_trend"] = await _power_trend(db, student_id)
-    diagnosis = await _diagnosis(db, student_id)
-    insights = await _insights(db, student_id)
-    weeks = await _weekly(db, student_id)
-    n30 = (await _one(db, f"SELECT count(*) n {_BASE} AND a.answered_at >= now() - interval '30 days'", sid=student_id))["n"]
+    cog["power_trend"] = await _power_trend(db, student_id, rng)
+    diagnosis = await _diagnosis(db, student_id, rng)
+    insights = await _insights(db, student_id, rng)
+    weeks = await _trend(db, student_id, rng)
+    recent = await _recent_accuracy(db, student_id, rng)
     from app.services import profile_config, profile_warning_service
-    summary = _summary(basic, cog, mastery, beh, ai, weeks, n30, await profile_config.get_weights(db), diagnosis, insights)
+    summary = _summary(basic, cog, mastery, beh, ai, weeks, recent["n"], await profile_config.get_weights(db), diagnosis, insights, recent, rng)
     beh.pop("_sessions", None)
     await profile_warning_service.sync(db, student_id, basic)
     warnings = await profile_warning_service.list_warnings(db, student_id)
     return {
-        "generated_at": datetime.now(timezone.utc),
+        "generated_at": datetime.now(timezone.utc), "range": rng.info(),
         "summary": summary, "basic": basic, "cognitive": cog, "mastery": mastery,
         "behavior": beh, "diagnosis": diagnosis, "insights": insights, "ai_interaction": ai, "traits": traits,
         "warnings": warnings,

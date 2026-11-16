@@ -55,8 +55,8 @@ RULES: list[dict] = [
 ]
 RULE_MAP = {r["code"]: r for r in RULES}
 
-DEFAULT_WEIGHTS = {"frequency": 40, "streak": 20, "complete": 25, "careful": 15}
-WEIGHT_LABELS = {"frequency": "训练频次", "streak": "连续天数", "complete": "答题完成度", "careful": "认真作答"}
+DEFAULT_WEIGHTS = {"frequency": 35, "streak": 15, "complete": 20, "careful": 15, "review": 15}
+WEIGHT_LABELS = {"frequency": "训练频次", "streak": "连续天数", "complete": "答题完成度", "careful": "认真作答", "review": "错题复盘"}
 
 
 def _default_rule_conf(r: dict) -> dict:
@@ -108,6 +108,8 @@ async def get_weights(db: AsyncSession) -> dict[str, int]:
     if "careful" not in saved and "hint" in saved:   # 兼容旧配置：「独立作答」(hint) 已改为「认真作答」(careful)
         saved["careful"] = saved["hint"]
     w = dict(DEFAULT_WEIGHTS)
+    if saved and "review" not in saved:   # 兼容旧配置：只有前四项（合计 100），「错题复盘」按 0 处理，保持管理员原来的算法不变
+        w["review"] = 0
     for k in w:
         if isinstance(saved.get(k), (int, float)):
             w[k] = int(saved[k])

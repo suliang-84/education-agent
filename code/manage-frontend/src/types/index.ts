@@ -307,7 +307,7 @@ export interface TrainingConfigList {
 // ── 学生画像（管理员视图，一期）────────────────────────────────
 export interface PowerTrend {
   weeks: { weeks_ago: number; label: string; powers: Record<string, { answered: number; accuracy: number | null }> }[]
-  answered: number; has_data: boolean
+  answered: number; has_data: boolean; unit: 'day' | 'week'; min_answers: number
 }
 export interface ProfileDiagnosis {
   answered: number; blank: number; blank_rate: number | null
@@ -331,11 +331,16 @@ export interface ProfileKp {
 export interface ProfileStrategy { strategy_id: string; name: string; uses: number; likes: number; dislikes: number; score: number | null }
 export interface StudentProfile {
   generated_at: string
+  range: { start: string; end: string; days: number; label: string; is_recent: boolean; daily: boolean; min_answered: number; freq_full: number; review_full: number }
   summary: {
     status: string; status_reason: string; engagement_score: number
-    engagement_parts: { frequency: number; streak: number; complete: number; careful: number | null }
-    trend: { weeks: { weeks_ago: number; answered: number; accuracy: number | null }[]; slope: number | null }
+    engagement_parts: { frequency: number; streak: number; complete: number; careful: number | null; review: number | null; review_sessions: number; review_wrong_total: number }
+    trend: { weeks: { weeks_ago: number; label: string; answered: number; accuracy: number | null }[]; slope: number | null; delta: number | null; unit: 'day' | 'week' }
     tips: string[]
+    status_detail: {
+      metrics: { key: string; label: string; value: string; hint: string | null; tone: 'good' | 'warn' | null }[]
+      drivers: { tone: 'good' | 'warn'; text: string }[]
+    }
   }
   basic: {
     id: number; nickname: string; avatar_url: string | null; grade: string | null; semester: string | null; is_minor: boolean
@@ -361,7 +366,7 @@ export interface StudentProfile {
   diagnosis: ProfileDiagnosis
   insights: ProfileInsights
   behavior: {
-    sessions_7d: number; sessions_30d: number; sessions_total: number; streak_days: number; last_active_date: string | null
+    sessions_range: number; active_days: number; sessions_total: number; streak_days: number; last_active_date: string | null
     time_buckets: { key: string; label: string; count: number; ratio: number | null; accuracy: number | null }[]
     avg_seconds_per_question: number | null; avg_seconds_per_session: number | null
     fast_wrong_ratio: number | null; fast_wrong_samples: number

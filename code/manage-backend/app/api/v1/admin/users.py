@@ -117,11 +117,13 @@ async def scan_profile_warnings(
 @router.get("/students/{student_id}/profile", summary="学生画像")
 async def get_student_profile(
     student_id: int,
+    start_date: str | None = Query(None, description="统计开始日期 YYYY-MM-DD（北京时间，含当天）；默认结束日期往前 7 天"),
+    end_date: str | None = Query(None, description="统计结束日期 YYYY-MM-DD（含当天，不能晚于今天）；默认今天"),
     db: AsyncSession = Depends(get_db),
     _: AdminUser = Depends(get_current_admin),
 ):
     from app.services import profile_service
-    data = await profile_service.get_profile(db, student_id)
+    data = await profile_service.get_profile(db, student_id, start_date, end_date)
     await db.commit()   # 预警在查看时同步落库
     return ok_response(data)
 

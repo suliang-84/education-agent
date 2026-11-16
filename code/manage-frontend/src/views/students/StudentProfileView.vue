@@ -9,6 +9,13 @@
         返回
       </el-button>
       <div style="flex:1" />
+      <el-date-picker
+        v-model="dateRange" type="daterange" :clearable="false" :editable="false"
+        range-separator="–" start-placeholder="开始日期" end-placeholder="结束日期"
+        format="YYYY-MM-DD" value-format="YYYY-MM-DD"
+        :shortcuts="rangeShortcuts" :disabled-date="disableFuture"
+        style="width:300px;flex:none" @change="onRangeChange"
+      />
       <el-button @click="$router.push(`/students/${studentId}/ai-prompt`)">
         <SvgIcon name="summary" :size="14" style="margin-right:4px" />摘要
       </el-button>
@@ -22,7 +29,7 @@
       <div class="surface section-block">
         <div class="section-hd">
           <span class="section-title"><SvgIcon name="doubble_triangle" :size="15" style="margin-right:5px;transform:rotate(180deg);flex-shrink:0" />综合评估</span>
-          <span class="hint-text">数据更新于 {{ formatDate(p.generated_at) }}</span>
+          <span class="hint-text">答题和行为数据按「{{ rangeLabel }}」统计，错题、知识点、五力测试等当前状态不随范围变化　·　更新于 {{ formatDate(p.generated_at) }}</span>
         </div>
 
         <div class="who">
@@ -44,28 +51,42 @@
         <div class="eval-grid">
           <div class="eval-card">
             <div class="eval-card__label">学习状态</div>
-            <div class="status-tag" :class="`status--${statusKey}`">{{ p.summary.status }}</div>
-            <div class="eval-card__desc">{{ p.summary.status_reason }}</div>
+            <div class="st-metrics">
+              <div v-for="m in p.summary.status_detail.metrics" :key="m.key" class="st-metric">
+                <div class="st-metric__lbl">{{ m.label }}</div>
+                <div class="st-metric__val num" :class="m.tone && `tone--${m.tone}`">{{ m.value }}</div>
+                <div class="st-metric__hint" :class="m.tone && `tone--${m.tone}`">{{ m.hint || '\u00a0' }}</div>
+              </div>
+            </div>
+            <div v-if="p.summary.status_detail.drivers.length" class="st-drivers">
+              <el-tooltip v-for="(d, i) in p.summary.status_detail.drivers.slice(0, 3)" :key="i" :content="d.text" placement="top-start" :show-after="200" popper-class="st-popper">
+                <div class="st-driver"><span class="st-driver__dot" :class="`tone--${d.tone}`" />{{ d.text }}</div>
+              </el-tooltip>
+            </div>
           </div>
           <div class="eval-card">
             <div class="eval-card__label">学习投入度</div>
             <div class="eval-card__num num">{{ p.summary.engagement_score }}<span class="unit"> / 100</span></div>
             <div class="parts">
               <div v-for="x in engagementParts" :key="x.label" class="part">
-                <span class="part__label">{{ x.label }}</span>
+                <span class="part__label">{{ x.label }}
+                  <el-tooltip :content="x.tip" placement="top" :show-after="150" popper-class="st-popper">
+                    <SvgIcon name="help" :size="13" class="part__help" />
+                  </el-tooltip>
+                </span>
                 <div class="bar"><div class="bar__fill" :style="{ width: (x.value ?? 0) + '%' }" /></div>
                 <span class="part__val num">{{ x.value ?? '—' }}</span>
               </div>
             </div>
-            <div v-if="p.summary.engagement_parts.careful === null" class="eval-card__desc">
-              带用时的答题不足 {{ MIN_CAREFUL }} 道（现有 {{ p.behavior.fast_wrong_samples }} 道），「认真作答」暂不计入，其余三项按比例折算
-            </div>
           </div>
           <div class="eval-card">
-            <div class="eval-card__label">近 4 周正确率</div>
+            <div class="eval-card__label">{{ rangeLabel }}正确率（{{ p.summary.trend.unit === 'day' ? '按天' : '按周' }}）</div>
             <div ref="trendRef" class="trend-chart" />
-            <div class="eval-card__desc" v-if="p.summary.trend.slope !== null">
+            <div class="eval-card__desc" v-if="p.summary.trend.unit === 'week' && p.summary.trend.slope !== null">
               平均每周{{ p.summary.trend.slope >= 0 ? '上升' : '下降' }} {{ Math.abs(p.summary.trend.slope) }} 个百分点
+            </div>
+            <div class="eval-card__desc" v-else-if="p.summary.trend.unit === 'day' && p.summary.trend.delta !== null">
+              比前 {{ p.range.days }} 天{{ p.summary.trend.delta >= 0 ? '提高' : '下降' }} {{ Math.abs(p.summary.trend.delta) }} 个百分点
             </div>
           </div>
         </div>
@@ -140,40 +161,30 @@
                     <div class="bar"><div class="bar__fill" :style="{ width: (p.cognitive.final?.[k] ?? 0) + '%', background: POWER_COLORS[k] }" /></div>
                     <span class="rate-row__val num">{{ p.cognitive.final?.[k] ?? '—' }}</span>
                   </div>
-                  <div class="facts">
-                    <div class="fact"><span>最强项</span><b>{{ powerName(p.cognitive.primary_strength) }}</b></div>
-                    <div class="fact"><span>最弱项</span><b>{{ powerName(p.cognitive.primary_weakness) }}</b></div>
-                    <div class="fact"><span>次弱项</span><b>{{ powerName(p.cognitive.secondary_weakness) }}</b></div>
-                    <div class="fact"><span>推荐训练模式</span><b>{{ modeName(p.cognitive.recommended_mode) }}</b></div>
-                    <div class="fact"><span>测试时间</span><b>{{ formatDate(p.cognitive.tested_at) }}</b></div>
-                    <div class="fact" v-if="p.cognitive.training_info"><span>累计训练</span><b>{{ p.cognitive.training_info.total_training_count }} 次 / {{ p.cognitive.training_info.total_question_count }} 题</b></div>
-                  </div>
-                  <div v-if="p.cognitive.tags?.length" class="tag-list">
-                    <span v-for="t in p.cognitive.tags" :key="t" class="tag">{{ t }}</span>
-                  </div>
                 </div>
               </div>
             </template>
             <div v-else class="empty">该学生尚未完成五力测试，暂无能力画像</div>
 
-            <div class="sub-title" style="margin-top:15px">五力训练趋势（最近 8 周，每周各力的做题正确率）</div>
+            <div class="sub-title" style="margin-top:15px">五力训练趋势（{{ rangeLabel }}，每{{ p.cognitive.power_trend?.unit === 'day' ? '天' : '周' }}各力的做题正确率）</div>
             <template v-if="p.cognitive.power_trend?.has_data">
               <div ref="trendPowerRef" class="history-chart" />
-              <div class="foot-note">某一周某一力答题少于 3 道时不画点；这是学生实际做题时各项能力的表现，和上面的测试得分是两回事。</div>
+              <div class="foot-note">某{{ p.cognitive.power_trend.unit === 'day' ? '一天' : '一周' }}某一力答题少于 {{ p.cognitive.power_trend.min_answers }} 道时不画点；这是学生实际做题时各项能力的表现，和上面的测试得分是两回事。</div>
             </template>
-            <div v-else class="empty-sm">最近 8 周还没有足够的做题数据</div>
+            <div v-else class="empty-sm">{{ rangeLabel }}还没有足够的做题数据</div>
           </el-tab-pane>
 
           <!-- ② 学业掌握 -->
           <el-tab-pane label="学业掌握" name="mastery" lazy>
             <div class="tiles">
-              <div class="tile"><div class="tile__num num">{{ p.mastery.answered }}</div><div class="tile__lbl">累计答题</div></div>
-              <div class="tile"><div class="tile__num num">{{ fmtPct(p.mastery.accuracy) }}</div><div class="tile__lbl">整体正确率</div></div>
+              <div class="tile"><div class="tile__num num">{{ p.mastery.answered }}</div><div class="tile__lbl">{{ rangeLabel }}答题</div></div>
+              <div class="tile"><div class="tile__num num">{{ fmtPct(p.mastery.accuracy) }}</div><div class="tile__lbl">{{ rangeLabel }}正确率</div></div>
               <div class="tile"><div class="tile__num num">{{ p.mastery.wrong_pending }}</div><div class="tile__lbl">待攻克错题</div></div>
               <div class="tile"><div class="tile__num num">{{ p.mastery.wrong_mastered }}</div><div class="tile__lbl">已攻克错题（{{ fmtPct(p.mastery.wrong_mastered_rate) }}）</div></div>
               <div class="tile"><div class="tile__num num">{{ p.mastery.stubborn_questions }}</div><div class="tile__lbl">顽固错题（错 ≥ 3 次）</div></div>
               <div class="tile"><div class="tile__num num">{{ p.mastery.favorites }}</div><div class="tile__lbl">收藏题数</div></div>
             </div>
+            <div class="foot-note" style="margin-top:0">答题量、正确率和下面的题型 / 难度 / 科目表现按「{{ rangeLabel }}」统计；错题、知识点掌握和学期进度是当前累计状态，不随时间范围变化。</div>
 
             <div class="sub-title">当前学期进度</div>
             <div class="rate-row">
@@ -252,13 +263,14 @@
           <!-- ③ 学习行为 -->
           <el-tab-pane label="学习行为" name="behavior" lazy>
             <div class="tiles">
-              <div class="tile"><div class="tile__num num">{{ p.behavior.sessions_7d }}</div><div class="tile__lbl">近 7 天训练次数</div></div>
-              <div class="tile"><div class="tile__num num">{{ p.behavior.sessions_30d }}</div><div class="tile__lbl">近 30 天训练次数</div></div>
+              <div class="tile"><div class="tile__num num">{{ p.behavior.sessions_range }}</div><div class="tile__lbl">{{ rangeLabel }}训练次数</div></div>
+              <div class="tile"><div class="tile__num num">{{ p.behavior.active_days }}</div><div class="tile__lbl">{{ rangeLabel }}活跃天数</div></div>
               <div class="tile"><div class="tile__num num">{{ p.behavior.streak_days }}</div><div class="tile__lbl">连续学习天数</div></div>
               <div class="tile"><div class="tile__num num">{{ fmtSec(p.behavior.avg_seconds_per_question) }}</div><div class="tile__lbl">平均单题用时</div></div>
               <div class="tile"><div class="tile__num num">{{ fmtPct(p.behavior.complete_rate) }}</div><div class="tile__lbl">答题完成度（{{ p.behavior.answered_questions }}/{{ p.behavior.issued_questions }} 题）</div></div>
               <div class="tile"><div class="tile__num num">{{ fmtPct(p.behavior.fast_wrong_ratio) }}</div><div class="tile__lbl">「快而错」占比</div></div>
             </div>
+            <div class="foot-note" style="margin-top:0">平均用时、答题完成度、「快而错」、学习时段、训练方式偏好、答题诊断按「{{ rangeLabel }}」统计；连续学习天数是当前状态；「同一道题反复做」「看过智能解答」「总选同一个答案」需要看全部历史，不受范围限制。</div>
             <div class="two-col">
               <div>
                 <div class="sub-title">学习时段分布</div>
@@ -363,9 +375,9 @@
           <!-- ④ AI 互动 -->
           <el-tab-pane label="AI 互动" name="ai" lazy>
             <div class="tiles">
-              <div class="tile"><div class="tile__num num">{{ p.ai_interaction.student_messages }}</div><div class="tile__lbl">学生发言数</div></div>
-              <div class="tile"><div class="tile__num num">{{ p.ai_interaction.assistant_messages }}</div><div class="tile__lbl">助教回复数</div></div>
-              <div class="tile"><div class="tile__num num">{{ p.ai_interaction.aha_count }}</div><div class="tile__lbl">顿悟次数</div></div>
+              <div class="tile"><div class="tile__num num">{{ p.ai_interaction.student_messages }}</div><div class="tile__lbl">{{ rangeLabel }}学生发言数</div></div>
+              <div class="tile"><div class="tile__num num">{{ p.ai_interaction.assistant_messages }}</div><div class="tile__lbl">{{ rangeLabel }}助教回复数</div></div>
+              <div class="tile"><div class="tile__num num">{{ p.ai_interaction.aha_count }}</div><div class="tile__lbl">{{ rangeLabel }}顿悟次数</div></div>
               <div class="tile"><div class="tile__num ts">{{ p.ai_interaction.last_chat_at ? formatDate(p.ai_interaction.last_chat_at) : '—' }}</div><div class="tile__lbl">最近聊天</div></div>
             </div>
             <div class="two-col">
@@ -420,7 +432,6 @@ import { FivePowerLabels } from '@/types'
 import { formatDate } from '@/utils/format'
 
 const TREND_LABELS: Record<string, string> = { up: '在进步', flat: '没起色', down: '在退步' }
-const MIN_CAREFUL = 20   // 与后端 MIN_CAREFUL_SAMPLES 一致
 const POWERS = ['INSIGHT', 'CONSTRUCT', 'DEDUCE', 'ADAPT', 'MIGRATE'] as FivePower[]
 const POWER_COLORS: Record<string, string> = {
   INSIGHT: '#0D9488', CONSTRUCT: '#E11D48', DEDUCE: '#0EA5E9', ADAPT: '#D97706', MIGRATE: '#7C3AED',
@@ -434,13 +445,34 @@ const RADAR_SETS = [
 // 年级名称与学生列表保持一致
 const GRADES: Record<string, string> = { G7: '初一', G8: '初二', G9: '初三', G10: '高一', G11: '高二', G12: '高三' }
 const SEMESTERS: Record<string, string> = { S1: '上学期', S2: '下学期' }
-const MODES: Record<string, string> = { TRAIN_WEAKNESS: '补弱训练', TRAIN_STRENGTH: '强化优势', BALANCED: '均衡训练' }
 
 const route = useRoute()
 const studentId = Number(route.params.id)
 const loading = ref(false)
 const p = ref<StudentProfile>()
 const tab = ref('cognitive')
+// 统计日期范围：默认近 7 天（含今天），可自选，最长 90 天
+const MAX_RANGE_DAYS = 90
+const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+const daysAgo = (n: number) => { const d = new Date(); d.setDate(d.getDate() - n); return d }
+const lastDays = (n: number): [string, string] => [ymd(daysAgo(n - 1)), ymd(new Date())]
+const dateRange = ref<[string, string]>(lastDays(7))
+const rangeShortcuts = [
+  { text: '近一周', value: () => lastDays(7) },
+  { text: '近一个月', value: () => lastDays(30) },
+]
+const disableFuture = (d: Date) => d.getTime() > Date.now()
+const rangeLabel = computed(() => p.value?.range.label ?? '近 7 天')
+function onRangeChange() {
+  const [s, e] = dateRange.value
+  if ((new Date(e).getTime() - new Date(s).getTime()) / 86400000 + 1 > MAX_RANGE_DAYS) {
+    ElMessage.warning(`日期范围最长 ${MAX_RANGE_DAYS} 天`)
+    const r = p.value?.range
+    dateRange.value = r ? [r.start, r.end] : lastDays(7)
+    return
+  }
+  load()
+}
 const radarSet = ref<(typeof RADAR_SETS)[number]['key']>('final')
 const trendRef = ref<HTMLElement>()
 const radarRef = ref<HTMLElement>()
@@ -472,14 +504,17 @@ const gradeLabel = computed(() => {
   if (!b) return ''
   return `${GRADES[b.grade ?? ''] ?? b.grade ?? '未设置年级'} ${SEMESTERS[b.semester ?? ''] ?? b.semester ?? ''}`.trim()
 })
-const statusKey = computed(() => ({
-  稳步提升: 'up', 状态平稳: 'flat', 遇到瓶颈: 'stuck', 近期懈怠: 'idle', 数据不足: 'none',
-}[p.value?.summary.status ?? ''] ?? 'none'))
 const engagementParts = computed(() => {
   const e = p.value?.summary.engagement_parts
+  const r = p.value?.range
+  const fq = r?.freq_full ?? 3
+  const rv = r?.review_full ?? 1
   return e ? [
-    { label: '训练频次', value: e.frequency }, { label: '连续天数', value: e.streak },
-    { label: '答题完成度', value: e.complete }, { label: '认真作答', value: e.careful },
+    { label: '训练频次', value: e.frequency, tip: `看学生练得勤不勤。统计：${rangeLabel.value}开始的训练次数 ÷ ${fq}（每 30 天 12 次，按所选天数折算），达到 ${fq} 次及以上为满分 100。` },
+    { label: '连续天数', value: e.streak, tip: '看学习习惯能不能持续。统计：截至今天（昨天有答题也算）连续每天都有答题的天数 ÷ 7，达到 7 天及以上为满分 100。不随时间范围变化。' },
+    { label: '答题完成度', value: e.complete, tip: `看发给学生的题有没有做完，是否中途放弃。统计：${rangeLabel.value}已作答题数 ÷ 发放题数。` },
+    { label: '认真作答', value: e.careful, tip: `看学生是不是在读题、思考。统计：${rangeLabel.value}用时最短的三分之一答题里，答错的题占全部答题的比例（快而错）；占比越低得分越高，达到 40% 及以上为 0。带用时的答题不足 20 道时不计入。` },
+    { label: '错题复盘', value: e.review, tip: `看做错之后有没有回头订正。统计：错题攻克率（当前累计）× 60% + ${rangeLabel.value}用「错题集」训练的次数 ÷ ${rv}（每 30 天 4 次，按所选天数折算，上限 1）× 40%。错题记录不足 3 道时不计入。` },
   ] : []
 })
 const intentList = computed(() => (p.value?.ai_interaction.intents ?? []).map((x) => {
@@ -519,8 +554,6 @@ const dimTotal = computed(() => (p.value?.behavior.dimensions ?? []).reduce((a, 
 const fmtPct = (v: number | null | undefined) => (v === null || v === undefined ? '—' : `${v}%`)
 const fmtSec = (v: number | null | undefined) => (v === null || v === undefined ? '—' : v >= 60 ? `${Math.round(v / 6) / 10} 分钟` : `${v} 秒`)
 const dimRatio = (n: number) => Math.round((n / dimTotal.value) * 100)
-const powerName = (k?: string) => (k ? FivePowerLabels[k as FivePower] ?? k : '—')
-const modeName = (k?: string) => (k ? MODES[k] ?? k : '—')
 
 function cssVar(name: string, fallback: string) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback
@@ -533,14 +566,21 @@ function initChart(el?: HTMLElement) {
   return c
 }
 
+let trendObserver: ResizeObserver | null = null
 function renderTrend() {
   const c = initChart(trendRef.value)
   if (!c || !p.value) return
+  // 卡片高度会随同行的学习状态卡片变化：容器尺寸一变，图表跟着重绘
+  trendObserver?.disconnect()
+  if (trendRef.value && typeof ResizeObserver !== 'undefined') {
+    trendObserver = new ResizeObserver(() => c.resize())
+    trendObserver.observe(trendRef.value)
+  }
   const weeks = p.value.summary.trend.weeks
   const primary = cssVar('--color-primary', '#608df9')
   c.setOption({
     grid: { left: 30, right: 10, top: 10, bottom: 22 },
-    xAxis: { type: 'category', data: weeks.map(w => (w.weeks_ago === 0 ? '本周' : `${w.weeks_ago}周前`)), axisLabel: { color: cssVar('--text-3', '#999'), fontSize: 11 }, axisLine: { show: false }, axisTick: { show: false } },
+    xAxis: { type: 'category', data: weeks.map(w => w.label), axisLabel: { color: cssVar('--text-3', '#999'), fontSize: 11 }, axisLine: { show: false }, axisTick: { show: false } },
     yAxis: { type: 'value', min: 0, max: 100, splitNumber: 2, axisLabel: { color: cssVar('--text-3', '#999'), fontSize: 11 }, splitLine: { lineStyle: { color: 'rgba(128,128,128,0.15)' } } },
     tooltip: { trigger: 'axis', formatter: (ps: { dataIndex: number }[]) => { const w = weeks[ps[0].dataIndex]; return w.accuracy === null ? '无数据' : `正确率 ${w.accuracy}%（${w.answered} 题）` } },
     series: [{ type: 'line', data: weeks.map(w => w.accuracy), connectNulls: true, smooth: true, symbolSize: 6, itemStyle: { color: primary }, lineStyle: { color: primary, width: 2 }, areaStyle: { color: primary, opacity: 0.12 } }],
@@ -609,7 +649,7 @@ function onTabChange() {
 async function load() {
   loading.value = true
   try {
-    p.value = await studentApi.getProfile(studentId)
+    p.value = await studentApi.getProfile(studentId, dateRange.value[0], dateRange.value[1])
     await nextTick()
     renderTrend()
     await drawTab()
@@ -618,11 +658,13 @@ async function load() {
 
 function onResize() { charts.forEach(c => c.resize()) }
 onMounted(() => { load(); window.addEventListener('resize', onResize) })
-onBeforeUnmount(() => { window.removeEventListener('resize', onResize); charts.forEach(c => c.dispose()) })
+onBeforeUnmount(() => { trendObserver?.disconnect(); window.removeEventListener('resize', onResize); charts.forEach(c => c.dispose()) })
 </script>
 
 <style lang="scss" scoped>
 .page-root { scrollbar-width: none; &::-webkit-scrollbar { display: none; } }
+// 暗色主题下全局 --text-3 (#4B5563) 在深色底上偏暗：本页的次要文字（指标名、提示、脚注、空状态等）统一提亮，仍比 --text-2 暗一档
+:global([data-theme="dark"]) .page-root { --text-3: #7A8496; }
 
 .form-topbar { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .form-topbar :deep(.el-button + .el-button) { margin-left: 0; }
@@ -655,27 +697,28 @@ onBeforeUnmount(() => { window.removeEventListener('resize', onResize); charts.f
 .who__meta { margin-top: 3px; font-size: 12.5px; color: var(--text-3); }
 
 // ── 综合评估三张卡片 ─────────────────────────────────────
-.eval-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 15px; @media (max-width: 1100px) { grid-template-columns: 1fr; } }
+.eval-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr); gap: 15px; @media (max-width: 1100px) { grid-template-columns: 1fr; } }
 .eval-card {
   padding: 12px 15px;
   border: 1px solid rgba(96, 141, 248, 0.15);
   border-radius: 4px;
   min-height: 150px;
+  display: flex; flex-direction: column;
   &__label { font-size: 13px; color: var(--text-2); margin-bottom: 8px; }
   &__num { font-size: 30px; font-weight: 700; color: var(--text-1); .unit { font-size: 13px; font-weight: 400; color: var(--text-3); } }
   &__desc { margin-top: 8px; font-size: 12.5px; line-height: 1.6; color: var(--text-3); }
 }
-.status-tag {
-  display: inline-block; padding: 3px 14px; border-radius: 999px; font-size: 14px; font-weight: 600;
-  &.status--up    { background: color-mix(in srgb, var(--green) 16%, transparent); color: var(--green); }
-  &.status--flat  { background: color-mix(in srgb, var(--color-primary) 16%, transparent); color: var(--color-primary); }
-  &.status--stuck { background: color-mix(in srgb, var(--amber) 18%, transparent); color: var(--amber); }
-  &.status--idle  { background: color-mix(in srgb, var(--red) 16%, transparent); color: var(--red); }
-  &.status--none  { background: color-mix(in srgb, var(--text-3) 18%, transparent); color: var(--text-3); }
-}
+.st-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.st-metric { &__lbl { font-size: 12px; color: var(--text-3); } &__val { margin-top: 2px; font-size: 18px; font-weight: 700; color: var(--text-1); } &__hint { margin-top: 1px; font-size: 11.5px; color: var(--text-3); } }
+.tone--good { color: var(--green) !important; }
+.tone--warn { color: var(--amber) !important; }
+.st-drivers { margin-top: 10px; padding-top: 8px; border-top: 1px dashed rgba(96, 141, 248, 0.2); }
+:global(.st-popper) { max-width: 480px; line-height: 1.6; }
+.st-driver { position: relative; padding-left: 14px; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; line-height: 1.6; color: var(--text-1);
+  &__dot { position: absolute; left: 2px; top: 8px; width: 6px; height: 6px; border-radius: 50%; background: currentColor; } }
 .parts { margin-top: 10px; }
-.part { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font-size: 12px; color: var(--text-2); &__label { width: 68px; } &__val { width: 28px; text-align: right; color: var(--text-3); } }
-.trend-chart { height: 100px; }
+.part { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font-size: 12px; color: var(--text-2); &__label { display: flex; align-items: center; gap: 3px; width: 86px; white-space: nowrap; } &__help { color: var(--text-3); cursor: help; &:hover { color: var(--color-primary); } } &__val { width: 28px; text-align: right; color: var(--text-3); } }
+.trend-chart { flex: 1; min-height: 100px; }   // 卡片是纵向 flex，图表占满标题和说明之外的剩余高度
 
 .tips { margin-top: 5px; }
 .tip { display: flex; gap: 8px; margin-bottom: 5px; font-size: 13px; line-height: 1.6; color: var(--text-1); }
@@ -716,8 +759,6 @@ onBeforeUnmount(() => { window.removeEventListener('resize', onResize); charts.f
 .bar__fill--warn { background: var(--amber); }
 .seg { display: inline-flex; gap: 15px; margin-bottom: 5px; }
 .seg__btn { padding: 0; border: none; background: transparent; font-size: 13px; color: var(--text-3); cursor: pointer; &.on { color: var(--color-primary); font-weight: 600; } }
-.facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 15px; margin-top: 10px; }
-.fact { display: flex; justify-content: space-between; font-size: 13px; color: var(--text-3); b { font-weight: 500; color: var(--text-1); } }
 .tag-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .tag { padding: 2px 10px; border-radius: 999px; font-size: 12px; color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 14%, transparent); }
 

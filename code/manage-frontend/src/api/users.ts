@@ -54,8 +54,8 @@ export const studentApi = {
     request.post<unknown, { students: number; failed: number; open_warnings: number }>('/profile-warnings/scan'),
 
   /** 学生画像（管理员视图）：GET /api/v1/admin/students/{id}/profile */
-  getProfile: (studentId: number) =>
-    request.get<unknown, StudentProfile>(`/students/${studentId}/profile`),
+  getProfile: (studentId: number, start?: string, end?: string) =>
+    request.get<unknown, StudentProfile>(`/students/${studentId}/profile`, { params: { start_date: start, end_date: end } }),
 
   /** 标记预警已处理：POST /api/v1/admin/students/{id}/warnings/{wid}/handle */
   handleWarning: (studentId: number, warningId: number, note: string) =>
