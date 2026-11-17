@@ -342,9 +342,23 @@ export interface ProfileKp {
 export interface ProfileStrategy { strategy_id: string; name: string; uses: number; likes: number; dislikes: number; score: number | null }
 export interface ProfileKpi { key: string; label: string; value: string; delta: number | null; unit: string; good: 'up' | 'down' | null; tip: string; series: (number | null)[] }
 
+export interface StudyTime {
+  has_data: boolean
+  unit?: 'day' | 'week'
+  time_buckets?: { key: string; label: string; range: string; minutes: number }[]
+  subjects?: { code: string; name: string; minutes: number; share: number | null }[]
+  series?: { label: string; minutes: Record<string, number>; total: number }[]
+  stats?: {
+    total_minutes: number; prev_minutes: number; delta_pct: number | null; active_days: number; avg_per_active_day: number | null
+    best_day: { date: string; minutes: number } | null; avg_per_session: number | null; weekday_avg: number | null; weekend_avg: number | null
+  }
+  highlights?: { tone: 'good' | 'warn'; text: string }[]
+}
+
 export interface StudentProfile {
   generated_at: string
   kpis: ProfileKpi[]
+  study_time: StudyTime
   range: { start: string; end: string; days: number; label: string; is_recent: boolean; daily: boolean; min_answered: number; freq_full: number; review_full: number }
   summary: {
     status: string; status_reason: string; engagement_score: number

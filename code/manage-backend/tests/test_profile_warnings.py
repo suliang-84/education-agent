@@ -287,8 +287,8 @@ def test_range_build_and_thresholds():
     import pytest
     from app.core.exceptions import AppException
     from app.services.profile_service import Range, today_bj
-    r = Range.build(None, None)                      # 默认近 7 天，含今天
-    assert r.days == 7 and r.end == today_bj() and r.is_recent and r.label == "近 7 天" and r.daily
+    r = Range.build(None, None)                      # 默认近 7 天，到昨天为止（不含今天）
+    assert r.days == 7 and r.end == today_bj() - timedelta(days=1) and r.is_recent and r.label == "近 7 天" and r.daily
     assert (r.freq_full, r.review_full, r.min_answered, r.points) == (3, 1, 8, 7)
     r = Range.last(30)
     assert (r.freq_full, r.review_full, r.min_answered, r.points, r.cmp_len, r.daily) == (12, 4, 20, 5, 15, False)
@@ -296,10 +296,10 @@ def test_range_build_and_thresholds():
     past = Range.build(str(today_bj() - timedelta(days=20)), str(today_bj() - timedelta(days=11)))
     assert past.days == 10 and not past.is_recent and past.label == "所选 10 天" and past.until - past.since == timedelta(days=10)
     for bad in [("x", None), (None, str(today_bj() + timedelta(days=1))), (str(today_bj()), str(today_bj() - timedelta(days=1))),
-                (str(today_bj() - timedelta(days=90)), None)]:
+                (str(today_bj() - timedelta(days=91)), None)]:
         with pytest.raises(AppException):
             Range.build(*bad)
-    assert Range.build(str(today_bj() - timedelta(days=89)), None).days == 90
+    assert Range.build(str(today_bj() - timedelta(days=90)), None).days == 90
 
 
 def test_cognitive_insights():
@@ -358,3 +358,25 @@ def test_kpi_bucket_of_matches_sql_rule():
     assert r.bucket_of(r.since + timedelta(hours=1)) == 6 and r.bucket_of(r.until - timedelta(hours=1)) == 0
     w = Range.last(30)       # 30 天按周分 5 格：开始日起每 7 天一格，0 = 最后一格
     assert w.points == 5 and w.bucket_of(w.since + timedelta(hours=1)) == 4 and w.bucket_of(w.until - timedelta(hours=1)) == 0
+
+
+def test_study_time_build():
+    from datetime import timedelta
+    from app.services.profile_service import _study_time_build, Range
+    rng = Range.last(7)
+    subs = {1: ("MATH", "数学"), 2: ("PHYSICS", "物理"), 3: ("CHEMISTRY", "化学")}
+    d = lambda i: rng.end - timedelta(days=i)
+    rows = [{"d": d(0), "sid": 1, "t": 1200, "n": 6, "c": 5}, {"d": d(1), "sid": 1, "t": 300, "n": 5, "c": 2},
+            {"d": d(2), "sid": 2, "t": 240, "n": 4, "c": 2}, {"d": d(3), "sid": 1, "t": 360, "n": 5, "c": 2}, {"d": d(5), "sid": 1, "t": 600, "n": 6, "c": 5}]
+    r = _study_time_build(rows, subs, rng, 2700, 1200, 480, [{"h": 9, "t": 600}, {"h": 20, "t": 1800}, {"h": 23, "t": 300}])
+    assert [(b["key"], b["minutes"]) for b in r["time_buckets"]] == [("morning", 10.0), ("afternoon", 0.0), ("evening", 30.0), ("night", 5.0)]
+    assert r["has_data"] and len(r["series"]) == 7 and r["series"][-1]["minutes"]["MATH"] == 20.0 and r["series"][-1]["total"] == 20.0
+    assert [x["code"] for x in r["subjects"]][:3] == ["MATH", "PHYSICS", "CHEMISTRY"] and r["subjects"][2]["minutes"] == 0
+    assert r["stats"]["total_minutes"] == 45.0 and r["stats"]["delta_pct"] == 125 and r["stats"]["active_days"] == 5
+    assert r["stats"]["best_day"]["minutes"] == 20.0 and r["stats"]["avg_per_session"] == 8.0
+    texts = " ".join(h["text"] for h in r["highlights"])
+    assert "化学完全没有学习" in texts and "增加 125%" in texts
+    # 学得久的日子（20、10 分钟）正确率高、学得短的日子低
+    assert "正相关" in texts
+    # 时间太少：不下结论
+    assert _study_time_build(rows[:1] and [{"d": d(0), "sid": 1, "t": 60, "n": 1, "c": 1}], subs, rng, 60, 0, None)["has_data"] is False

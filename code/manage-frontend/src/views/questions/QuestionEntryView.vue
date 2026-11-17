@@ -204,13 +204,13 @@ async function loadData(silent = false) {
   if (!silent) loading.value = true
   try {
     const params: Record<string, unknown> = { page: page.value, limit: pageSize.value, order_by: 'created_at_desc' }
-    if (filters.status)     params.status     = filters.status
+    // 录入列表只展示未发布的三个状态（已发布 / 已停用归训练题管理）；在服务端筛，分页和总数才对
+    params.status = filters.status || 'draft,analyzing,pending_review'
     if (filters.difficulty) params.difficulty = filters.difficulty
     if (filters.keyword)    params.keyword    = filters.keyword
 
     const res = await questionApi.getList(params)
-    // 录入列表只展示未发布的三个状态，已发布/已停用题目归属训练题管理
-    questions.value = res.list.filter((q: Question) => ['draft', 'analyzing', 'pending_review'].includes(q.status))
+    questions.value = res.list
     total.value = res.total
     totalPages.value = res.total_pages ?? 1
     if (res.list.some((q: Question) => q.status === 'analyzing')) startPolling()

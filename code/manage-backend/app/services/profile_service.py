@@ -45,7 +45,7 @@ def _base(windowed: bool = False) -> str:
 
 
 BJ = timezone(timedelta(hours=8))
-DEFAULT_DAYS = 7          # 默认看近一周
+DEFAULT_DAYS = 7          # 默认看近一周（不含今天：今天还没过完，数据不完整，会把对比拉偏）
 MAX_RANGE_DAYS = 90       # 日期范围最长 90 天
 
 
@@ -67,7 +67,7 @@ class Range:
     @classmethod
     def build(cls, start: str | None, end: str | None) -> "Range":
         try:
-            e = date.fromisoformat(end) if end else today_bj()
+            e = date.fromisoformat(end) if end else today_bj() - timedelta(days=1)
             st = date.fromisoformat(start) if start else e - timedelta(days=DEFAULT_DAYS - 1)
         except ValueError:
             raise AppException("日期格式应为 YYYY-MM-DD", 400)
@@ -101,7 +101,7 @@ class Range:
 
     @property
     def is_recent(self) -> bool:
-        return self.end == today_bj()
+        return self.end >= today_bj() - timedelta(days=1)      # 结束日是今天或昨天，都按「近 N 天」叫
 
     @property
     def label(self) -> str:
@@ -150,10 +150,12 @@ class Range:
     def bucket_params(self) -> dict:
         return {"end_date": self.end} if self.daily else {"start_date": self.start}
 
+    def bucket_of_date(self, d: date) -> int:
+        return (self.end - d).days if self.daily else self.points - 1 - (d - self.start).days // 7
+
     def bucket_of(self, dt: datetime) -> int:
         """和 bucket_sql 同样的分格规则，给内存里的时间用"""
-        d = dt.astimezone(BJ).date()
-        return (self.end - d).days if self.daily else self.points - 1 - (d - self.start).days // 7
+        return self.bucket_of_date(dt.astimezone(BJ).date())
 
     def bucket_label(self, i: int) -> str:
         if self.daily:
@@ -976,6 +978,107 @@ def _kpi_cards(k, beh, recent, rng, series=None):
     return cards
 
 
+SUBJECT_ORDER = ["MATH", "PHYSICS", "CHEMISTRY"]
+
+
+def _study_time_build(rows, subjects, rng, t1, t0, avg_session_sec, hour_rows=None):
+    """学习时长明细（纯计算，方便测试）。rows：每天每个学科的 {d, sid, t(秒), n, c}；subjects：{id: (code, name)}。
+    时长 = 每道题的作答用时之和（系统没有记录页面在线时长，这是最接近的口径）。"""
+    names = {"MATH": "数学", "PHYSICS": "物理", "CHEMISTRY": "化学"}
+    def code_of(sid):
+        return subjects.get(sid, ("OTHER", "其他"))[0]
+    def name_of(code):
+        return names.get(code) or next((v[1] for v in subjects.values() if v[0] == code), "其他")
+    per_day: dict[date, dict] = {}
+    per_subj: dict[str, float] = {}
+    for r in rows:
+        c = code_of(r["sid"])
+        d = per_day.setdefault(r["d"], {"t": 0.0, "n": 0, "c": 0, "by": {}})
+        d["t"] += float(r["t"] or 0); d["n"] += r["n"]; d["c"] += r["c"]
+        d["by"][c] = d["by"].get(c, 0.0) + float(r["t"] or 0)
+        per_subj[c] = per_subj.get(c, 0.0) + float(r["t"] or 0)
+    total = sum(per_subj.values())
+    codes = [c for c in SUBJECT_ORDER] + sorted(c for c in per_subj if c not in SUBJECT_ORDER)
+    # 趋势柱：按天 / 按周，从旧到新，每柱按学科堆叠（分钟）
+    n = rng.points
+    buckets = [{"label": rng.bucket_label(w), "by": {}} for w in range(n - 1, -1, -1)]
+    for d, v in per_day.items():
+        i = n - 1 - rng.bucket_of_date(d)
+        if 0 <= i < n:
+            for c, sec in v["by"].items():
+                buckets[i]["by"][c] = buckets[i]["by"].get(c, 0) + sec / 60
+    series = [{"label": b["label"], "minutes": {c: round(b["by"].get(c, 0), 1) for c in codes}, "total": round(sum(b["by"].values()), 1)} for b in buckets]
+    subj = [{"code": c, "name": name_of(c), "minutes": round(per_subj.get(c, 0) / 60, 1), "share": _pct(per_subj.get(c, 0), total)} for c in codes]
+
+    active = {d: v for d, v in per_day.items() if v["t"] > 0}
+    avg_day = total / len(active) if active else None
+    best = max(active.items(), key=lambda kv: kv[1]["t"]) if active else None
+    wk = [v["t"] for d, v in active.items() if d.weekday() < 5]
+    we = [v["t"] for d, v in active.items() if d.weekday() >= 5]
+    stats = {
+        "total_minutes": round(total / 60, 1), "prev_minutes": round(t0 / 60, 1),
+        "delta_pct": round((t1 - t0) / t0 * 100) if t0 and t0 >= 600 else None,     # 前一段不足 10 分钟，比例没意义
+        "active_days": len(active), "avg_per_active_day": None if avg_day is None else round(avg_day / 60, 1),
+        "best_day": None if not best else {"date": str(best[0]), "minutes": round(best[1]["t"] / 60, 1)},
+        "avg_per_session": None if not avg_session_sec else round(avg_session_sec / 60, 1),
+        "weekday_avg": round(sum(wk) / len(wk) / 60, 1) if wk else None, "weekend_avg": round(sum(we) / len(we) / 60, 1) if we else None,
+    }
+
+    hl = []
+    if total < 300:
+        return {"has_data": False, "range_label": rng.label}
+    top = max(subj, key=lambda x: x["minutes"])
+    if top["share"] is not None and top["share"] >= 70 and sum(1 for x in subj if x["minutes"] > 0) >= 1:
+        idle = [x["name"] for x in subj if x["code"] in SUBJECT_ORDER and x["minutes"] == 0]
+        hl.append({"tone": "warn" if idle else "good", "text": f"{rng.label}的学习时间 {top['share']:g}% 花在{top['name']}上" + (f"，{'、'.join(idle)}完全没有学习" if idle else "")})
+    elif top["share"] is not None:
+        hl.append({"tone": "good", "text": f"时间分配比较均衡，{top['name']}占 {top['share']:g}%"})
+    if stats["delta_pct"] is not None and abs(stats["delta_pct"]) >= 20:
+        up = stats["delta_pct"] > 0
+        hl.append({"tone": "good" if up else "warn", "text": f"总学习时长 {stats['total_minutes']} 分钟，比前一段{'增加' if up else '减少'} {abs(stats['delta_pct'])}%"})
+    if best and avg_day and len(active) >= 3 and best[1]["t"] >= avg_day * 2:
+        hl.append({"tone": "warn", "text": f"{best[0].month}/{best[0].day} 一天学了 {stats['best_day']['minutes']} 分钟，是平时（{stats['avg_per_active_day']} 分钟）的 {round(best[1]['t'] / avg_day, 1)} 倍，更像是集中突击而不是每天积累"})
+    if stats["weekday_avg"] and stats["weekend_avg"]:
+        ratio = stats["weekend_avg"] / stats["weekday_avg"]
+        if ratio >= 1.8:
+            hl.append({"tone": "warn", "text": f"周末日均 {stats['weekend_avg']} 分钟，是工作日（{stats['weekday_avg']} 分钟）的 {round(ratio, 1)} 倍，学习集中在周末"})
+        elif ratio <= 0.5:
+            hl.append({"tone": "good", "text": f"工作日日均 {stats['weekday_avg']} 分钟，周末反而少（{stats['weekend_avg']} 分钟），平时学习更稳定"})
+    days_with_n = [(v["t"], v["c"] / v["n"] * 100, v["n"]) for v in active.values() if v["n"] >= 3]
+    if len(days_with_n) >= 4:
+        days_with_n.sort(key=lambda x: x[0])
+        half = len(days_with_n) // 2
+        lo, hi = days_with_n[:half], days_with_n[-half:]
+        lo_acc = sum(a * n for _, a, n in lo) / sum(n for *_, n in lo)
+        hi_acc = sum(a * n for _, a, n in hi) / sum(n for *_, n in hi)
+        if abs(hi_acc - lo_acc) >= 8:
+            hl.append({"tone": "good" if hi_acc > lo_acc else "warn",
+                       "text": f"学得久的日子正确率 {round(hi_acc)}%，学得短的日子 {round(lo_acc)}%：" + ("时间投入和效果正相关，可以鼓励每次多学一会" if hi_acc > lo_acc else "学得越久反而错得越多，可能有疲劳，建议拆成多次短时训练")})
+    if stats["avg_per_session"]:
+        a = stats["avg_per_session"]
+        if a < 5:
+            hl.append({"tone": "warn", "text": f"每次训练平均只有 {a} 分钟，时间偏碎，难以进入状态"})
+        elif a > 40:
+            hl.append({"tone": "warn", "text": f"每次训练平均 {a} 分钟，偏长，注意中途休息"})
+    tb = []
+    for key, label, lo, hi in TIME_BUCKETS:
+        sec = sum(float(r["t"] or 0) for r in (hour_rows or []) if lo <= (r["h"] if r["h"] >= 6 else r["h"] + 24) < hi)
+        tb.append({"key": key, "label": label, "range": f"{lo}–{min(hi, 24) if hi <= 24 else str(hi - 24) + '(次日)'}点", "minutes": round(sec / 60, 1)})
+    return {"has_data": True, "unit": "day" if rng.daily else "week", "time_buckets": tb, "subjects": subj, "series": series, "stats": stats, "highlights": hl[:5]}
+
+
+async def _study_time(db, sid, rng, k, beh):
+    rows = await _rows(db, f"""
+        SELECT (a.answered_at AT TIME ZONE '{TZ}')::date d, q.subject_id sid, coalesce(sum(a.time_spent_sec), 0) t,
+               count(*) n, count(*) FILTER (WHERE a.is_correct) c
+        {_base(True)} GROUP BY 1, 2""", sid=sid, **rng.params)
+    subs = {r["id"]: (r["code"], r["name"]) for r in await _rows(db, "SELECT id, code, name FROM subjects")}
+    hours = await _rows(db, f"""
+        SELECT extract(hour FROM a.answered_at AT TIME ZONE '{TZ}')::int h, coalesce(sum(a.time_spent_sec), 0) t
+        {_base(True)} GROUP BY 1""", sid=sid, **rng.params)
+    return _study_time_build(rows, subs, rng, k["t1"], k["t0"], beh.get("avg_seconds_per_session"), hours)
+
+
 async def get_profile(db: AsyncSession, student_id: int, start: str | None = None, end: str | None = None) -> dict:
     """start / end：统计日期范围（YYYY-MM-DD，北京时间，含起止两天；默认近 7 天，最长 90 天）。
     答题量、正确率、行为、诊断、AI 互动、学习状态、投入度等按这个范围统计；
@@ -996,13 +1099,15 @@ async def get_profile(db: AsyncSession, student_id: int, start: str | None = Non
     recent = await _recent_accuracy(db, student_id, rng)
     from app.services import profile_config, profile_warning_service
     summary = _summary(basic, cog, mastery, beh, ai, weeks, recent["n"], await profile_config.get_weights(db), diagnosis, insights, recent, rng)
-    kpis = _kpi_cards(await _kpi_stats(db, student_id, rng), beh, recent, rng, await _kpi_series(db, student_id, rng, beh))
+    kstats = await _kpi_stats(db, student_id, rng)
+    kpis = _kpi_cards(kstats, beh, recent, rng, await _kpi_series(db, student_id, rng, beh))
+    study_time = await _study_time(db, student_id, rng, kstats, beh)
     beh.pop("_sessions", None)
     await profile_warning_service.sync(db, student_id, basic)
     warnings = await profile_warning_service.list_warnings(db, student_id)
     return {
         "generated_at": datetime.now(timezone.utc), "range": rng.info(),
-        "summary": summary, "kpis": kpis, "basic": basic, "cognitive": cog, "mastery": mastery,
+        "summary": summary, "kpis": kpis, "study_time": study_time, "basic": basic, "cognitive": cog, "mastery": mastery,
         "behavior": beh, "diagnosis": diagnosis, "insights": insights, "ai_interaction": ai, "traits": traits,
         "warnings": warnings,
     }

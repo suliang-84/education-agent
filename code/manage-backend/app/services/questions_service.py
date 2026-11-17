@@ -149,7 +149,9 @@ async def get_list(db: AsyncSession, params: dict) -> dict:
     if params.get('knowledge_point_id'):
         q = q.where(Question.knowledge_point_ids.contains([params['knowledge_point_id']]))
     if params.get('status'):
-        q = q.where(Question.status == params['status'])
+        # 支持逗号分隔的多个状态，如 draft,analyzing,pending_review（录入列表用它在服务端筛，分页才准）
+        sts = [x.strip() for x in str(params['status']).split(',') if x.strip()]
+        q = q.where(Question.status.in_(sts) if len(sts) > 1 else Question.status == sts[0])
     if params.get('difficulty'):
         q = q.where(Question.difficulty == params['difficulty'])
     if params.get('question_type'):

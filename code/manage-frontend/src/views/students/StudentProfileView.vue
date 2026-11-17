@@ -28,7 +28,7 @@
       <!-- 基础档案 + 综合评估 -->
       <!-- 顶部统计小卡片 -->
       <div v-if="p.kpis?.length" class="kpi-strip">
-        <div v-for="k in p.kpis" :key="k.key" class="kpi">
+        <div v-for="k in p.kpis" :key="k.key" class="kpi" :class="{ 'kpi--link': k.key === 'study_time' }" @click="k.key === 'study_time' && gotoStudy()">
           <div class="kpi__txt">
             <div class="kpi__lbl">{{ k.label }}
               <el-tooltip :content="k.tip" placement="top" :show-after="150" popper-class="st-popper">
@@ -57,6 +57,25 @@
           <el-button type="primary" :loading="handleSaving" @click="submitHandle">确认</el-button>
         </template>
       </el-dialog>
+
+      <!-- 学习时长三图：趋势 : 学科分布 : 时段分布 = 2 : 2.5 : 1.5 -->
+      <div class="chart-row">
+        <div class="chart-card">
+          <div class="chart-card__title">学习时长趋势</div>
+          <div v-if="p.study_time?.has_data" ref="studyTrendRef" class="chart-card__body" />
+          <div v-else class="chart-card__empty">{{ rangeLabel }}暂无学习记录</div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card__title">学科分布</div>
+          <div v-if="p.study_time?.has_data" ref="studyRef" class="chart-card__body" />
+          <div v-else class="chart-card__empty">{{ rangeLabel }}暂无学习记录</div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card__title">时段时长分布</div>
+          <div v-if="p.study_time?.has_data" ref="studyHourRef" class="chart-card__body" />
+          <div v-else class="chart-card__empty">暂无学习记录</div>
+        </div>
+      </div>
 
       <!-- 分维度标签页 -->
       <div class="surface section-block tabs-block">
@@ -119,6 +138,35 @@
               <div v-if="p.cognitive.power_trend?.has_data" ref="trendPowerRef" class="history-chart" />
               <div v-else class="empty-sm">{{ rangeLabel }}还没有足够的做题数据</div>
             </template>
+          </el-tab-pane>
+
+          <!-- ② 学习时长 -->
+          <el-tab-pane label="学习时长" name="study" lazy>
+            <template v-if="p.study_time?.has_data && p.study_time.stats">
+              <div class="tiles" style="grid-template-columns:repeat(5,minmax(0,1fr))">
+                <div class="tile"><div class="tile__num num">{{ fmtMin(p.study_time.stats.total_minutes) }}</div>
+                  <div class="tile__lbl">总时长<template v-if="p.study_time.stats.delta_pct != null">（<span class="delta" :class="p.study_time.stats.delta_pct >= 0 ? 'delta--up' : 'delta--down'">{{ p.study_time.stats.delta_pct >= 0 ? '+' : '' }}{{ p.study_time.stats.delta_pct }}%</span>）</template></div></div>
+                <div class="tile"><div class="tile__num num">{{ fmtMin(p.study_time.stats.avg_per_active_day) }}</div><div class="tile__lbl">活跃日均（{{ p.study_time.stats.active_days }} 天）</div></div>
+                <div class="tile"><div class="tile__num num">{{ fmtMin(p.study_time.stats.best_day?.minutes) }}</div><div class="tile__lbl">单日最长（{{ p.study_time.stats.best_day ? p.study_time.stats.best_day.date.slice(5).replace('-', '/') : '—' }}）</div></div>
+                <div class="tile"><div class="tile__num num">{{ fmtMin(p.study_time.stats.avg_per_session) }}</div><div class="tile__lbl">平均每次训练</div></div>
+                <div class="tile"><div class="tile__num num">{{ fmtMin(p.study_time.stats.weekday_avg) }} / {{ fmtMin(p.study_time.stats.weekend_avg) }}</div><div class="tile__lbl">工作日 / 周末日均</div></div>
+              </div>
+              <div class="two-col" style="margin-top:10px">
+                <div>
+                  <div class="sub-title">学科分布</div>
+                  <div v-for="x in p.study_time.subjects" :key="x.code" class="rate-row">
+                    <span class="rate-row__label"><i class="subj-dot" :style="{ background: SUBJECT_COLORS[x.code] ?? SUBJECT_COLORS.OTHER }" />{{ x.name }}</span>
+                    <div class="bar"><div class="bar__fill" :style="{ width: (x.share ?? 0) + '%', background: SUBJECT_COLORS[x.code] ?? SUBJECT_COLORS.OTHER }" /></div>
+                    <span class="num">{{ fmtMin(x.minutes) }}　{{ x.share ?? 0 }}%</span>
+                  </div>
+                </div>
+                <div v-if="p.study_time.highlights?.length">
+                  <div class="sub-title">学习时长洞察</div>
+                  <div v-for="(h, i) in p.study_time.highlights" :key="i" class="hl-item"><span class="hl-item__dot" :class="`tone--${h.tone}`" />{{ h.text }}</div>
+                </div>
+              </div>
+            </template>
+            <div v-else class="empty">{{ rangeLabel }}还没有足够的学习记录</div>
           </el-tab-pane>
 
           <!-- ② 学业掌握 -->
@@ -424,6 +472,12 @@ const QT_ICONS: Record<string, string> = {
   SINGLE_CHOICE: 'qt_single', MULTIPLE_CHOICE: 'qt_multi', TRUE_FALSE: 'qt_judge', FILL_BLANK: 'qt_fill', APPLICATION: 'qt_application',
 }
 const KPI_VIZ: Record<string, 'line' | 'bars' | 'wave' | 'dots'> = { study_time: 'line', sessions: 'bars', answered: 'wave', accuracy: 'line', ai_asks: 'bars' }
+const SUBJECT_COLORS: Record<string, string> = { MATH: '#FACC15', PHYSICS: '#F87171', CHEMISTRY: '#4ADE80', OTHER: '#94A3B8' }
+// 分钟 → 「45 分钟」「1.6 小时」；空值显示 —
+function fmtMin(m?: number | null) {
+  if (m == null) return '—'
+  return m < 60 ? `${Math.round(m * 10) / 10} 分钟` : `${Math.round(m / 6) / 10} 小时`
+}
 const COG_STATUS: Record<string, string> = { below: '发挥不稳', above: '实战更强', ok: '与测试相符', few: '做题太少' }
 // 年级名称与学生列表保持一致
 const GRADES: Record<string, string> = { G7: '初一', G8: '初二', G9: '初三', G10: '高一', G11: '高二', G12: '高三' }
@@ -438,7 +492,8 @@ const tab = ref('cognitive')
 const MAX_RANGE_DAYS = 90
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 const daysAgo = (n: number) => { const d = new Date(); d.setDate(d.getDate() - n); return d }
-const lastDays = (n: number): [string, string] => [ymd(daysAgo(n - 1)), ymd(new Date())]
+// 近 N 天：到昨天为止，不含今天（今天还没过完，数据不完整）
+const lastDays = (n: number): [string, string] => [ymd(daysAgo(n)), ymd(daysAgo(1))]
 const dateRange = ref<[string, string]>(lastDays(7))
 const rangeShortcuts = [
   { text: '近一周', value: () => lastDays(7) },
@@ -463,6 +518,9 @@ function onRangeChange() {
   load()
 }
 const radarRef = ref<HTMLElement>()
+const studyRef = ref<HTMLElement>()
+const studyTrendRef = ref<HTMLElement>()
+const studyHourRef = ref<HTMLElement>()
 const trendPowerRef = ref<HTMLElement>()
 const charts: echarts.ECharts[] = []
 
@@ -570,6 +628,55 @@ function renderRadar() {
   }
 }
 
+// 三张学习时长图（趋势 / 学科堆叠 / 时段）。图表一直在页面上，数据加载完就画
+function renderStudy() {
+  const t = p.value?.study_time
+  if (!t?.has_data || !t.series || !t.subjects) return
+  const series = t.series
+  const txt3 = cssVar('--text-3', '#999')
+  const axis = { axisLabel: { color: txt3, fontSize: 11 }, axisLine: { lineStyle: { color: 'rgba(128,128,128,0.25)' } }, axisTick: { show: false } }
+  const yAxis = { type: 'value' as const, splitNumber: 3, splitLine: { lineStyle: { color: 'rgba(128,128,128,0.15)' } }, axisLabel: { color: txt3, fontSize: 11 } }
+  const primary = cssVar('--color-primary', '#608df9')
+  const tip = (i: number) => `${series[i].label}<br/>`
+
+  const c1 = initChart(studyTrendRef.value)
+  c1?.setOption({
+    grid: { left: 38, right: 14, top: 14, bottom: 24 },
+    tooltip: { trigger: 'axis', formatter: (ps: { dataIndex: number }[]) => `${tip(ps[0].dataIndex)}学习时长：${fmtMin(series[ps[0].dataIndex].total)}` },
+    xAxis: { type: 'category', data: series.map(x => x.label), ...axis },
+    yAxis: { ...yAxis, name: '分钟', nameTextStyle: { color: txt3, fontSize: 11 } },
+    series: [{ type: 'line', data: series.map(x => x.total), smooth: true, symbolSize: 6, itemStyle: { color: primary }, lineStyle: { color: primary, width: 2 }, areaStyle: { color: primary, opacity: 0.14 } }],
+  })
+
+  const c2 = initChart(studyRef.value)
+  c2?.setOption({
+    grid: { left: 38, right: 14, top: 30, bottom: 24 },
+    legend: { top: 0, itemWidth: 10, itemHeight: 8, textStyle: { color: cssVar('--text-2', '#888'), fontSize: 12 } },
+    tooltip: {
+      trigger: 'axis', axisPointer: { type: 'shadow' },
+      formatter: (ps: { dataIndex: number; seriesName: string; marker: string; value: number }[]) =>
+        tip(ps[0].dataIndex) + ps.filter(x => x.value > 0).map(x => `${x.marker}${x.seriesName}：${fmtMin(x.value)}`).join('<br/>') + `<br/><b>合计：${fmtMin(series[ps[0].dataIndex].total)}</b>`,
+    },
+    xAxis: { type: 'category', data: series.map(x => x.label), ...axis },
+    yAxis: { ...yAxis, name: '分钟', nameTextStyle: { color: txt3, fontSize: 11 } },
+    series: t.subjects.map((sj, i, arr) => ({
+      name: sj.name, type: 'bar', stack: 'time', barWidth: 15,
+      data: series.map(x => x.minutes[sj.code] ?? 0),
+      itemStyle: { color: SUBJECT_COLORS[sj.code] ?? SUBJECT_COLORS.OTHER, borderRadius: i === arr.length - 1 ? [3, 3, 0, 0] : 0 },
+    })),
+  })
+
+  const tb = t.time_buckets ?? []
+  const c3 = initChart(studyHourRef.value)
+  c3?.setOption({
+    grid: { left: 34, right: 6, top: 14, bottom: 24 },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: (ps: { dataIndex: number }[]) => `${tb[ps[0].dataIndex].label}（${tb[ps[0].dataIndex].range}）<br/>${fmtMin(tb[ps[0].dataIndex].minutes)}` },
+    xAxis: { type: 'category', data: tb.map(x => x.label), ...axis },
+    yAxis,
+    series: [{ type: 'bar', barWidth: 15, data: tb.map(x => x.minutes), itemStyle: { color: '#7C9CFB', borderRadius: [3, 3, 0, 0] } }],
+  })
+}
+
 function renderPowerTrend() {
   const c = initChart(trendPowerRef.value)
   const t = p.value?.cognitive.power_trend
@@ -596,6 +703,7 @@ async function drawTab() {
   await nextTick()
   if (tab.value === 'cognitive') { renderRadar(); renderPowerTrend() }
 }
+function gotoStudy() { tab.value = 'study'; onTabChange() }
 function onTabChange() {
   drawTab()
   // 表格在没显示的标签页里算不出列宽，切过来后通知它重新布局
@@ -607,6 +715,7 @@ async function load() {
   try {
     p.value = await studentApi.getProfile(studentId, dateRange.value[0], dateRange.value[1])
     await nextTick()
+    renderStudy()
     await drawTab()
   } finally { loading.value = false }
 }
@@ -631,6 +740,19 @@ onBeforeUnmount(() => { window.removeEventListener('resize', onResize); charts.f
   box-shadow: none !important;
   border: 1px solid rgba(96, 141, 248, 0.15) !important;
 }
+// 学习时长三图：趋势 : 学科分布 : 时段 = 2 : 2.5 : 1.5
+.chart-row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 2.5fr) minmax(0, 1.5fr); gap: 15px; flex-shrink: 0; @media (max-width: 1100px) { grid-template-columns: 1fr; } }
+.chart-card { padding: 12px 14px 8px; min-width: 0; border-radius: 6px;
+  background: radial-gradient(260px circle at 6% 0%, rgba(110, 122, 200, 0.16), transparent 72%), linear-gradient(165deg, rgba(24, 28, 50, 0.74), rgba(13, 15, 28, 0.80));
+  border: 1px solid rgba(200, 210, 255, 0.10); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  &__title { font-size: 13px; color: var(--text-2); }
+  &__body { height: 210px; }
+  &__empty { height: 210px; display: flex; align-items: center; justify-content: center; font-size: 13px; color: var(--text-3); } }
+:global(html[data-theme="light"]) .page-root .chart-card {
+  background: radial-gradient(260px circle at 6% 0%, rgba(124, 112, 255, 0.10), transparent 72%), linear-gradient(165deg, rgba(244, 247, 255, 0.96), rgba(252, 253, 255, 0.92));
+  border-color: rgba(94, 141, 249, 0.18); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9); }
+.subj-dot { display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; }
+.kpi--link { cursor: pointer; }
 .kpi-strip { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 15px; flex-shrink: 0; @media (max-width: 1100px) { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 // 顶部统计小卡片（参考图）：深海军蓝底，左上略亮；1px 渐变描边（四角亮、边中淡）；
 // 右侧约一半宽、整卡高的区域铺细方格（向左淡出），迷你图画在方格上；标题灰蓝、数字用等宽字体、较大较细
