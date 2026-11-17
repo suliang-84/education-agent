@@ -48,50 +48,6 @@
         </div>
       </div>
 
-      <div class="overview">
-        <div class="eval-grid">
-          <div class="eval-card">
-            <div class="eval-card__label">学习状态</div>
-            <div class="st-metrics">
-              <div v-for="m in p.summary.status_detail.metrics" :key="m.key" class="st-metric">
-                <div class="st-metric__lbl">{{ m.label }}</div>
-                <div class="st-metric__val num" :class="m.delta == null && m.tone && `tone--${m.tone}`">{{ m.value }}</div>
-                <div v-if="m.delta != null" class="st-metric__hint">
-                  <span class="delta" :class="m.delta > 0 ? 'delta--up' : m.delta < 0 ? 'delta--down' : ''" :title="[m.prev, `较前一周期${m.delta >= 0 ? '上升' : '下降'} ${Math.abs(m.delta)}${m.unit === '%' ? ' 个百分点' : m.unit}`].filter(Boolean).join('，')">
-                    <SvgIcon v-if="m.delta !== 0" name="arrow_up" :size="11" :class="{ 'delta__down': m.delta < 0 }" />{{ Math.abs(m.delta) }}{{ m.unit }}
-                  </span>
-                </div>
-                <div v-else class="st-metric__hint" :class="m.tone && `tone--${m.tone}`">{{ m.hint || '\u00a0' }}</div>
-              </div>
-            </div>
-            <div v-if="p.summary.status_detail.drivers.length" class="st-drivers">
-              <el-tooltip v-for="(d, i) in p.summary.status_detail.drivers.slice(0, 3)" :key="i" :content="d.text" placement="top-start" :show-after="200" popper-class="st-popper">
-                <div class="st-driver"><span class="st-driver__dot" :class="`tone--${d.tone}`" />{{ d.text }}</div>
-              </el-tooltip>
-            </div>
-          </div>
-          <div class="eval-card">
-            <div class="eval-card__label">学习投入度</div>
-            <div class="eval-card__num num">{{ p.summary.engagement_score }}<span class="unit"> / 100</span></div>
-            <div class="parts">
-              <div v-for="x in engagementParts" :key="x.label" class="part">
-                <span class="part__label">{{ x.label }}
-                  <el-tooltip :content="x.tip" placement="top" :show-after="150" popper-class="st-popper">
-                    <SvgIcon name="help" :size="13" class="part__help" />
-                  </el-tooltip>
-                </span>
-                <div class="bar"><div class="bar__fill" :style="{ width: (x.value ?? 0) + '%' }" /></div>
-                <span class="part__val num">{{ x.value ?? '—' }}</span>
-              </div>
-            </div>
-          </div>
-          <div class="eval-card">
-            <div class="eval-card__label">{{ rangeLabel }}正确率</div>
-            <div ref="trendRef" class="trend-chart" />
-          </div>
-        </div>
-      </div>
-
       <el-dialog v-model="handleVisible" title="标记为已处理" width="440px" :close-on-click-modal="false">
         <div class="handle-msg" v-if="handling">{{ handling.rule_name }}：{{ handling.message }}</div>
         <el-input v-model="handleNote" type="textarea" :rows="3" maxlength="500" show-word-limit placeholder="处理备注（选填），比如已联系家长、已调整训练计划" />
@@ -506,7 +462,6 @@ function onRangeChange() {
   }
   load()
 }
-const trendRef = ref<HTMLElement>()
 const radarRef = ref<HTMLElement>()
 const trendPowerRef = ref<HTMLElement>()
 const charts: echarts.ECharts[] = []
@@ -535,19 +490,6 @@ const gradeLabel = computed(() => {
   const b = p.value?.basic
   if (!b) return ''
   return `${GRADES[b.grade ?? ''] ?? b.grade ?? '未设置年级'} ${SEMESTERS[b.semester ?? ''] ?? b.semester ?? ''}`.trim()
-})
-const engagementParts = computed(() => {
-  const e = p.value?.summary.engagement_parts
-  const r = p.value?.range
-  const fq = r?.freq_full ?? 3
-  const rv = r?.review_full ?? 1
-  return e ? [
-    { label: '训练频次', value: e.frequency, tip: `看学生练得勤不勤。统计：${rangeLabel.value}开始的训练次数 ÷ ${fq}（每 30 天 12 次，按所选天数折算），达到 ${fq} 次及以上为满分 100。` },
-    { label: '连续天数', value: e.streak, tip: '看学习习惯能不能持续。统计：截至今天（昨天有答题也算）连续每天都有答题的天数 ÷ 7，达到 7 天及以上为满分 100。不随时间范围变化。' },
-    { label: '答题完成度', value: e.complete, tip: `看发给学生的题有没有做完，是否中途放弃。统计：${rangeLabel.value}已作答题数 ÷ 发放题数。` },
-    { label: '认真作答', value: e.careful, tip: `看学生是不是在读题、思考。统计：${rangeLabel.value}用时最短的三分之一答题里，答错的题占全部答题的比例（快而错）；占比越低得分越高，达到 40% 及以上为 0。带用时的答题不足 20 道时不计入。` },
-    { label: '错题复盘', value: e.review, tip: `看做错之后有没有回头订正。统计：错题攻克率（当前累计）× 60% + ${rangeLabel.value}用「错题集」训练的次数 ÷ ${rv}（每 30 天 4 次，按所选天数折算，上限 1）× 40%。错题记录不足 3 道时不计入。` },
-  ] : []
 })
 const intentList = computed(() => (p.value?.ai_interaction.intents ?? []).map((x) => {
   if (typeof x === 'string') return x
@@ -597,27 +539,6 @@ function initChart(el?: HTMLElement) {
   const c = echarts.init(el)
   charts.push(c)
   return c
-}
-
-let trendObserver: ResizeObserver | null = null
-function renderTrend() {
-  const c = initChart(trendRef.value)
-  if (!c || !p.value) return
-  // 卡片高度会随同行的学习状态卡片变化：容器尺寸一变，图表跟着重绘
-  trendObserver?.disconnect()
-  if (trendRef.value && typeof ResizeObserver !== 'undefined') {
-    trendObserver = new ResizeObserver(() => c.resize())
-    trendObserver.observe(trendRef.value)
-  }
-  const weeks = p.value.summary.trend.weeks
-  const primary = cssVar('--color-primary', '#608df9')
-  c.setOption({
-    grid: { left: 30, right: 10, top: 10, bottom: 22 },
-    xAxis: { type: 'category', data: weeks.map(w => w.label), axisLabel: { color: cssVar('--text-3', '#999'), fontSize: 11 }, axisLine: { show: false }, axisTick: { show: false } },
-    yAxis: { type: 'value', min: 0, max: 100, splitNumber: 2, axisLabel: { color: cssVar('--text-3', '#999'), fontSize: 11 }, splitLine: { lineStyle: { color: 'rgba(128,128,128,0.15)' } } },
-    tooltip: { trigger: 'axis', formatter: (ps: { dataIndex: number }[]) => { const w = weeks[ps[0].dataIndex]; return w.accuracy === null ? '无数据' : `正确率 ${w.accuracy}%（${w.answered} 题）` } },
-    series: [{ type: 'line', data: weeks.map(w => w.accuracy), connectNulls: true, smooth: true, symbolSize: 6, itemStyle: { color: primary }, lineStyle: { color: primary, width: 2 }, areaStyle: { color: primary, opacity: 0.12 } }],
-  })
 }
 
 function renderRadar() {
@@ -686,14 +607,13 @@ async function load() {
   try {
     p.value = await studentApi.getProfile(studentId, dateRange.value[0], dateRange.value[1])
     await nextTick()
-    renderTrend()
     await drawTab()
   } finally { loading.value = false }
 }
 
 function onResize() { charts.forEach(c => c.resize()) }
 onMounted(() => { load(); window.addEventListener('resize', onResize) })
-onBeforeUnmount(() => { trendObserver?.disconnect(); window.removeEventListener('resize', onResize); charts.forEach(c => c.dispose()) })
+onBeforeUnmount(() => { window.removeEventListener('resize', onResize); charts.forEach(c => c.dispose()) })
 </script>
 
 <style lang="scss" scoped>
@@ -711,31 +631,6 @@ onBeforeUnmount(() => { trendObserver?.disconnect(); window.removeEventListener(
   box-shadow: none !important;
   border: 1px solid rgba(96, 141, 248, 0.15) !important;
 }
-// ── 状态卡片质感（参考图：大圆角、深色半透明玻璃、渐变光晕、柔和描边） ──
-.eval-card {
-  // 配色取自系统通用玻璃面板（style.scss 的 .section-block / .surface），暗 / 亮各一套
-  position: relative;
-  border-radius: 6px;
-  background:
-    radial-gradient(360px circle at 8% -25%, rgba(94, 141, 249, 0.20), transparent 62%),
-    radial-gradient(420px circle at 104% 125%, rgba(124, 112, 255, 0.13), transparent 62%),
-    rgba(14, 17, 22, 0.60);
-  -webkit-backdrop-filter: blur(20px) saturate(150%);
-  backdrop-filter: blur(20px) saturate(150%);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.06);
-}
-:global(html[data-theme="light"]) .page-root .eval-card {
-  background:
-    radial-gradient(360px circle at 8% -25%, rgba(94, 141, 249, 0.12), transparent 62%),
-    radial-gradient(420px circle at 104% 125%, rgba(124, 112, 255, 0.07), transparent 62%),
-    rgba(255, 255, 255, 0.74);
-  -webkit-backdrop-filter: blur(16px) saturate(160%);
-  backdrop-filter: blur(16px) saturate(160%);
-  border: 1px solid rgba(96, 141, 249, 0.14);
-  box-shadow: 0 1px 3px rgba(30, 41, 59, 0.04), 0 2px 8px rgba(94, 141, 249, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.9);
-}
-// ── 综合评估三张卡片 ─────────────────────────────────────
 .kpi-strip { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 15px; flex-shrink: 0; @media (max-width: 1100px) { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 // 顶部统计小卡片（参考图）：深海军蓝底，左上略亮；1px 渐变描边（四角亮、边中淡）；
 // 右侧约一半宽、整卡高的区域铺细方格（向左淡出），迷你图画在方格上；标题灰蓝、数字用等宽字体、较大较细
@@ -762,29 +657,13 @@ onBeforeUnmount(() => { trendObserver?.disconnect(); window.removeEventListener(
     radial-gradient(180px circle at 6% 0%, rgba(124, 112, 255, 0.14), transparent 72%),
     linear-gradient(165deg, rgba(244, 247, 255, 0.96), rgba(252, 253, 255, 0.92));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9); }
-.eval-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr); gap: 15px; }
-.eval-card {
-  padding: 12px 15px;
-  min-height: 150px;
-  display: flex; flex-direction: column;
-  &__label { font-size: 13px; color: var(--text-2); margin-bottom: 8px; }
-  &__num { font-size: 30px; font-weight: 700; color: var(--text-1); .unit { font-size: 13px; font-weight: 400; color: var(--text-3); } }
-  &__desc { margin-top: 8px; font-size: 12.5px; line-height: 1.6; color: var(--text-3); }
-}
 .delta { display: inline-flex; align-items: center; gap: 2px; font-size: 13px; font-weight: 600; color: var(--text-3); cursor: default;
   &--up { color: var(--green); } &--down { color: var(--red); }
   &__down { transform: rotate(180deg); } }
-.st-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.st-metric { &__lbl { font-size: 12px; color: var(--text-3); } &__val { margin-top: 2px; font-size: 18px; font-weight: 700; color: var(--text-1); } &__hint { margin-top: 1px; font-size: 11.5px; color: var(--text-3); } }
 .tone--good { color: var(--green) !important; }
 .tone--warn { color: var(--amber) !important; }
-.st-drivers { margin-top: 10px; padding-top: 8px; border-top: 1px dashed rgba(96, 141, 248, 0.2); }
 :global(.st-popper) { max-width: 480px; line-height: 1.6; }
-.st-driver { position: relative; padding-left: 14px; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; line-height: 1.6; color: var(--text-1);
-  &__dot { position: absolute; left: 2px; top: 8px; width: 6px; height: 6px; border-radius: 50%; background: currentColor; } }
-.parts { margin-top: 10px; }
-.part { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font-size: 12px; color: var(--text-2); &__label { display: flex; align-items: center; gap: 3px; width: 86px; white-space: nowrap; } &__help { color: var(--text-3); cursor: help; &:hover { color: var(--color-primary); } } &__val { width: 28px; text-align: right; color: var(--text-3); } }
-.trend-chart { flex: 1; min-height: 100px; }   // 卡片是纵向 flex，图表占满标题和说明之外的剩余高度
+.part__help { color: var(--text-3); cursor: help; &:hover { color: var(--color-primary); } }
 
 .tips { margin-top: 5px; }
 .tip { display: flex; gap: 8px; margin-bottom: 5px; font-size: 13px; line-height: 1.6; color: var(--text-1); }
@@ -797,7 +676,7 @@ onBeforeUnmount(() => { trendObserver?.disconnect(); window.removeEventListener(
 .rate-row__label { display: flex; align-items: center; gap: 4px; width: 84px; flex-shrink: 0; color: var(--text-2); white-space: nowrap; }
 .rate-row__val { min-width: 92px; white-space: nowrap; flex-shrink: 0; text-align: right; color: var(--text-1); small { margin-left: 4px; font-size: 11px; color: var(--text-3); } }
 
-.tiles { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 15px; margin: 5px 0 10px; @media (max-width: 1200px) { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.tiles { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 15px; margin: 5px 0 10px; @media (max-width: 1200px) { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .tile { padding: 10px 12px; border: 1px solid rgba(96, 141, 248, 0.15); border-radius: 4px; }
 .tile__num { font-size: 22px; font-weight: 700; color: var(--text-1); &.ts { font-size: 14px; line-height: 30px; } }
 .tile__lbl { margin-top: 2px; font-size: 12px; color: var(--text-3); }
