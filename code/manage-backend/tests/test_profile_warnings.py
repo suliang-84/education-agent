@@ -380,3 +380,25 @@ def test_study_time_build():
     assert "正相关" in texts
     # 时间太少：不下结论
     assert _study_time_build(rows[:1] and [{"d": d(0), "sid": 1, "t": 60, "n": 1, "c": 1}], subs, rng, 60, 0, None)["has_data"] is False
+
+
+def test_study_time_types_and_tips():
+    from datetime import timedelta
+    from app.services.profile_service import _study_time_build, Range
+    rng = Range.last(7)
+    subs = {1: ("MATH", "数学"), 2: ("PHYSICS", "物理"), 3: ("CHEMISTRY", "化学")}
+    d = lambda i: rng.end - timedelta(days=i)
+    rows = [{"d": d(0), "sid": 1, "t": 1500, "n": 6, "c": 5}, {"d": d(1), "sid": 1, "t": 300, "n": 5, "c": 2}, {"d": d(2), "sid": 1, "t": 240, "n": 4, "c": 2}]
+    types = [{"dim": "UNIT", "t": 1500, "n": 1}, {"dim": "KNOWLEDGE_POINT", "t": 540, "n": 5}]
+    r = _study_time_build(rows, subs, rng, 2040, 1200, 120, [{"h": 23, "t": 2040}], types, 8)
+    assert [(x["key"], x["share"]) for x in r["types"]] == [("KNOWLEDGE_POINT", 26.5), ("UNIT", 73.5)]     # 顺序按小程序练习方式
+    tips = " ".join(r["tips"])
+    assert "平均只有 2.0 分钟" in tips and "深夜" in tips and "物理、化学" in tips and len(r["tips"]) <= 5
+    # 有积压错题、错题集几乎没练：提醒（用一份别的问题都没有的数据，避免被 5 条上限挤掉）
+    rows2 = [{"d": d(i), "sid": 1 + i % 3, "t": 900, "n": 4, "c": 3} for i in range(7)]
+    r2 = _study_time_build(rows2, subs, rng, 6300, 6000, 900, [{"h": 19, "t": 6300}], [{"dim": "KNOWLEDGE_POINT", "t": 6300, "n": 7}], 8)
+    assert any("错题集只占学习时间的 0%" in t for t in r2["tips"]) and any("练习方式比较单一" in t for t in r2["tips"])
+    # 一切正常时给一条肯定的话
+    ok = _study_time_build([{"d": d(i), "sid": 1 + i % 3, "t": 900, "n": 4, "c": 3} for i in range(7)], subs, rng, 6300, 6000, 900, [{"h": 19, "t": 6300}],
+                           [{"dim": "KNOWLEDGE_POINT", "t": 3000, "n": 3}, {"dim": "ERROR_QUESTIONS", "t": 3300, "n": 3}], 0)
+    assert ok["tips"] == ["学习时间的节奏和分配都比较健康，继续保持"]

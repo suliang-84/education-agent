@@ -20,6 +20,8 @@ TYPE_LABELS = {"SINGLE_CHOICE": "单选题", "MULTIPLE_CHOICE": "多选题", "TR
 DIFF_LABELS = {"basic": "基础", "advanced": "进阶", "challenge": "挑战"}
 DIM_LABELS = {"KNOWLEDGE_POINT": "按知识点", "UNIT": "按单元", "RANDOM": "随机", "ERROR_QUESTIONS": "错题集",
               "FAVORITES": "收藏夹", "SMART": "智能训练", "SEMESTER": "按学期"}
+# 学习时长环形图的顺序：和小程序「练习方式」一致，最后是小程序里没有入口的按学期
+DIM_ORDER = ["KNOWLEDGE_POINT", "UNIT", "ERROR_QUESTIONS", "FAVORITES", "SMART", "RANDOM", "SEMESTER"]
 TIME_BUCKETS = [("morning", "上午", 6, 12), ("afternoon", "下午", 12, 18), ("evening", "晚上", 18, 22), ("night", "深夜", 22, 30)]
 
 # 学习投入度权重（训练频次 / 连续天数 / 答题完成度 / 认真作答）
@@ -981,7 +983,45 @@ def _kpi_cards(k, beh, recent, rng, series=None):
 SUBJECT_ORDER = ["MATH", "PHYSICS", "CHEMISTRY"]
 
 
-def _study_time_build(rows, subjects, rng, t1, t0, avg_session_sec, hour_rows=None):
+def _study_time_tips(stats, subj, types, tb, rng, wrong_pending):
+    """学习时长维度的建议（最多 5 条）：每条都是能直接照着做的一句话，依据都来自上面的统计"""
+    tips = []
+    a = stats["avg_per_session"]
+    if a is not None and a < 5:
+        tips.append(f"每次训练平均只有 {a} 分钟，建议把零碎的几次合成一次 10～15 分钟的完整训练，更容易进入状态")
+    elif a is not None and a > 40:
+        tips.append(f"每次训练平均 {a} 分钟，偏长；建议每 25～30 分钟休息 5 分钟，再继续")
+    wk, we = stats["weekday_avg"], stats["weekend_avg"]
+    if wk and we and we / wk >= 1.8:
+        tips.append(f"学习集中在周末（日均 {we} 分钟，工作日只有 {wk} 分钟）；建议把一部分挪到工作日，每天固定 10～15 分钟，比周末突击效果好")
+    elif we is None and wk and rng.days >= 7:
+        tips.append("周末几乎没有学习记录，可以安排一次 20～30 分钟的复盘训练")
+    best, avg = stats["best_day"], stats["avg_per_active_day"]
+    if best and avg and stats["active_days"] >= 3 and best["minutes"] >= avg * 2:
+        tips.append(f"{best['date'][5:].replace('-', '/')} 一天学了 {best['minutes']} 分钟，是平时的 {round(best['minutes'] / avg, 1)} 倍；建议把这部分量分摊到相邻几天，避免突击")
+    need = max(2, rng.days * 4 // 7) if rng.days <= 14 else None
+    if need and stats["active_days"] < need and stats["active_days"] > 0:
+        tips.append(f"{rng.label}只有 {stats['active_days']} 天在学习，建议每周至少安排 4 天，哪怕每天只有 10 分钟")
+    idle = [x["name"] for x in subj if x["code"] in SUBJECT_ORDER and x["minutes"] == 0]
+    if idle and len(idle) < len(SUBJECT_ORDER):
+        tips.append(f"{'、'.join(idle)}在{rng.label}内没有学习，建议每周至少安排 1～2 次，避免遗忘")
+    night = next((b for b in tb if b["key"] == "night"), None)
+    tot = sum(b["minutes"] for b in tb)
+    if night and tot and night["minutes"] / tot >= 0.2:
+        tips.append(f"深夜（22 点以后）学习占 {round(night['minutes'] / tot * 100)}%，建议把时间提前，保证睡眠；睡眠不足会拉低第二天的正确率")
+    if types:
+        top = max(types, key=lambda x: x["minutes"])
+        if (top["share"] or 0) >= 70 and len(types) >= 1:
+            tips.append(f"{top['share']:g}% 的时间用在「{top['label']}」，练习方式比较单一；可以穿插错题集和智能训练，覆盖更全面")
+        err = next((x for x in types if x["key"] == "ERROR_QUESTIONS"), None)
+        if wrong_pending >= 5 and (err is None or (err["share"] or 0) < 10):
+            tips.append(f"还有 {wrong_pending} 道错题没有攻克，但错题集只占学习时间的 {0 if err is None else err['share']:g}%；建议每次训练前先花 5 分钟过一遍错题集")
+    if not tips:
+        tips.append("学习时间的节奏和分配都比较健康，继续保持")
+    return tips[:5]
+
+
+def _study_time_build(rows, subjects, rng, t1, t0, avg_session_sec, hour_rows=None, type_rows=None, wrong_pending=0):
     """学习时长明细（纯计算，方便测试）。rows：每天每个学科的 {d, sid, t(秒), n, c}；subjects：{id: (code, name)}。
     时长 = 每道题的作答用时之和（系统没有记录页面在线时长，这是最接近的口径）。"""
     names = {"MATH": "数学", "PHYSICS": "物理", "CHEMISTRY": "化学"}
@@ -1060,14 +1100,19 @@ def _study_time_build(rows, subjects, rng, t1, t0, avg_session_sec, hour_rows=No
             hl.append({"tone": "warn", "text": f"每次训练平均只有 {a} 分钟，时间偏碎，难以进入状态"})
         elif a > 40:
             hl.append({"tone": "warn", "text": f"每次训练平均 {a} 分钟，偏长，注意中途休息"})
+    tot_type = sum(float(r["t"] or 0) for r in (type_rows or []))
+    tmap = {r["dim"]: r for r in (type_rows or [])}
+    types = [{"key": k, "label": DIM_LABELS.get(k, k), "minutes": round(float(tmap[k]["t"] or 0) / 60, 1), "sessions": tmap[k]["n"],
+              "share": _pct(float(tmap[k]["t"] or 0), tot_type) if k in tmap else 0.0} for k in DIM_ORDER if k in tmap]
     tb = []
     for key, label, lo, hi in TIME_BUCKETS:
         sec = sum(float(r["t"] or 0) for r in (hour_rows or []) if lo <= (r["h"] if r["h"] >= 6 else r["h"] + 24) < hi)
         tb.append({"key": key, "label": label, "range": f"{lo}–{min(hi, 24) if hi <= 24 else str(hi - 24) + '(次日)'}点", "minutes": round(sec / 60, 1)})
-    return {"has_data": True, "unit": "day" if rng.daily else "week", "time_buckets": tb, "subjects": subj, "series": series, "stats": stats, "highlights": hl[:5]}
+    return {"has_data": True, "unit": "day" if rng.daily else "week", "time_buckets": tb, "types": types,
+            "tips": _study_time_tips(stats, subj, types, tb, rng, wrong_pending), "subjects": subj, "series": series, "stats": stats, "highlights": hl[:5]}
 
 
-async def _study_time(db, sid, rng, k, beh):
+async def _study_time(db, sid, rng, k, beh, wrong_pending=0):
     rows = await _rows(db, f"""
         SELECT (a.answered_at AT TIME ZONE '{TZ}')::date d, q.subject_id sid, coalesce(sum(a.time_spent_sec), 0) t,
                count(*) n, count(*) FILTER (WHERE a.is_correct) c
@@ -1076,7 +1121,10 @@ async def _study_time(db, sid, rng, k, beh):
     hours = await _rows(db, f"""
         SELECT extract(hour FROM a.answered_at AT TIME ZONE '{TZ}')::int h, coalesce(sum(a.time_spent_sec), 0) t
         {_base(True)} GROUP BY 1""", sid=sid, **rng.params)
-    return _study_time_build(rows, subs, rng, k["t1"], k["t0"], beh.get("avg_seconds_per_session"), hours)
+    types = await _rows(db, f"""
+        SELECT s.training_dimension dim, coalesce(sum(a.time_spent_sec), 0) t, count(DISTINCT a.session_id) n
+        {_base(True)} GROUP BY 1""", sid=sid, **rng.params)
+    return _study_time_build(rows, subs, rng, k["t1"], k["t0"], beh.get("avg_seconds_per_session"), hours, types, wrong_pending)
 
 
 async def get_profile(db: AsyncSession, student_id: int, start: str | None = None, end: str | None = None) -> dict:
@@ -1101,7 +1149,7 @@ async def get_profile(db: AsyncSession, student_id: int, start: str | None = Non
     summary = _summary(basic, cog, mastery, beh, ai, weeks, recent["n"], await profile_config.get_weights(db), diagnosis, insights, recent, rng)
     kstats = await _kpi_stats(db, student_id, rng)
     kpis = _kpi_cards(kstats, beh, recent, rng, await _kpi_series(db, student_id, rng, beh))
-    study_time = await _study_time(db, student_id, rng, kstats, beh)
+    study_time = await _study_time(db, student_id, rng, kstats, beh, mastery.get("wrong_pending") or 0)
     beh.pop("_sessions", None)
     await profile_warning_service.sync(db, student_id, basic)
     warnings = await profile_warning_service.list_warnings(db, student_id)

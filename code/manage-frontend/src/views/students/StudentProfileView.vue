@@ -35,7 +35,7 @@
                 <SvgIcon name="help" :size="12" class="part__help" />
               </el-tooltip>
             </div>
-            <div class="kpi__val num">{{ k.value }}</div>
+            <div class="kpi__val num">{{ splitUnit(k.value).num }}<small v-if="splitUnit(k.value).unit" class="kpi__unit">{{ splitUnit(k.value).unit }}</small></div>
             <div class="kpi__delta">
               <span v-if="k.delta != null && k.delta !== 0" class="delta" :class="kpiTone(k)" :title="`较前一周期${k.delta > 0 ? '上升' : '下降'} ${Math.abs(k.delta)}${k.unit === '%' ? ' 个百分点' : k.unit}`">
                 <SvgIcon name="arrow_up" :size="11" :class="{ 'delta__down': k.delta < 0 }" />{{ Math.abs(k.delta) }}{{ k.unit }}
@@ -74,6 +74,31 @@
           <div class="chart-card__title">时段时长分布</div>
           <div v-if="p.study_time?.has_data" ref="studyHourRef" class="chart-card__body" />
           <div v-else class="chart-card__empty">暂无学习记录</div>
+        </div>
+      </div>
+
+      <!-- 时长明细：4 张统计卡 | 类型时长分布（环形图） | 建议（study_time.highlights） -->
+      <div class="detail-row">
+        <div class="stat-grid">
+          <div v-for="x in studyStats" :key="x.label" class="kpi kpi--plain">
+            <div class="kpi__txt">
+              <div class="kpi__lbl">{{ x.label }}</div>
+              <div class="kpi__val num">{{ splitUnit(x.value).num }}<small v-if="splitUnit(x.value).unit" class="kpi__unit">{{ splitUnit(x.value).unit }}</small></div>
+              <div class="kpi__delta">{{ x.sub }}&nbsp;</div>
+            </div>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card__title">类型时长分布</div>
+          <div v-if="p.study_time?.types?.length" ref="studyTypeRef" class="chart-card__body" />
+          <div v-else class="chart-card__empty">{{ rangeLabel }}暂无学习记录</div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card__title">建议</div>
+          <div v-if="behaviorTips.length" class="chart-card__body chart-card__body--tips">
+            <div v-for="(t, i) in behaviorTips" :key="i" class="tip"><span class="tip__no num">{{ i + 1 }}</span>{{ t }}</div>
+          </div>
+          <div v-else class="chart-card__empty">{{ rangeLabel }}暂无学习记录</div>
         </div>
       </div>
 
@@ -254,117 +279,6 @@
             </div>
           </el-tab-pane>
 
-          <!-- ③ 学习行为 -->
-          <el-tab-pane label="学习行为" name="behavior" lazy>
-            <div class="tiles">
-              <div class="tile"><div class="tile__num num">{{ p.behavior.sessions_range }}</div><div class="tile__lbl">{{ rangeLabel }}训练次数</div></div>
-              <div class="tile"><div class="tile__num num">{{ p.behavior.active_days }}</div><div class="tile__lbl">{{ rangeLabel }}活跃天数</div></div>
-              <div class="tile"><div class="tile__num num">{{ p.behavior.streak_days }}</div><div class="tile__lbl">连续学习天数</div></div>
-              <div class="tile"><div class="tile__num num">{{ fmtSec(p.behavior.avg_seconds_per_question) }}</div><div class="tile__lbl">平均单题用时</div></div>
-              <div class="tile"><div class="tile__num num">{{ fmtPct(p.behavior.complete_rate) }}</div><div class="tile__lbl">答题完成度（{{ p.behavior.answered_questions }}/{{ p.behavior.issued_questions }} 题）</div></div>
-              <div class="tile"><div class="tile__num num">{{ fmtPct(p.behavior.fast_wrong_ratio) }}</div><div class="tile__lbl">「快而错」占比</div></div>
-            </div>
-            <div class="two-col">
-              <div>
-                <div class="sub-title">学习时段分布</div>
-                <div v-for="b in p.behavior.time_buckets" :key="b.key" class="rate-row">
-                  <span class="rate-row__label">{{ b.label }}</span>
-                  <div class="bar"><div class="bar__fill" :style="{ width: (b.ratio ?? 0) + '%' }" /></div>
-                  <span class="rate-row__val num">{{ fmtPct(b.ratio) }}<small>{{ b.count }}题{{ b.accuracy !== null ? ` · 对 ${b.accuracy}%` : '' }}</small></span>
-                </div>
-                <div class="foot-note">上午 6–12 点，下午 12–18 点，晚上 18–22 点，深夜 22 点至次日 6 点</div>
-              </div>
-              <div>
-                <div class="sub-title">训练方式偏好</div>
-                <div v-for="d in p.behavior.dimensions" :key="d.key" class="rate-row">
-                  <span class="rate-row__label">{{ d.label }}</span>
-                  <div class="bar"><div class="bar__fill" :style="{ width: dimRatio(d.count) + '%' }" /></div>
-                  <span class="rate-row__val num">{{ d.count }}<small>次</small></span>
-                </div>
-                <div v-if="!p.behavior.dimensions.length" class="empty-sm">暂无训练记录</div>
-                <div class="foot-note">平均每次训练作答 {{ fmtSec(p.behavior.avg_seconds_per_session) }}</div>
-              </div>
-            </div>
-
-            <div class="sub-title" style="margin-top:15px">答题诊断</div>
-            <div v-if="p.diagnosis.answered" class="three-col">
-              <div>
-                <div class="diag-hd">没作答就提交 <b class="num">{{ fmtPct(p.diagnosis.blank_rate) }}</b><small>（{{ p.diagnosis.blank }} / {{ p.diagnosis.answered }} 道）</small></div>
-                <div v-for="r in p.diagnosis.blank_by_type" :key="r.key" class="rate-row">
-                  <span class="rate-row__label"><SvgIcon :name="QT_ICONS[r.key] ?? 'qt_application'" :size="14" :class="`qt-i qt-i--${r.key}`" />{{ r.label }}</span>
-                  <div class="bar"><div class="bar__fill bar__fill--warn" :style="{ width: (r.rate ?? 0) + '%' }" /></div>
-                  <span class="rate-row__val num">{{ fmtPct(r.rate) }}<small>{{ r.blank }}/{{ r.answered }}</small></span>
-                </div>
-              </div>
-              <div>
-                <div class="diag-hd">错题是怎么错的 <small>（共 {{ p.diagnosis.wrong }} 道错题）</small></div>
-                <div v-for="c in p.diagnosis.causes" :key="c.key" class="rate-row">
-                  <span class="rate-row__label cause-label">{{ c.label }}</span>
-                  <div class="bar"><div class="bar__fill" :class="c.key === 'thoughtful' ? '' : 'bar__fill--warn'" :style="{ width: (c.ratio ?? 0) + '%' }" /></div>
-                  <span class="rate-row__val num">{{ fmtPct(c.ratio) }}<small>{{ c.count }}道</small></span>
-                </div>
-                <div class="foot-note" v-if="diagVerdict.cause">{{ diagVerdict.cause }}</div>
-              </div>
-              <div>
-                <div class="diag-hd">同一道题反复做有没有进步 <small>（{{ p.diagnosis.repeat.questions }} 道题做过 2 次以上）</small></div>
-                <template v-if="p.diagnosis.repeat.attempts.length">
-                  <div v-for="a in p.diagnosis.repeat.attempts" :key="a.attempt" class="rate-row">
-                    <span class="rate-row__label cause-label">{{ a.label }}</span>
-                    <div class="bar"><div class="bar__fill" :style="{ width: (a.accuracy ?? 0) + '%' }" /></div>
-                    <span class="rate-row__val num">{{ fmtPct(a.accuracy) }}<small>{{ a.answered }}题</small></span>
-                  </div>
-                  <div class="foot-note" v-if="diagVerdict.repeat">{{ diagVerdict.repeat }}</div>
-                </template>
-                <div v-else class="empty-sm">还没有重复做过的题</div>
-              </div>
-            </div>
-            <div v-else class="empty-sm">还没有答题记录</div>
-
-            <div class="sub-title" style="margin-top:15px">更多发现</div>
-            <div class="three-col">
-              <div>
-                <div class="diag-hd">做题时越做越累吗 <small>（同一次训练前半段 vs 后半段）</small></div>
-                <template v-if="p.insights.fatigue.early && p.insights.fatigue.late">
-                  <div v-for="x in fatigueRows" :key="x.label" class="rate-row">
-                    <span class="rate-row__label cause-label">{{ x.label }}</span>
-                    <div class="bar"><div class="bar__fill" :style="{ width: (x.accuracy ?? 0) + '%' }" /></div>
-                    <span class="rate-row__val num">{{ fmtPct(x.accuracy) }}<small>没作答 {{ fmtPct(x.blank) }}</small></span>
-                  </div>
-                  <div class="foot-note">{{ p.insights.fatigue.verdict || '前后半段差别不大，或答题数还不够下结论' }}</div>
-                </template>
-                <div v-else class="empty-sm">每次抽题 4 道以上、答题足够多后才能分析</div>
-              </div>
-              <div>
-                <div class="diag-hd">看过智能解答有用吗 <small>（{{ p.insights.explanation.questions }} 道题看过解答）</small></div>
-                <template v-if="p.insights.explanation.questions">
-                  <div class="rate-row">
-                    <span class="rate-row__label cause-label">看解答之前</span>
-                    <div class="bar"><div class="bar__fill" :style="{ width: (p.insights.explanation.before.accuracy ?? 0) + '%' }" /></div>
-                    <span class="rate-row__val num">{{ fmtPct(p.insights.explanation.before.accuracy) }}<small>{{ p.insights.explanation.before.answered }}题</small></span>
-                  </div>
-                  <div class="rate-row">
-                    <span class="rate-row__label cause-label">看解答之后</span>
-                    <div class="bar"><div class="bar__fill" :style="{ width: (p.insights.explanation.after.accuracy ?? 0) + '%' }" /></div>
-                    <span class="rate-row__val num">{{ fmtPct(p.insights.explanation.after.accuracy) }}<small>{{ p.insights.explanation.after.answered }}题</small></span>
-                  </div>
-                  <div class="foot-note">{{ p.insights.explanation.verdict || '看过解答后再做的题还不够多，暂不下结论' }}</div>
-                </template>
-                <div v-else class="empty-sm">还没有看过智能解答</div>
-              </div>
-              <div>
-                <div class="diag-hd">是不是总选同一个答案</div>
-                <div v-for="m in p.insights.misconceptions" :key="m.question_id" class="mis-item">{{ m.text }}</div>
-                <div v-for="b in p.insights.bias.items" :key="b.type" class="rate-row">
-                  <span class="rate-row__label cause-label">{{ b.label }}最常选「{{ b.answer }}」</span>
-                  <div class="bar"><div class="bar__fill" :style="{ width: b.share + '%' }" /></div>
-                  <span class="rate-row__val num">{{ b.share }}%<small>{{ b.answered }}题</small></span>
-                </div>
-                <div class="foot-note" v-if="p.insights.bias.text">{{ p.insights.bias.text }}</div>
-                <div v-if="!p.insights.misconceptions.length && !p.insights.bias.items.length" class="empty-sm">选择 / 判断题答得还不够多</div>
-              </div>
-            </div>
-          </el-tab-pane>
-
           <!-- ④ AI 互动 -->
           <el-tab-pane label="AI 互动" name="ai" lazy>
             <div class="tiles">
@@ -473,11 +387,28 @@ const QT_ICONS: Record<string, string> = {
 }
 const KPI_VIZ: Record<string, 'line' | 'bars' | 'wave' | 'dots'> = { study_time: 'line', sessions: 'bars', answered: 'wave', accuracy: 'line', ai_asks: 'bars' }
 const SUBJECT_COLORS: Record<string, string> = { MATH: '#FACC15', PHYSICS: '#F87171', CHEMISTRY: '#4ADE80', OTHER: '#94A3B8' }
+// 「1.5 小时」「78.0%」拆成数字和单位，单位用小一号的字显示
+function splitUnit(v: string) {
+  const m = /^([-\d.,]+)\s*(.*)$/.exec(v ?? '')
+  return m ? { num: m[1], unit: m[2] } : { num: v ?? '', unit: '' }
+}
 // 分钟 → 「45 分钟」「1.6 小时」；空值显示 —
 function fmtMin(m?: number | null) {
   if (m == null) return '—'
   return m < 60 ? `${Math.round(m * 10) / 10} 分钟` : `${Math.round(m / 6) / 10} 小时`
 }
+// 练习方式的颜色（和小程序「练习方式」同一批名称）
+const TYPE_COLORS: Record<string, string> = { KNOWLEDGE_POINT: '#5E8DF9', UNIT: '#A78BFA', ERROR_QUESTIONS: '#FB923C', FAVORITES: '#F472B6', SMART: '#FACC15', RANDOM: '#38BDF8', SEMESTER: '#94A3B8' }
+const studyStats = computed(() => {
+  const st = p.value?.study_time?.stats
+  const bd = st?.best_day
+  return [
+    { label: '平均每次训练', value: fmtMin(st?.avg_per_session), sub: '每次训练的作答时长' },
+    { label: '单日最长', value: fmtMin(bd?.minutes), sub: bd ? bd.date.slice(5).replace('-', '/') : '' },
+    { label: '周末日均', value: fmtMin(st?.weekend_avg), sub: '周六、周日有学习的天' },
+    { label: '工作日日均', value: fmtMin(st?.weekday_avg), sub: '周一至周五有学习的天' },
+  ]
+})
 const COG_STATUS: Record<string, string> = { below: '发挥不稳', above: '实战更强', ok: '与测试相符', few: '做题太少' }
 // 年级名称与学生列表保持一致
 const GRADES: Record<string, string> = { G7: '初一', G8: '初二', G9: '初三', G10: '高一', G11: '高二', G12: '高三' }
@@ -521,6 +452,7 @@ const radarRef = ref<HTMLElement>()
 const studyRef = ref<HTMLElement>()
 const studyTrendRef = ref<HTMLElement>()
 const studyHourRef = ref<HTMLElement>()
+const studyTypeRef = ref<HTMLElement>()
 const trendPowerRef = ref<HTMLElement>()
 const charts: echarts.ECharts[] = []
 
@@ -573,20 +505,11 @@ const diagVerdict = computed(() => {
   }
   return out
 })
-const fatigueRows = computed(() => {
-  const f = p.value?.insights.fatigue
-  if (!f?.early || !f.late) return []
-  return [
-    { label: '前半段', accuracy: f.early.accuracy, blank: f.early.blank_rate },
-    { label: '后半段', accuracy: f.late.accuracy, blank: f.late.blank_rate },
-  ]
-})
+// 建议：接口 study_time.highlights 返回的学习时长结论（如「时间分配比较均衡，数学占 62.8%」）
+const behaviorTips = computed(() => (p.value?.study_time?.highlights ?? []).map(h => h.text))
 const cogInsights = computed(() => p.value?.cognitive.insights)
-const dimTotal = computed(() => (p.value?.behavior.dimensions ?? []).reduce((a, b) => a + b.count, 0) || 1)
 
 const fmtPct = (v: number | null | undefined) => (v === null || v === undefined ? '—' : `${v}%`)
-const fmtSec = (v: number | null | undefined) => (v === null || v === undefined ? '—' : v >= 60 ? `${Math.round(v / 6) / 10} 分钟` : `${v} 秒`)
-const dimRatio = (n: number) => Math.round((n / dimTotal.value) * 100)
 
 function cssVar(name: string, fallback: string) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback
@@ -675,6 +598,26 @@ function renderStudy() {
     yAxis,
     series: [{ type: 'bar', barWidth: 15, data: tb.map(x => x.minutes), itemStyle: { color: '#7C9CFB', borderRadius: [3, 3, 0, 0] } }],
   })
+
+  // 类型时长环形图：圆角分段、段间留缝，中间显示总时长
+  const types = t.types ?? []
+  const c4 = initChart(studyTypeRef.value)
+  const total = types.reduce((n, x) => n + x.minutes, 0)
+  c4?.setOption({
+    title: { text: fmtMin(total), subtext: '学习时长', left: '27%', top: 'middle', textAlign: 'center', itemGap: 4,
+      textStyle: { color: cssVar('--text-1', '#fff'), fontSize: 20, fontWeight: 600 }, subtextStyle: { color: txt3, fontSize: 12 } },
+    tooltip: { trigger: 'item', formatter: (x: { name: string; value: number; percent: number; data: { sessions: number } }) => `${x.name}<br/>${fmtMin(x.value)}（${x.percent}%）<br/>${x.data.sessions} 次训练` },
+    legend: { orient: 'vertical', right: 6, top: 'middle', itemWidth: 9, itemHeight: 9, itemGap: 7, icon: 'circle', textStyle: { color: cssVar('--text-2', '#888'), fontSize: 12 },
+      formatter: (name: string) => { const x = types.find(y => y.label === name); return `${name}  ${x?.share ?? 0}%` } },
+    series: [
+      { type: 'pie', radius: ['60%', '80%'], center: ['27%', '50%'], padAngle: 3, avoidLabelOverlap: false, label: { show: false }, labelLine: { show: false },
+        itemStyle: { borderRadius: 8 }, emphasis: { scale: false },
+        data: types.map(x => ({ name: x.label, value: x.minutes, sessions: x.sessions, itemStyle: { color: TYPE_COLORS[x.key] ?? '#94A3B8' } })) },
+      // 外圈一条细线，和参考图一样
+      { type: 'pie', radius: ['88%', '89%'], center: ['27%', '50%'], silent: true, label: { show: false }, labelLine: { show: false }, tooltip: { show: false },
+        data: [{ value: 1, itemStyle: { color: 'rgba(128,128,128,0.22)' } }] },
+    ],
+  })
 }
 
 function renderPowerTrend() {
@@ -742,6 +685,10 @@ onBeforeUnmount(() => { window.removeEventListener('resize', onResize); charts.f
 }
 // 学习时长三图：趋势 : 学科分布 : 时段 = 2 : 2.5 : 1.5
 .chart-row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 2.5fr) minmax(0, 1.5fr); gap: 15px; flex-shrink: 0; @media (max-width: 1100px) { grid-template-columns: 1fr; } }
+.detail-row { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2.5fr) minmax(0, 2.5fr); gap: 15px; flex-shrink: 0; @media (max-width: 1100px) { grid-template-columns: 1fr; } }
+.stat-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 15px; }
+.kpi--plain { min-height: 0; }
+.chart-card__body--tips { overflow-y: auto; padding-top: 8px; }
 .chart-card { padding: 12px 14px 8px; min-width: 0; border-radius: 6px;
   background: radial-gradient(260px circle at 6% 0%, rgba(110, 122, 200, 0.16), transparent 72%), linear-gradient(165deg, rgba(24, 28, 50, 0.74), rgba(13, 15, 28, 0.80));
   border: 1px solid rgba(200, 210, 255, 0.10); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
@@ -768,6 +715,7 @@ onBeforeUnmount(() => { window.removeEventListener('resize', onResize); charts.f
   &__txt { position: relative; z-index: 1; min-width: 0; display: flex; flex-direction: column; }
   &__lbl { display: flex; align-items: center; gap: 4px; font-size: 13px; color: var(--text-3); white-space: nowrap; }
   &__val { margin-top: 8px; font-size: 32px; line-height: 1.1; font-weight: 400; letter-spacing: -0.03em; color: var(--text-1); white-space: nowrap; }
+  &__unit { margin-left: 10px; font-size: 16px; font-weight: 400; letter-spacing: 0; color: var(--text-2); }
   &__delta { margin-top: auto; padding-top: 4px; min-height: 22px; font-size: 12px; color: var(--text-3); .delta { font-size: 12px; } }
   &__viz { position: absolute; z-index: 0; right: 0; top: 0; bottom: 0; width: 46%; padding: 22px 16px 20px 12px;
     &::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;

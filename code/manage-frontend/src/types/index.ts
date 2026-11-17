@@ -346,6 +346,8 @@ export interface StudyTime {
   has_data: boolean
   unit?: 'day' | 'week'
   time_buckets?: { key: string; label: string; range: string; minutes: number }[]
+  types?: { key: string; label: string; minutes: number; sessions: number; share: number | null }[]
+  tips?: string[]
   subjects?: { code: string; name: string; minutes: number; share: number | null }[]
   series?: { label: string; minutes: Record<string, number>; total: number }[]
   stats?: {
