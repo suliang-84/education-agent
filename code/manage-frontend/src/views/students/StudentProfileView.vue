@@ -16,10 +16,10 @@
         :shortcuts="rangeShortcuts" :disabled-date="disableFuture"
         style="width:300px;flex:none" @change="onRangeChange"
       />
-      <el-button @click="$router.push(`/students/${studentId}/ai-prompt`)">
+      <el-button class="btn-back" @click="$router.push(`/students/${studentId}/ai-prompt`)">
         <SvgIcon name="summary" :size="14" style="margin-right:4px" />摘要
       </el-button>
-      <el-button @click="load">
+      <el-button class="btn-back" @click="load">
         <SvgIcon name="analyse" :size="14" style="margin-right:4px" />刷新
       </el-button>
     </div>
@@ -143,7 +143,7 @@
                     </template>
                   </el-table-column>
                   <el-table-column label="做题占比" width="76"><template #default="{ row }"><span class="num">{{ fmtPct(row.share) }}</span></template></el-table-column>
-                  <el-table-column label="评价" width="92">
+                  <el-table-column label="评价" width="112">
                     <template #default="{ row }">
                       <el-tooltip :content="row.status === 'below' ? `实战比测试低 ${Math.abs(row.gap)} 个百分点` : row.status === 'above' ? `实战比测试高 ${row.gap} 个百分点` : row.status === 'few' ? `${rangeLabel}答题不足 6 道，暂不比较` : '实战表现和测试得分基本相符'" placement="top">
                         <span class="cog-chip" :class="`cog-chip--${row.status}`">{{ COG_STATUS[row.status] }}</span>
@@ -511,6 +511,10 @@ const cogInsights = computed(() => p.value?.cognitive.insights)
 
 const fmtPct = (v: number | null | undefined) => (v === null || v === undefined ? '—' : `${v}%`)
 
+// 图表主色：暗色主题用偏灰的薰衣草蓝紫（和页面强调色一致），亮色主题沿用系统主色
+function accent() {
+  return document.documentElement.dataset.theme === 'dark' ? '#9aa4ef' : cssVar('--color-primary', '#608df9')
+}
 function cssVar(name: string, fallback: string) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback
 }
@@ -526,7 +530,7 @@ function renderRadar() {
   const c = initChart(radarRef.value)
   const cog = p.value?.cognitive
   if (!c || !cog?.has_profile) return
-  const primary = cssVar('--color-primary', '#608df9')
+  const primary = accent()
   {
     // 测试综合得分 vs 所选范围内的实战正确率：两个多边形的差距就是「会但没发挥出来」或「实战超预期」
     const real = Object.fromEntries((cog.insights?.powers ?? []).map(x => [x.key, x.accuracy ?? 0]))
@@ -558,8 +562,8 @@ function renderStudy() {
   const series = t.series
   const txt3 = cssVar('--text-3', '#999')
   const axis = { axisLabel: { color: txt3, fontSize: 11 }, axisLine: { lineStyle: { color: 'rgba(128,128,128,0.25)' } }, axisTick: { show: false } }
-  const yAxis = { type: 'value' as const, splitNumber: 3, splitLine: { lineStyle: { color: 'rgba(128,128,128,0.15)' } }, axisLabel: { color: txt3, fontSize: 11 } }
-  const primary = cssVar('--color-primary', '#608df9')
+  const yAxis = { type: 'value' as const, splitNumber: 3, splitLine: { lineStyle: { color: 'rgba(160,168,220,0.14)', type: 'dashed' as const } }, axisLabel: { color: txt3, fontSize: 11 } }
+  const primary = accent()
   const tip = (i: number) => `${series[i].label}<br/>`
 
   const c1 = initChart(studyTrendRef.value)
@@ -596,7 +600,7 @@ function renderStudy() {
     tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: (ps: { dataIndex: number }[]) => `${tb[ps[0].dataIndex].label}（${tb[ps[0].dataIndex].range}）<br/>${fmtMin(tb[ps[0].dataIndex].minutes)}` },
     xAxis: { type: 'category', data: tb.map(x => x.label), ...axis },
     yAxis,
-    series: [{ type: 'bar', barWidth: 15, data: tb.map(x => x.minutes), itemStyle: { color: '#7C9CFB', borderRadius: [3, 3, 0, 0] } }],
+    series: [{ type: 'bar', barWidth: 15, data: tb.map(x => x.minutes), itemStyle: { color: primary, borderRadius: [3, 3, 0, 0] } }],
   })
 
   // 类型时长环形图：圆角分段、段间留缝，中间显示总时长
@@ -671,7 +675,6 @@ onBeforeUnmount(() => { window.removeEventListener('resize', onResize); charts.f
 <style lang="scss" scoped>
 .page-root { gap: 15px; scrollbar-width: none; &::-webkit-scrollbar { display: none; } }
 // 暗色主题下全局 --text-3 (#4B5563) 在深色底上偏暗：本页的次要文字（指标名、提示、脚注、空状态等）统一提亮，仍比 --text-2 暗一档
-:global([data-theme="dark"]) .page-root { --text-3: #7A8496; }
 
 .form-topbar { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .form-topbar :deep(.el-button + .el-button) { margin-left: 0; }
@@ -684,49 +687,54 @@ onBeforeUnmount(() => { window.removeEventListener('resize', onResize); charts.f
   border: 1px solid rgba(96, 141, 248, 0.15) !important;
 }
 // 学习时长三图：趋势 : 学科分布 : 时段 = 2 : 2.5 : 1.5
+.hint-text { font-size: 12px; color: var(--text-3); }
+
+.sub-title { font-size: 13px; font-weight: 600; color: var(--text-1); margin: 10px 0 8px; }
+.foot-note { margin-top: 8px; font-size: 12px; color: var(--text-3); }
+.empty, .empty-sm { color: var(--text-3); font-size: 13px; }
+.empty { padding: 40px 0; text-align: center; }
+.empty-sm { padding: 6px 0; }
+
 .chart-row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 2.5fr) minmax(0, 1.5fr); gap: 15px; flex-shrink: 0; @media (max-width: 1100px) { grid-template-columns: 1fr; } }
 .detail-row { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2.5fr) minmax(0, 2.5fr); gap: 15px; flex-shrink: 0; @media (max-width: 1100px) { grid-template-columns: 1fr; } }
 .stat-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 15px; }
 .kpi--plain { min-height: 0; }
 .chart-card__body--tips { overflow-y: auto; padding-top: 8px; }
-.chart-card { padding: 12px 14px 8px; min-width: 0; border-radius: 6px;
-  background: radial-gradient(260px circle at 6% 0%, rgba(110, 122, 200, 0.16), transparent 72%), linear-gradient(165deg, rgba(24, 28, 50, 0.74), rgba(13, 15, 28, 0.80));
-  border: 1px solid rgba(200, 210, 255, 0.10); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-  &__title { font-size: 13px; color: var(--text-2); }
+.chart-card { position: relative; padding: 14px 16px 10px; min-width: 0; border-radius: 14px;
+  --edge-a: rgba(210, 216, 255, 0.30); --edge-b: rgba(210, 216, 255, 0.035); --edge-c: rgba(210, 216, 255, 0.15);
+  background: radial-gradient(240px circle at 0% 0%, rgba(150, 160, 240, 0.11), transparent 70%), linear-gradient(160deg, rgba(26, 30, 56, 0.62), rgba(12, 14, 28, 0.74));
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  box-shadow: 0 10px 28px rgba(3, 5, 16, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  &::before { content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none; z-index: 2;
+    background: linear-gradient(135deg, var(--edge-a), var(--edge-b) 30%, var(--edge-b) 70%, var(--edge-c, var(--edge-a)));
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+  &__title { font-size: 13px; color: var(--text-3); letter-spacing: 0.02em; }
   &__body { height: 210px; }
   &__empty { height: 210px; display: flex; align-items: center; justify-content: center; font-size: 13px; color: var(--text-3); } }
-:global(html[data-theme="light"]) .page-root .chart-card {
-  background: radial-gradient(260px circle at 6% 0%, rgba(124, 112, 255, 0.10), transparent 72%), linear-gradient(165deg, rgba(244, 247, 255, 0.96), rgba(252, 253, 255, 0.92));
-  border-color: rgba(94, 141, 249, 0.18); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9); }
 .subj-dot { display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; }
 .kpi--link { cursor: pointer; }
 .kpi-strip { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 15px; flex-shrink: 0; @media (max-width: 1100px) { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 // 顶部统计小卡片（参考图）：深海军蓝底，左上略亮；1px 渐变描边（四角亮、边中淡）；
 // 右侧约一半宽、整卡高的区域铺细方格（向左淡出），迷你图画在方格上；标题灰蓝、数字用等宽字体、较大较细
-.kpi { position: relative; display: flex; align-items: stretch; min-width: 0; min-height: 96px; padding: 14px 16px; border-radius: 6px; overflow: hidden;
-  --spark: #8b9bff; --grid: rgba(190, 200, 255, 0.09); --edge-a: rgba(200, 210, 255, 0.32); --edge-b: rgba(200, 210, 255, 0.06);
+.kpi { position: relative; display: flex; align-items: stretch; min-width: 0; min-height: 96px; padding: 14px 16px; border-radius: 14px; overflow: hidden;
+  --spark: #a8b0ee; --grid: rgba(190, 200, 255, 0.055); --edge-a: rgba(210, 216, 255, 0.30); --edge-b: rgba(210, 216, 255, 0.035); --edge-c: rgba(210, 216, 255, 0.15);
   background:
-    radial-gradient(180px circle at 6% 0%, rgba(110, 122, 200, 0.22), transparent 72%),
-    linear-gradient(165deg, rgba(24, 28, 50, 0.86), rgba(13, 15, 28, 0.90));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    radial-gradient(200px circle at 0% 0%, rgba(150, 160, 240, 0.11), transparent 70%),
+    linear-gradient(160deg, rgba(26, 30, 56, 0.62), rgba(12, 14, 28, 0.74));
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  box-shadow: 0 10px 28px rgba(3, 5, 16, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.04);
   &::before { content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none; z-index: 2;
-    background: linear-gradient(150deg, var(--edge-a), var(--edge-b) 34%, var(--edge-b) 66%, var(--edge-a));
+    background: linear-gradient(135deg, var(--edge-a), var(--edge-b) 30%, var(--edge-b) 70%, var(--edge-c, var(--edge-a)));
     -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
   &__txt { position: relative; z-index: 1; min-width: 0; display: flex; flex-direction: column; }
   &__lbl { display: flex; align-items: center; gap: 4px; font-size: 13px; color: var(--text-3); white-space: nowrap; }
-  &__val { margin-top: 8px; font-size: 32px; line-height: 1.1; font-weight: 400; letter-spacing: -0.03em; color: var(--text-1); white-space: nowrap; }
+  &__val { margin-top: 8px; font-size: 36px; line-height: 1.1; font-weight: 400; letter-spacing: -0.03em; color: var(--text-1); white-space: nowrap; }
   &__unit { margin-left: 10px; font-size: 16px; font-weight: 400; letter-spacing: 0; color: var(--text-2); }
   &__delta { margin-top: auto; padding-top: 4px; min-height: 22px; font-size: 12px; color: var(--text-3); .delta { font-size: 12px; } }
   &__viz { position: absolute; z-index: 0; right: 0; top: 0; bottom: 0; width: 46%; padding: 22px 16px 20px 12px;
     &::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
       background: linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 100% 22px, linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 22px 100%;
       -webkit-mask-image: linear-gradient(90deg, transparent, #000 55%); mask-image: linear-gradient(90deg, transparent, #000 55%); } } }
-:global(html[data-theme="light"]) .page-root .kpi {
-  --spark: var(--color-primary); --spark-hi: #cdd9ff; --grid: rgba(94, 141, 249, 0.16); --edge-a: rgba(94, 141, 249, 0.42); --edge-b: rgba(94, 141, 249, 0.10);
-  background:
-    radial-gradient(180px circle at 6% 0%, rgba(124, 112, 255, 0.14), transparent 72%),
-    linear-gradient(165deg, rgba(244, 247, 255, 0.96), rgba(252, 253, 255, 0.92));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9); }
 .delta { display: inline-flex; align-items: center; gap: 2px; font-size: 13px; font-weight: 600; color: var(--text-3); cursor: default;
   &--up { color: var(--green); } &--down { color: var(--red); }
   &__down { transform: rotate(180deg); } }
@@ -769,7 +777,7 @@ onBeforeUnmount(() => { window.removeEventListener('resize', onResize); charts.f
 .cog-table :deep(.el-table__cell) { padding: 6px 0; }
 .cog-bar { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-1); .bar { flex: 1; min-width: 36px; } small { font-size: 11px; color: var(--text-3); } }
 .bar__fill--real { background: var(--green); }
-.cog-chip { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; cursor: default;
+.cog-chip { display: inline-block; white-space: nowrap; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; cursor: default;
   &--below { background: color-mix(in srgb, var(--red) 16%, transparent); color: var(--red); }
   &--above { background: color-mix(in srgb, var(--green) 16%, transparent); color: var(--green); }
   &--ok, &--few { background: color-mix(in srgb, var(--text-3) 18%, transparent); color: var(--text-3); } }
@@ -806,4 +814,51 @@ onBeforeUnmount(() => { window.removeEventListener('resize', onResize); charts.f
 .handle-msg { margin-bottom: 10px; font-size: 13px; line-height: 1.7; color: var(--text-2); }
 
 .tabs-block :deep(.el-tabs__header) { margin-bottom: 8px; }
+// ── 暗色主题（参考图）：胶囊标签 / 按钮、小号大写表头、底部区块的深蓝玻璃 ──
+</style>
+
+<!-- 不加 scoped：下面的规则要同时带上主题选择器（html[data-theme=...]）和页面里的类名，scoped + :global 写法会把后半截选择器丢掉 -->
+<style lang="scss">
+// 暗色主题（参考图）：更深的蓝黑底 + 右上角淡薰衣草光；强调色偏灰的薰衣草蓝紫；
+// 胶囊标签 / 按钮、小号大写表头；亮色主题的统计卡 / 图表卡配色
+html[data-theme="dark"] .page-root {
+  // 参考图的暗色：更深的蓝黑底，右上角一团淡薰衣草光；强调色是偏灰的薰衣草蓝紫，次要文字带一点蓝紫
+  --text-3: #8189aa; --text-2: #b4bbdc; --color-primary: #9aa4ef; --el-color-primary: #9aa4ef;
+  background:
+    radial-gradient(900px circle at 100% -8%, rgba(120, 132, 214, 0.20), transparent 62%),
+    radial-gradient(700px circle at 0% 112%, rgba(80, 90, 170, 0.10), transparent 60%);
+}
+
+html[data-theme="light"] .page-root .chart-card {
+  --edge-a: rgba(94, 141, 249, 0.42); --edge-b: rgba(94, 141, 249, 0.10); --edge-c: rgba(94, 141, 249, 0.26);
+  box-shadow: 0 6px 18px rgba(94, 100, 200, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  background: radial-gradient(260px circle at 6% 0%, rgba(124, 112, 255, 0.10), transparent 72%), linear-gradient(165deg, rgba(244, 247, 255, 0.96), rgba(252, 253, 255, 0.92));
+  border-color: rgba(94, 141, 249, 0.18); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9); }
+
+html[data-theme="light"] .page-root .kpi {
+  --spark: var(--color-primary); --spark-hi: #cdd9ff; --grid: rgba(94, 141, 249, 0.16); --edge-a: rgba(94, 141, 249, 0.42); --edge-b: rgba(94, 141, 249, 0.10);
+  background:
+    radial-gradient(180px circle at 6% 0%, rgba(124, 112, 255, 0.14), transparent 72%),
+    linear-gradient(165deg, rgba(244, 247, 255, 0.96), rgba(252, 253, 255, 0.92));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9); }
+
+html[data-theme="dark"] .page-root {
+  .section-block.tabs-block {
+    border-radius: 14px !important;
+    background: radial-gradient(420px circle at 0% 0%, rgba(150, 160, 240, 0.08), transparent 70%), linear-gradient(160deg, rgba(24, 28, 52, 0.52), rgba(12, 14, 28, 0.68)) !important;
+    border-color: rgba(210, 216, 255, 0.07) !important;
+    -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  }
+  .section-block.tabs-block::before { border-radius: 14px; }
+  // 标签页：整排放在一条胶囊轨道里，选中项是略亮一点的深蓝胶囊
+  .tabs-block .el-tabs__nav-wrap::after, .tabs-block .el-tabs__active-bar { display: none; }
+  .tabs-block .el-tabs__nav { padding: 4px; border: 1px solid rgba(210, 216, 255, 0.09); border-radius: 999px; background: rgba(255, 255, 255, 0.025); }
+  .tabs-block .el-tabs__item { height: 30px; line-height: 30px; padding: 0 16px !important; margin-right: 2px; border-radius: 999px; border: 1px solid transparent; transition: background .2s, color .2s;
+    &:hover { color: var(--text-1); }
+    &.is-active { background: rgba(120, 132, 214, 0.20); border-color: rgba(210, 216, 255, 0.14); color: #fff; font-weight: 600; } }
+  // 顶部按钮用 .btn-back（返回按钮同款玻璃胶囊），避开全局普通按钮的 !important 圆角 / 底色规则
+  .form-topbar .el-button, .form-topbar .el-date-editor, .form-topbar .el-date-editor.el-input__wrapper { border-radius: 999px !important; }
+  .form-topbar .el-date-editor { padding-left: 14px; padding-right: 14px; }
+  .el-table th.el-table__cell { font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); }
+}
 </style>
