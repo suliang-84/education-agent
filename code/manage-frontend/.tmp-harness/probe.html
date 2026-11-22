@@ -1,0 +1,8 @@
+<!doctype html><meta charset="utf-8"><body style="margin:0"><iframe id="f" src="/students/48" style="width:1600px;height:1000px;border:0"></iframe><script>
+setTimeout(() => {
+  const d = document.getElementById('f').contentDocument, w = document.getElementById('f').contentWindow
+  const r = (s) => [...d.querySelectorAll(s)].map(e => { const b = e.getBoundingClientRect(); return s + ':' + Math.round(b.width) + 'x' + Math.round(b.height) + '@' + Math.round(b.top) })
+  const cs = (s, p) => { const e = d.querySelector(s); return e ? s + ' ' + p + '=' + w.getComputedStyle(e)[p] : s + ' missing' }
+  document.body.setAttribute('data-probe', JSON.stringify([...d.querySelectorAll('.form-topbar .el-button, .form-topbar .el-date-editor')].map(e => e.className.slice(0,60) + ' r=' + w.getComputedStyle(e).borderRadius + ' bg=' + w.getComputedStyle(e).backgroundColor)))
+}, 12000)
+</script>
