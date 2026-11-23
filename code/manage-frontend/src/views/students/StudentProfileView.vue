@@ -44,7 +44,7 @@
               <span v-else>&nbsp;</span>
             </div>
           </div>
-          <div v-if="k.series?.length > 1" class="kpi__viz"><KpiSpark :values="k.series" :kind="KPI_VIZ[k.key] ?? 'bars'" :gid="`kpi-${k.key}`" /></div>
+          <div class="kpi__viz" :class="{ 'kpi__viz--dots': KPI_VIZ[k.key] === 'dots' }"><KpiSpark :kind="KPI_VIZ[k.key] ?? 'bars'" :gid="`kpi-${k.key}`" /></div>
         </div>
       </div>
 
@@ -86,6 +86,7 @@
               <div class="kpi__val num">{{ splitUnit(x.value).num }}<small v-if="splitUnit(x.value).unit" class="kpi__unit">{{ splitUnit(x.value).unit }}</small></div>
               <div class="kpi__delta">{{ x.sub }}&nbsp;</div>
             </div>
+            <div class="kpi__viz"><KpiSpark :kind="x.viz" :gid="`st-${x.viz}`" /></div>
           </div>
         </div>
         <div class="chart-card">
@@ -385,7 +386,8 @@ const POWER_COLORS: Record<string, string> = {
 const QT_ICONS: Record<string, string> = {
   SINGLE_CHOICE: 'qt_single', MULTIPLE_CHOICE: 'qt_multi', TRUE_FALSE: 'qt_judge', FILL_BLANK: 'qt_fill', APPLICATION: 'qt_application',
 }
-const KPI_VIZ: Record<string, 'line' | 'bars' | 'wave' | 'dots'> = { study_time: 'line', sessions: 'bars', answered: 'wave', accuracy: 'line', ai_asks: 'bars' }
+// 5 张统计卡各用一种固定图案（纯装饰，不随统计数据变化），互不重复：锯齿面积 / 蜡烛 / 声波 / 圆环 / 点阵柱
+const KPI_VIZ: Record<string, 'line' | 'jagged' | 'bars' | 'wave' | 'dots' | 'ring'> = { study_time: 'jagged', sessions: 'bars', answered: 'wave', accuracy: 'ring', ai_asks: 'dots' }
 const SUBJECT_COLORS: Record<string, string> = { MATH: '#FACC15', PHYSICS: '#F87171', CHEMISTRY: '#4ADE80', OTHER: '#94A3B8' }
 // 「1.5 小时」「78.0%」拆成数字和单位，单位用小一号的字显示
 function splitUnit(v: string) {
@@ -403,10 +405,10 @@ const studyStats = computed(() => {
   const st = p.value?.study_time?.stats
   const bd = st?.best_day
   return [
-    { label: '平均每次训练', value: fmtMin(st?.avg_per_session), sub: '每次训练的作答时长' },
-    { label: '单日最长', value: fmtMin(bd?.minutes), sub: bd ? bd.date.slice(5).replace('-', '/') : '' },
-    { label: '周末日均', value: fmtMin(st?.weekend_avg), sub: '周六、周日有学习的天' },
-    { label: '工作日日均', value: fmtMin(st?.weekday_avg), sub: '周一至周五有学习的天' },
+    { label: '平均每次训练', value: fmtMin(st?.avg_per_session), sub: '每次训练的作答时长', viz: 'gauge' as const },
+    { label: '单日最长', value: fmtMin(bd?.minutes), sub: bd ? bd.date.slice(5).replace('-', '/') : '', viz: 'peak' as const },
+    { label: '周末日均', value: fmtMin(st?.weekend_avg), sub: '周六、周日有学习的天', viz: 'bubbles' as const },
+    { label: '工作日日均', value: fmtMin(st?.weekday_avg), sub: '周一至周五有学习的天', viz: 'swing' as const },
   ]
 })
 const COG_STATUS: Record<string, string> = { below: '发挥不稳', above: '实战更强', ok: '与测试相符', few: '做题太少' }
@@ -735,6 +737,7 @@ onBeforeUnmount(() => { window.removeEventListener('resize', onResize); charts.f
     &::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
       background: linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 100% 22px, linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 22px 100%;
       -webkit-mask-image: linear-gradient(90deg, transparent, #000 55%); mask-image: linear-gradient(90deg, transparent, #000 55%); } } }
+.kpi__viz--dots { padding-top: 10px; padding-bottom: 12px; }   // 点阵柱的方块更大，给它多留一点高度
 .delta { display: inline-flex; align-items: center; gap: 2px; font-size: 13px; font-weight: 600; color: var(--text-3); cursor: default;
   &--up { color: var(--green); } &--down { color: var(--red); }
   &__down { transform: rotate(180deg); } }
@@ -836,7 +839,7 @@ html[data-theme="light"] .page-root .chart-card {
   border-color: rgba(94, 141, 249, 0.18); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9); }
 
 html[data-theme="light"] .page-root .kpi {
-  --spark: var(--color-primary); --spark-hi: #cdd9ff; --grid: rgba(94, 141, 249, 0.16); --edge-a: rgba(94, 141, 249, 0.42); --edge-b: rgba(94, 141, 249, 0.10);
+  --spark: var(--color-primary); --spark-shadow: #5e8df9; --spark-shadow-o: 0.35; --spark-accent: #4f7cf5; --spark-ln: #9db8ff; --spark-hi: #cdd9ff; --grid: rgba(94, 141, 249, 0.16); --edge-a: rgba(94, 141, 249, 0.42); --edge-b: rgba(94, 141, 249, 0.10);
   background:
     radial-gradient(180px circle at 6% 0%, rgba(124, 112, 255, 0.14), transparent 72%),
     linear-gradient(165deg, rgba(244, 247, 255, 0.96), rgba(252, 253, 255, 0.92));
