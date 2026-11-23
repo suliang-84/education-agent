@@ -37,7 +37,7 @@
     </template>
     <!-- 秒表：外圈 + 12 个刻度 + 一道扫过的扇形 + 指针，指针末端一颗亮球 -->
     <template v-else-if="kind === 'dial'">
-      <circle cx="30" cy="30" r="27.5" class="spark__rim" />
+      <circle cx="30" cy="30" r="28.4" class="spark__rim" :stroke="`url(#${gid}-ring)`" />
       <line v-for="(t, i) in dialTicks" :key="i" :x1="t.x1" :y1="t.y1" :x2="t.x2" :y2="t.y2" class="spark__tick" :style="{ opacity: t.major ? 0.6 : 0.28 }" />
       <path :d="dialWedge" :fill="`url(#${gid}-sweep)`" />
       <line x1="30" y1="30" :x2="dialEnd.x" :y2="dialEnd.y" class="spark__hand" />
@@ -135,7 +135,7 @@ const dialEnd = polar(30, 30, DIAL_R, DIAL_DEG)
 const dialWedge = `M30 30 L30 ${30 - DIAL_R} A${DIAL_R} ${DIAL_R} 0 0 1 ${dialEnd.x.toFixed(2)} ${dialEnd.y.toFixed(2)} Z`
 const dialTicks = Array.from({ length: 12 }, (_, i) => {
   const major = i % 3 === 0
-  const a = polar(30, 30, major ? 22.6 : 24.2, i * 30), b = polar(30, 30, 26, i * 30)
+  const a = polar(30, 30, major ? 21.8 : 23.4, i * 30), b = polar(30, 30, 25, i * 30)
   return { x1: a.x, y1: a.y, x2: b.x, y2: b.y, major }
 })
 
@@ -207,7 +207,7 @@ const bars = computed(() => {
 .spark { display: block; width: 100%; height: 100%; color: var(--spark, #8b9bff); overflow: visible;
   &__track { fill: none; stroke: currentColor; stroke-width: 6; opacity: 0.16; }
   &__arc { fill: none; stroke-width: 8.5; stroke-linecap: round; }
-  &__rim { fill: none; stroke: currentColor; stroke-width: 1; opacity: 0.3; }
+  &__rim { fill: none; stroke-width: 2.6; }   // 描边色用和圆环亮弧同款的「亮 → 灰紫」渐变（模板里的 stroke）
   &__tick { stroke: currentColor; stroke-width: 1.3; stroke-linecap: round; }
   &__hand { stroke: var(--spark-accent, var(--spark-hi, #fff)); stroke-width: 1.8; stroke-linecap: round; }
   &__dot { fill: var(--spark-accent, var(--spark-hi, #fff)); }
