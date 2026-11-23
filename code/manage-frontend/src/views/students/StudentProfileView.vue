@@ -44,7 +44,7 @@
               <span v-else>&nbsp;</span>
             </div>
           </div>
-          <div class="kpi__viz" :class="{ 'kpi__viz--dots': KPI_VIZ[k.key] === 'dots' }"><KpiSpark :kind="KPI_VIZ[k.key] ?? 'bars'" :gid="`kpi-${k.key}`" /></div>
+          <div class="kpi__viz" :class="{ 'kpi__viz--dots': KPI_VIZ[k.key] === 'dots', 'kpi__viz--ring': KPI_VIZ[k.key] === 'ring' }"><KpiSpark :kind="KPI_VIZ[k.key] ?? 'bars'" :gid="`kpi-${k.key}`" /></div>
         </div>
       </div>
 
@@ -386,8 +386,8 @@ const POWER_COLORS: Record<string, string> = {
 const QT_ICONS: Record<string, string> = {
   SINGLE_CHOICE: 'qt_single', MULTIPLE_CHOICE: 'qt_multi', TRUE_FALSE: 'qt_judge', FILL_BLANK: 'qt_fill', APPLICATION: 'qt_application',
 }
-// 5 张统计卡各用一种固定图案（纯装饰，不随统计数据变化），互不重复：锯齿面积 / 蜡烛 / 声波 / 圆环 / 点阵柱
-const KPI_VIZ: Record<string, 'line' | 'jagged' | 'bars' | 'wave' | 'dots' | 'ring'> = { study_time: 'jagged', sessions: 'bars', answered: 'wave', accuracy: 'ring', ai_asks: 'dots' }
+// 5 张统计卡各用一种固定图案（纯装饰，不随统计数据变化），互不重复：起伏面积（W 形）/ 蜡烛 / 声波 / 圆环 / 点阵柱
+const KPI_VIZ: Record<string, 'bars' | 'wave' | 'dots' | 'ring' | 'swing'> = { study_time: 'swing', sessions: 'bars', answered: 'wave', accuracy: 'ring', ai_asks: 'dots' }
 // 学科色：定义在下方非 scoped 样式块的 --subj-* 变量里（亮 / 暗各一套，随主题切换）。模板直接用 var()，图表用 subjColor() 取实际色值
 const SUBJECT_COLORS: Record<string, string> = { MATH: 'var(--subj-math)', PHYSICS: 'var(--subj-physics)', CHEMISTRY: 'var(--subj-chemistry)', OTHER: 'var(--subj-other)' }
 const SUBJECT_FALLBACK: Record<string, string> = { MATH: '#8e9bf5', PHYSICS: '#ec9fbd', CHEMISTRY: '#5fc9c1', OTHER: '#6b7186' }
@@ -411,10 +411,10 @@ const studyStats = computed(() => {
   const st = p.value?.study_time?.stats
   const bd = st?.best_day
   return [
-    { label: '平均每次训练', value: fmtMin(st?.avg_per_session), sub: '每次训练的作答时长', viz: 'gauge' as const },
-    { label: '单日最长', value: fmtMin(bd?.minutes), sub: bd ? bd.date.slice(5).replace('-', '/') : '', viz: 'peak' as const },
+    { label: '平均每次训练', value: fmtMin(st?.avg_per_session), sub: '每次训练的作答时长', viz: 'dial' as const },
+    { label: '单日最长', value: fmtMin(bd?.minutes), sub: bd ? bd.date.slice(5).replace('-', '/') : '', viz: 'ridge' as const },
     { label: '周末日均', value: fmtMin(st?.weekend_avg), sub: '周六、周日有学习的天', viz: 'bubbles' as const },
-    { label: '工作日日均', value: fmtMin(st?.weekday_avg), sub: '周一至周五有学习的天', viz: 'swing' as const },
+    { label: '工作日日均', value: fmtMin(st?.weekday_avg), sub: '周一至周五有学习的天', viz: 'tide' as const },
   ]
 })
 const COG_STATUS: Record<string, string> = { below: '发挥不稳', above: '实战更强', ok: '与测试相符', few: '做题太少' }
@@ -763,11 +763,15 @@ onBeforeUnmount(() => { window.removeEventListener('resize', onResize); charts.f
   &__val { margin-top: 8px; font-size: 36px; line-height: 1.1; font-weight: 400; letter-spacing: -0.03em; color: var(--text-1); white-space: nowrap; }
   &__unit { margin-left: 10px; font-size: 16px; font-weight: 400; letter-spacing: 0; color: var(--text-2); }
   &__delta { margin-top: auto; padding-top: 4px; min-height: 22px; font-size: 12px; color: var(--text-3); .delta { font-size: 12px; } }
-  &__viz { position: absolute; z-index: 0; right: 0; top: 0; bottom: 0; width: 46%; padding: 22px 16px 20px 12px;
-    &::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  // 图案容器：占右侧 46%，内边距上下左右对称，图案在里面居中（左右各 16px、上下各 21px）；整体再往右挪 5px（right: -5px），卡片 overflow: hidden 会裁掉伸出去的方格底纹
+  &__viz { position: absolute; z-index: 0; right: -5px; top: 0; bottom: 0; width: 46%; padding: 21px 16px;
+    // 方格底纹向左多铺一截（压到数值下面，数值在它上层），再用缓和的多段渐变一路淡出，看起来像被左边的数值挡住
+    &::before { content: ''; position: absolute; top: 0; bottom: 0; right: 0; left: -75%; z-index: -1; pointer-events: none;
       background: linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 100% 22px, linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 22px 100%;
-      -webkit-mask-image: linear-gradient(90deg, transparent, #000 55%); mask-image: linear-gradient(90deg, transparent, #000 55%); } } }
-.kpi__viz--dots { padding-top: 10px; padding-bottom: 12px; }   // 点阵柱的方块更大，给它多留一点高度
+      -webkit-mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.04) 22%, rgba(0, 0, 0, 0.16) 42%, rgba(0, 0, 0, 0.45) 62%, #000 85%);
+      mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.04) 22%, rgba(0, 0, 0, 0.16) 42%, rgba(0, 0, 0, 0.45) 62%, #000 85%); } } }
+.kpi__viz--ring { right: -10px; padding-top: 17px; padding-bottom: 17px; }   // 圆环稍大一些（上下少留 4px），并比其他图案再往右挪 5px
+.kpi__viz--dots { padding-top: 12px; padding-bottom: 12px; }   // 点阵柱的方块更大，上下各少留一点，仍然对称
 .delta { display: inline-flex; align-items: center; gap: 2px; font-size: 13px; font-weight: 600; color: var(--text-3); cursor: default;
   &--up { color: var(--green); } &--down { color: var(--red); }
   &__down { transform: rotate(180deg); } }
