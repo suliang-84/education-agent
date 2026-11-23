@@ -574,18 +574,33 @@ function renderStudy() {
   const primary = accent()
   const tip = (i: number) => `${series[i].label}<br/>`
 
+  // 趋势图：合计（中性色、较粗、带面积，避免和学科色混淆）+ 每个学科一条线（学科色，与学科分布同一套颜色）
+  const totalClr = document.documentElement.dataset.theme === 'dark' ? cssVar('--text-1', '#fff') : '#475066'
   const c1 = initChart(studyTrendRef.value)
   c1?.setOption({
-    grid: { left: 38, right: 14, top: 14, bottom: 24 },
-    tooltip: { trigger: 'axis', formatter: (ps: { dataIndex: number }[]) => `${tip(ps[0].dataIndex)}学习时长：${fmtMin(series[ps[0].dataIndex].total)}` },
+    grid: { left: 0, right: 0, top: 30, bottom: 0, containLabel: true },
+    legend: { top: 0, data: ['合计', ...t.subjects.map(x => x.name)], itemWidth: 12, itemHeight: 3, icon: 'roundRect', textStyle: { color: cssVar('--text-2', '#888'), fontSize: 12 } },
+    tooltip: {
+      trigger: 'axis',
+      formatter: (ps: { dataIndex: number; seriesName: string; marker: string; value: number }[]) =>
+        tip(ps[0].dataIndex) + ps.map(x => `${x.marker}${x.seriesName}：${fmtMin(x.value)}`).join('<br/>'),
+    },
     xAxis: { type: 'category', data: series.map(x => x.label), ...axis },
     yAxis: { ...yAxis, name: '分钟', nameTextStyle: { color: txt3, fontSize: 11 } },
-    series: [{ type: 'line', data: series.map(x => x.total), smooth: true, symbolSize: 6, itemStyle: { color: primary }, lineStyle: { color: primary, width: 2 }, areaStyle: { color: primary, opacity: 0.14 } }],
+    series: [
+      { name: '合计', type: 'line', z: 1, data: series.map(x => x.total), smooth: 0.3, symbol: 'none', itemStyle: { color: totalClr }, lineStyle: { color: totalClr, width: 2.4 }, areaStyle: { color: totalClr, opacity: 0.06 } },
+      ...t.subjects.map(sj => ({
+        name: sj.name, type: 'line', z: 2, smooth: 0.3, symbol: 'none',
+        data: series.map(x => x.minutes[sj.code] ?? 0),
+        itemStyle: { color: subjColor(sj.code) }, lineStyle: { color: subjColor(sj.code), width: 1.6 },
+      })),
+    ],
   })
 
   const c2 = initChart(studyRef.value)
   // 学科之间留 2px 间隙：在相邻两段之间插一段不可见的占位。ECharts 堆叠柱没有「段间距」，所以先固定 y 轴上限，
   // 再按绘图区的像素高度把 2px 换算成数据量（分钟）
+  // GRID_BOTTOM 只用来估算绘图区高度（x 轴文字占的高度）；grid.bottom 本身是 0，文字贴着卡片底部 15px 内边距的边
   const GAP_PX = 2, GRID_TOP = 30, GRID_BOTTOM = 24
   const totals = series.map(x => x.total)
   const rawMax = Math.max(1, ...totals) * 1.08
@@ -611,7 +626,7 @@ function renderStudy() {
     })
   })
   c2?.setOption({
-    grid: { left: 38, right: 14, top: GRID_TOP, bottom: GRID_BOTTOM },
+    grid: { left: 0, right: 0, top: GRID_TOP, bottom: 0, containLabel: true },
     legend: { top: 0, data: subs.map(x => x.name), itemWidth: 10, itemHeight: 8, textStyle: { color: cssVar('--text-2', '#888'), fontSize: 12 } },
     tooltip: {
       trigger: 'axis', axisPointer: { type: 'shadow' },
@@ -626,7 +641,7 @@ function renderStudy() {
   const tb = t.time_buckets ?? []
   const c3 = initChart(studyHourRef.value)
   c3?.setOption({
-    grid: { left: 34, right: 6, top: 14, bottom: 24 },
+    grid: { left: 0, right: 0, top: 14, bottom: 0, containLabel: true },
     tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: (ps: { dataIndex: number }[]) => `${tb[ps[0].dataIndex].label}（${tb[ps[0].dataIndex].range}）<br/>${fmtMin(tb[ps[0].dataIndex].minutes)}` },
     xAxis: { type: 'category', data: tb.map(x => x.label), ...axis },
     yAxis,
@@ -637,18 +652,20 @@ function renderStudy() {
   const types = t.types ?? []
   const c4 = initChart(studyTypeRef.value)
   const total = types.reduce((n, x) => n + x.minutes, 0)
+  // 外圈细线半径 = 99% × min(宽, 高) / 2：它的左、上、下缘都贴着图表区（卡片内边距 15px）
+  const ringCx = 0.99 * Math.min(c4?.getWidth() ?? 400, c4?.getHeight() ?? 207) / 2
   c4?.setOption({
-    title: { text: fmtMin(total), subtext: '学习时长', left: '27%', top: 'middle', textAlign: 'center', itemGap: 4,
+    title: { text: fmtMin(total), subtext: '学习时长', left: ringCx, top: 'middle', textAlign: 'center', itemGap: 4,
       textStyle: { color: cssVar('--text-1', '#fff'), fontSize: 20, fontWeight: 600 }, subtextStyle: { color: txt3, fontSize: 12 } },
     tooltip: { trigger: 'item', formatter: (x: { name: string; value: number; percent: number; data: { sessions: number } }) => `${x.name}<br/>${fmtMin(x.value)}（${x.percent}%）<br/>${x.data.sessions} 次训练` },
-    legend: { orient: 'vertical', right: 6, top: 'middle', itemWidth: 9, itemHeight: 9, itemGap: 7, icon: 'circle', textStyle: { color: cssVar('--text-2', '#888'), fontSize: 12 },
+    legend: { orient: 'vertical', right: 0, top: 'middle', itemWidth: 9, itemHeight: 9, itemGap: 7, icon: 'circle', textStyle: { color: cssVar('--text-2', '#888'), fontSize: 12 },
       formatter: (name: string) => { const x = types.find(y => y.label === name); return `${name}  ${x?.share ?? 0}%` } },
     series: [
-      { type: 'pie', radius: ['60%', '80%'], center: ['27%', '50%'], padAngle: 3, avoidLabelOverlap: false, label: { show: false }, labelLine: { show: false },
+      { type: 'pie', radius: ['66.7%', '89%'], center: [ringCx, '50%'], padAngle: 3, avoidLabelOverlap: false, label: { show: false }, labelLine: { show: false },
         itemStyle: { borderRadius: 8 }, emphasis: { scale: false },
         data: types.map(x => ({ name: x.label, value: x.minutes, sessions: x.sessions, itemStyle: { color: TYPE_COLORS[x.key] ?? '#94A3B8' } })) },
       // 外圈一条细线，和参考图一样
-      { type: 'pie', radius: ['88%', '89%'], center: ['27%', '50%'], silent: true, label: { show: false }, labelLine: { show: false }, tooltip: { show: false },
+      { type: 'pie', radius: ['97.9%', '99%'], center: [ringCx, '50%'], silent: true, label: { show: false }, labelLine: { show: false }, tooltip: { show: false },
         data: [{ value: 1, itemStyle: { color: 'rgba(128,128,128,0.22)' } }] },
     ],
   })
@@ -659,7 +676,7 @@ function renderPowerTrend() {
   const t = p.value?.cognitive.power_trend
   if (!c || !t?.has_data) return
   c.setOption({
-    grid: { left: 36, right: 16, top: 30, bottom: 26 },
+    grid: { left: 0, right: 0, top: 30, bottom: 0, containLabel: true },
     legend: { top: 0, textStyle: { color: cssVar('--text-2', '#888') } },
     tooltip: {
       trigger: 'axis',
@@ -728,11 +745,11 @@ onBeforeUnmount(() => { window.removeEventListener('resize', onResize); charts.f
 // 第一列 = 顶部统计条的 2 列宽（5 列、间距 15px），让下面 4 张统计卡与顶部卡片同宽
 .chart-row { display: grid; grid-template-columns: calc((100% - 60px) * 2 / 5 + 15px) minmax(0, 2fr) minmax(0, 1.5fr); gap: 15px; flex-shrink: 0; @media (max-width: 1100px) { grid-template-columns: 1fr; } }
 .detail-row { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2.5fr) minmax(0, 2.5fr); gap: 15px; flex-shrink: 0; @media (max-width: 1100px) { grid-template-columns: 1fr; } }
-// 这一行的图表卡与左边统计卡区（2×118 + 15 = 251px）等高：卡片内边距 + 标题共 43.5px，绘图区取 207.5px
-.chart-row .chart-card__body, .chart-row .chart-card__empty { height: 207.5px; }
+// 这一行的图表卡与左边统计卡区（2×118 + 15 = 251px）等高：卡片内边距 + 标题共 48.5px，绘图区取 202.5px
+.chart-row .chart-card__body, .chart-row .chart-card__empty { height: 202.5px; }
 .stat-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, auto); align-content: start; gap: 15px; }
 .chart-card__body--tips { overflow-y: auto; padding-top: 8px; }
-.chart-card { position: relative; padding: 14px 16px 10px; min-width: 0; border-radius: 14px;
+.chart-card { position: relative; padding: 14px 15px 15px; min-width: 0; border-radius: 14px;
   --edge-a: rgba(210, 216, 255, 0.30); --edge-b: rgba(210, 216, 255, 0.035); --edge-c: rgba(210, 216, 255, 0.15);
   background: radial-gradient(240px circle at 0% 0%, rgba(150, 160, 240, 0.11), transparent 70%), linear-gradient(160deg, rgba(26, 30, 56, 0.62), rgba(12, 14, 28, 0.74));
   -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
