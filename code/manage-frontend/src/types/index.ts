@@ -355,6 +355,8 @@ export interface StudyTime {
     best_day: { date: string; minutes: number } | null; prev_best_minutes?: number | null; avg_per_session: number | null; weekday_avg: number | null; weekend_avg: number | null
   }
   highlights?: { tone: 'good' | 'warn'; text: string }[]
+  /** 每个学科周期内用时最长的 5 个知识点（键是学科 code）；一道题挂多个知识点时各算一份，只用来排名 */
+  kp_top?: Record<string, { id: number; name: string; minutes: number; answered: number }[]>
 }
 
 export interface StudentProfile {

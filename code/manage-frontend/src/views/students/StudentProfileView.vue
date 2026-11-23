@@ -58,7 +58,7 @@
         </template>
       </el-dialog>
 
-      <!-- 学习时长：4 张统计卡 | 趋势 | 时段分布 = 2.5 : 2 : 1.5 -->
+      <!-- 学习时长：4 张统计卡 | 学科学习时长分布（占满剩余宽度） -->
       <div class="chart-row">
         <div class="stat-grid">
           <div v-for="x in studyStats" :key="x.label" class="kpi kpi--plain">
@@ -77,28 +77,35 @@
           </div>
         </div>
         <div class="chart-card">
-          <div class="chart-card__title">学习时长趋势</div>
-          <div v-if="p.study_time?.has_data" ref="studyTrendRef" class="chart-card__body" />
-          <div v-else class="chart-card__empty">{{ rangeLabel }}暂无学习记录</div>
-        </div>
-        <div class="chart-card">
-          <div class="chart-card__title">时段时长分布</div>
-          <div v-if="p.study_time?.has_data" ref="studyHourRef" class="chart-card__body" />
-          <div v-else class="chart-card__empty">暂无学习记录</div>
-        </div>
-      </div>
-
-      <!-- 时长明细：学科分布 | 类型时长分布（环形图） | 建议（study_time.highlights） -->
-      <div class="detail-row">
-        <div class="chart-card">
-          <div class="chart-card__title">学科分布</div>
+          <div class="chart-card__title">学科学习时长分布</div>
           <div v-if="p.study_time?.has_data" ref="studyRef" class="chart-card__body" />
           <div v-else class="chart-card__empty">{{ rangeLabel }}暂无学习记录</div>
         </div>
+      </div>
+
+      <!-- 时长明细：类型时长分布（环形图） | 知识点学习时长 Top5（可切换科目） | 建议（study_time.highlights） -->
+      <div class="detail-row">
         <div class="chart-card">
           <div class="chart-card__title">类型时长分布</div>
           <div v-if="p.study_time?.types?.length" ref="studyTypeRef" class="chart-card__body" />
           <div v-else class="chart-card__empty">{{ rangeLabel }}暂无学习记录</div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card__head">
+            <div class="chart-card__title">知识点学习时长Top5</div>
+            <div v-if="kpSubjects.length" class="seg" role="tablist">
+              <button v-for="sj in kpSubjects" :key="sj.code" type="button" class="seg__btn" :class="{ 'is-active': kpCode === sj.code }" @click="kpSubject = sj.code">{{ sj.name }}</button>
+            </div>
+          </div>
+          <div v-if="kpItems.length" class="chart-card__body kp-list">
+            <div v-for="(x, i) in kpItems" :key="x.id" class="kp-row">
+              <span class="kp-row__no num">{{ i + 1 }}</span>
+              <span class="kp-row__name" :title="x.name">{{ x.name }}</span>
+              <div class="bar"><div class="bar__fill" :style="{ width: (x.minutes / kpMax * 100) + '%', background: SUBJECT_COLORS[kpCode] ?? SUBJECT_COLORS.OTHER }" /></div>
+              <span class="kp-row__val num">{{ fmtMin(x.minutes) }}</span>
+            </div>
+          </div>
+          <div v-else class="chart-card__empty">{{ rangeLabel }}该科目暂无知识点学习记录</div>
         </div>
         <div class="chart-card">
           <div class="chart-card__title">建议</div>
@@ -185,7 +192,7 @@
               </div>
               <div class="two-col" style="margin-top:10px">
                 <div>
-                  <div class="sub-title">学科分布</div>
+                  <div class="sub-title">学科学习时长分布</div>
                   <div v-for="x in p.study_time.subjects" :key="x.code" class="rate-row">
                     <span class="rate-row__label"><i class="subj-dot" :style="{ background: SUBJECT_COLORS[x.code] ?? SUBJECT_COLORS.OTHER }" />{{ x.name }}</span>
                     <div class="bar"><div class="bar__fill" :style="{ width: (x.share ?? 0) + '%', background: SUBJECT_COLORS[x.code] ?? SUBJECT_COLORS.OTHER }" /></div>
@@ -396,7 +403,8 @@ const QT_ICONS: Record<string, string> = {
 const KPI_VIZ: Record<string, 'bars' | 'wave' | 'dots' | 'ring' | 'swing'> = { study_time: 'swing', sessions: 'bars', answered: 'wave', accuracy: 'ring', ai_asks: 'dots' }
 // 学科色：定义在下方非 scoped 样式块的 --subj-* 变量里（亮 / 暗各一套，随主题切换）。模板直接用 var()，图表用 subjColor() 取实际色值
 const SUBJECT_COLORS: Record<string, string> = { MATH: 'var(--subj-math)', PHYSICS: 'var(--subj-physics)', CHEMISTRY: 'var(--subj-chemistry)', OTHER: 'var(--subj-other)' }
-const SUBJECT_FALLBACK: Record<string, string> = { MATH: '#8e9bf5', PHYSICS: '#ec9fbd', CHEMISTRY: '#5fc9c1', OTHER: '#6b7186' }
+const SUBJECT_CODES = ['MATH', 'PHYSICS', 'CHEMISTRY']
+const SUBJECT_FALLBACK: Record<string, string> = { MATH: '#e4e7fb', PHYSICS: '#9aa3dc', CHEMISTRY: '#5c6499', OTHER: '#444a66' }
 function subjColor(code: string) {
   const k = code in SUBJECT_FALLBACK ? code : 'OTHER'
   return cssVar(`--subj-${k.toLowerCase()}`, SUBJECT_FALLBACK[k])
@@ -411,8 +419,28 @@ function fmtMin(m?: number | null) {
   if (m == null) return '—'
   return m < 60 ? `${Math.round(m * 10) / 10} 分钟` : `${Math.round(m / 6) / 10} 小时`
 }
-// 练习方式的颜色（和小程序「练习方式」同一批名称）
-const TYPE_COLORS: Record<string, string> = { KNOWLEDGE_POINT: '#5E8DF9', UNIT: '#A78BFA', ERROR_QUESTIONS: '#FB923C', FAVORITES: '#F472B6', SMART: '#FACC15', RANDOM: '#38BDF8', SEMESTER: '#94A3B8' }
+// 练习方式的颜色（和小程序「练习方式」同一批名称）：和学科色同一个思路，只用页面本身的蓝紫灰色阶（定义在下方非 scoped 样式块的 --type-* 变量里，亮 / 暗各一套）。
+// 7 档明度会让相邻两段太像，所以相邻的练习方式一深一浅交错排，图例也分得开
+const TYPE_VAR: Record<string, string> = { KNOWLEDGE_POINT: 'kp', UNIT: 'unit', ERROR_QUESTIONS: 'err', FAVORITES: 'fav', SMART: 'smart', RANDOM: 'random', SEMESTER: 'sem' }
+const TYPE_FALLBACK: Record<string, string> = { kp: '#e4e7fb', unit: '#7a85c6', err: '#b4bbec', fav: '#4c5489', smart: '#9aa3dc', random: '#626ca6', sem: '#8590cc' }
+function typeColor(key: string) {
+  const k = TYPE_VAR[key] ?? 'sem'
+  return cssVar(`--type-${k}`, TYPE_FALLBACK[k])
+}
+// ── 知识点学习时长 Top5：标题右侧切换科目，列出所选科目在周期内用时最长的 5 个知识点 ──
+const kpSubject = ref('')
+const kpSubjects = computed(() => {
+  const st = p.value?.study_time
+  return (st?.subjects ?? []).filter(x => SUBJECT_CODES.includes(x.code) || (st?.kp_top?.[x.code]?.length ?? 0) > 0)
+})
+// 当前科目：点过就用点的；没点过（或换了日期范围后这个科目没了）默认第一个有数据的科目，都没有就第一个
+const kpCode = computed(() => {
+  const list = kpSubjects.value
+  if (list.some(x => x.code === kpSubject.value)) return kpSubject.value
+  return (list.find(x => (p.value?.study_time?.kp_top?.[x.code]?.length ?? 0) > 0) ?? list[0])?.code ?? ''
+})
+const kpItems = computed(() => p.value?.study_time?.kp_top?.[kpCode.value] ?? [])
+const kpMax = computed(() => Math.max(1, ...kpItems.value.map(x => x.minutes)))
 const studyStats = computed(() => {
   const st = p.value?.study_time?.stats
   const bd = st?.best_day
@@ -468,8 +496,6 @@ function onRangeChange() {
 }
 const radarRef = ref<HTMLElement>()
 const studyRef = ref<HTMLElement>()
-const studyTrendRef = ref<HTMLElement>()
-const studyHourRef = ref<HTMLElement>()
 const studyTypeRef = ref<HTMLElement>()
 const trendPowerRef = ref<HTMLElement>()
 const charts: echarts.ECharts[] = []
@@ -581,31 +607,7 @@ function renderStudy() {
   const txt3 = cssVar('--text-3', '#999')
   const axis = { axisLabel: { color: txt3, fontSize: 11 }, axisLine: { lineStyle: { color: 'rgba(128,128,128,0.25)' } }, axisTick: { show: false } }
   const yAxis = { type: 'value' as const, splitNumber: 3, splitLine: { lineStyle: { color: 'rgba(160,168,220,0.14)', type: 'dashed' as const } }, axisLabel: { color: txt3, fontSize: 11 } }
-  const primary = accent()
   const tip = (i: number) => `${series[i].label}<br/>`
-
-  // 趋势图：合计（中性色、较粗、带面积，避免和学科色混淆）+ 每个学科一条线（学科色，与学科分布同一套颜色）
-  const totalClr = document.documentElement.dataset.theme === 'dark' ? cssVar('--text-1', '#fff') : '#475066'
-  const c1 = initChart(studyTrendRef.value)
-  c1?.setOption({
-    grid: { left: 0, right: 0, top: 30, bottom: 0, containLabel: true },
-    legend: { top: 0, data: ['合计', ...t.subjects.map(x => x.name)], itemWidth: 12, itemHeight: 3, icon: 'roundRect', textStyle: { color: cssVar('--text-2', '#888'), fontSize: 12 } },
-    tooltip: {
-      trigger: 'axis',
-      formatter: (ps: { dataIndex: number; seriesName: string; marker: string; value: number }[]) =>
-        tip(ps[0].dataIndex) + ps.map(x => `${x.marker}${x.seriesName}：${fmtMin(x.value)}`).join('<br/>'),
-    },
-    xAxis: { type: 'category', data: series.map(x => x.label), ...axis },
-    yAxis: { ...yAxis, name: '分钟', nameTextStyle: { color: txt3, fontSize: 11 } },
-    series: [
-      { name: '合计', type: 'line', z: 1, data: series.map(x => x.total), smooth: 0.3, symbol: 'none', itemStyle: { color: totalClr }, lineStyle: { color: totalClr, width: 2.4 }, areaStyle: { color: totalClr, opacity: 0.06 } },
-      ...t.subjects.map(sj => ({
-        name: sj.name, type: 'line', z: 2, smooth: 0.3, symbol: 'none',
-        data: series.map(x => x.minutes[sj.code] ?? 0),
-        itemStyle: { color: subjColor(sj.code) }, lineStyle: { color: subjColor(sj.code), width: 1.6 },
-      })),
-    ],
-  })
 
   const c2 = initChart(studyRef.value)
   // 学科之间留 2px 间隙：在相邻两段之间插一段不可见的占位。ECharts 堆叠柱没有「段间距」，所以先固定 y 轴上限，
@@ -648,22 +650,17 @@ function renderStudy() {
     series: stackSeries,
   })
 
-  const tb = t.time_buckets ?? []
-  const c3 = initChart(studyHourRef.value)
-  c3?.setOption({
-    grid: { left: 0, right: 0, top: 14, bottom: 0, containLabel: true },
-    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: (ps: { dataIndex: number }[]) => `${tb[ps[0].dataIndex].label}（${tb[ps[0].dataIndex].range}）<br/>${fmtMin(tb[ps[0].dataIndex].minutes)}` },
-    xAxis: { type: 'category', data: tb.map(x => x.label), ...axis },
-    yAxis,
-    series: [{ type: 'bar', barWidth: 15, data: tb.map(x => x.minutes), itemStyle: { color: primary, borderRadius: [3, 3, 0, 0] } }],
-  })
 
   // 类型时长环形图：圆角分段、段间留缝，中间显示总时长
   const types = t.types ?? []
   const c4 = initChart(studyTypeRef.value)
   const total = types.reduce((n, x) => n + x.minutes, 0)
-  // 外圈细线半径 = 99% × min(宽, 高) / 2：它的左、上、下缘都贴着图表区（卡片内边距 15px）
-  const ringCx = 0.99 * Math.min(c4?.getWidth() ?? 400, c4?.getHeight() ?? 207) / 2
+  // 外圈细线半径 r（像素）：默认 = 86% × min(宽, 高) / 2，上下各留 7%；盒子窄时缩小，保证右边放得下图例（约 112px + 间距 12px）。
+  // 圆环外缘 = 0.875 r，内缘 = 0.7625 r；细线 = 0.9875 r ~ r；细线左缘贴着图表区左边（卡片内边距 15px），所以圆心 = r
+  const cw = c4?.getWidth() ?? 400, ch = c4?.getHeight() ?? 207
+  const ringR = Math.max(40, Math.min(0.86 * Math.min(cw, ch) / 2, (cw - 112 - 12) / 2))
+  const ringCx = ringR
+  const RING_EXTRA = 3   // 圆环在原环宽（= 0.1125 r ≈ 10px）上再加宽 3px：外缘不动，内缘往里收
   c4?.setOption({
     title: { text: fmtMin(total), subtext: '学习时长', left: ringCx, top: 'middle', textAlign: 'center', itemGap: 4,
       textStyle: { color: cssVar('--text-1', '#fff'), fontSize: 20, fontWeight: 600 }, subtextStyle: { color: txt3, fontSize: 12 } },
@@ -671,11 +668,11 @@ function renderStudy() {
     legend: { orient: 'vertical', right: 0, top: 'middle', itemWidth: 9, itemHeight: 9, itemGap: 7, icon: 'circle', textStyle: { color: cssVar('--text-2', '#888'), fontSize: 12 },
       formatter: (name: string) => { const x = types.find(y => y.label === name); return `${name}  ${x?.share ?? 0}%` } },
     series: [
-      { type: 'pie', radius: ['66.7%', '89%'], center: [ringCx, '50%'], padAngle: 3, avoidLabelOverlap: false, label: { show: false }, labelLine: { show: false },
-        itemStyle: { borderRadius: 8 }, emphasis: { scale: false },
-        data: types.map(x => ({ name: x.label, value: x.minutes, sessions: x.sessions, itemStyle: { color: TYPE_COLORS[x.key] ?? '#94A3B8' } })) },
+      { type: 'pie', radius: [ringR * 0.7625 - RING_EXTRA, ringR * 0.875], center: [ringCx, '50%'], padAngle: 3, avoidLabelOverlap: false, label: { show: false }, labelLine: { show: false },
+        itemStyle: { borderRadius: 5 }, emphasis: { scale: false },
+        data: types.map(x => ({ name: x.label, value: x.minutes, sessions: x.sessions, itemStyle: { color: typeColor(x.key) } })) },
       // 外圈一条细线，和参考图一样
-      { type: 'pie', radius: ['97.9%', '99%'], center: [ringCx, '50%'], silent: true, label: { show: false }, labelLine: { show: false }, tooltip: { show: false },
+      { type: 'pie', radius: [ringR * 0.9875, ringR], center: [ringCx, '50%'], silent: true, label: { show: false }, labelLine: { show: false }, tooltip: { show: false },
         data: [{ value: 1, itemStyle: { color: 'rgba(128,128,128,0.22)' } }] },
     ],
   })
@@ -753,10 +750,23 @@ onBeforeUnmount(() => { window.removeEventListener('resize', onResize); charts.f
 .empty-sm { padding: 6px 0; }
 
 // 第一列 = 顶部统计条的 2 列宽（5 列、间距 15px），让下面 4 张统计卡与顶部卡片同宽
-.chart-row { display: grid; grid-template-columns: calc((100% - 60px) * 2 / 5 + 15px) minmax(0, 2fr) minmax(0, 1.5fr); gap: 15px; flex-shrink: 0; @media (max-width: 1100px) { grid-template-columns: 1fr; } }
-.detail-row { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2.5fr) minmax(0, 2.5fr); gap: 15px; flex-shrink: 0; @media (max-width: 1100px) { grid-template-columns: 1fr; } }
+.chart-row { display: grid; grid-template-columns: calc((100% - 60px) * 2 / 5 + 15px) minmax(0, 1fr); gap: 15px; flex-shrink: 0; @media (max-width: 1100px) { grid-template-columns: 1fr; } }
+// 第一列（类型时长分布）= 原来 2.1/8 的宽度再加 20px，其余两列平分剩下的
+.detail-row { display: grid; grid-template-columns: calc((100% - 30px) * 2.1 / 8 + 20px) minmax(0, 1fr) minmax(0, 1fr); gap: 15px; flex-shrink: 0; @media (max-width: 1100px) { grid-template-columns: 1fr; } }
 // 这一行的图表卡与左边统计卡区（2×118 + 15 = 251px）等高：卡片内边距 + 标题共 48.5px，绘图区取 202.5px
 .chart-row .chart-card__body, .chart-row .chart-card__empty { height: 202.5px; }
+// 知识点学习时长 Top5：标题行右侧是科目切换（胶囊分段按钮），下面 5 行「序号 / 知识点名 / 占比条 / 时长」
+.chart-card__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.seg { display: inline-flex; gap: 2px; margin: -4px 0; padding: 2px; border-radius: 999px; flex-shrink: 0;
+  border: 1px solid color-mix(in srgb, var(--text-3) 28%, transparent); background: color-mix(in srgb, var(--text-3) 8%, transparent); }
+.seg__btn { height: 22px; padding: 0 12px; border: none; border-radius: 999px; background: transparent; color: var(--text-3); font-size: 12px; line-height: 22px; cursor: pointer; transition: background 0.2s, color 0.2s;
+  &:hover { color: var(--text-1); }
+  &.is-active { background: color-mix(in srgb, var(--text-1) 13%, transparent); color: var(--text-1); font-weight: 600; } }
+.kp-list { display: flex; flex-direction: column; }      // 固定行高、靠上排：不足 5 个知识点时，下面留白，不把行拉开
+.kp-row { height: 40px; display: grid; grid-template-columns: 20px minmax(0, 1.25fr) minmax(0, 1fr) 62px; align-items: center; gap: 10px; font-size: 13px; color: var(--text-1); }
+.kp-row__no { width: 20px; height: 20px; border-radius: 50%; text-align: center; line-height: 20px; font-size: 11px; color: var(--text-2); background: color-mix(in srgb, var(--text-3) 16%, transparent); }
+.kp-row__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kp-row__val { text-align: right; color: var(--text-2); white-space: nowrap; }
 .stat-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, auto); align-content: start; gap: 15px; }
 .chart-card__body--tips { overflow-y: auto; padding-top: 8px; }
 .chart-card { position: relative; padding: 14px 15px 15px; min-width: 0; border-radius: 14px;
@@ -883,10 +893,14 @@ onBeforeUnmount(() => { window.removeEventListener('resize', onResize); charts.f
 
 <!-- 不加 scoped：下面的规则要同时带上主题选择器（html[data-theme=...]）和页面里的类名，scoped + :global 写法会把后半截选择器丢掉 -->
 <style lang="scss">
-// 学科色（数学 / 物理 / 化学）：同一明度、同一饱和度，往页面的蓝紫灰靠，互相色相差约 100°
-//   暗色：雾蓝紫 / 柔和玫瑰 / 青绿（偏亮，压得住深底）；亮色：同色相加深
-:root { --subj-math: #5b73f0; --subj-physics: #e0608f; --subj-chemistry: #12a39b; --subj-other: #94a3b8; }
-html[data-theme="dark"] { --subj-math: #8e9bf5; --subj-physics: #ec9fbd; --subj-chemistry: #5fc9c1; --subj-other: #6b7186; }
+// 学科色（数学 / 物理 / 化学）：用页面本身的蓝紫灰色阶，三档明度拉开（和统计卡、图表的灰紫同一个色相），不再引入别的色相
+//   暗色：近白 / 中灰紫 / 深灰紫（堆叠柱从下往上由亮到暗）；亮色：深靛 / 中靛 / 浅靛
+:root { --subj-math: #3d4fc4; --subj-physics: #7c8cf0; --subj-chemistry: #b4bdf9; --subj-other: #cbd0dd; }
+// 练习方式色（类型时长分布）：按小程序「练习方式」的顺序，一深一浅交错
+//   暗色：近白 → 深灰紫；亮色：深靛 → 浅靛，其中「按学期」用中性灰
+:root { --type-kp: #2f3fa8; --type-unit: #9aa6f5; --type-err: #4a5bd0; --type-fav: #b8c0fa; --type-smart: #6272e6; --type-random: #c9cfe0; --type-sem: #8190ee; }
+html[data-theme="dark"] { --type-kp: #e4e7fb; --type-unit: #7a85c6; --type-err: #b4bbec; --type-fav: #4c5489; --type-smart: #9aa3dc; --type-random: #626ca6; --type-sem: #8590cc; }
+html[data-theme="dark"] { --subj-math: #e4e7fb; --subj-physics: #9aa3dc; --subj-chemistry: #5c6499; --subj-other: #444a66; }
 
 // 暗色主题（参考图）：更深的蓝黑底 + 右上角淡薰衣草光；强调色偏灰的薰衣草蓝紫；
 // 胶囊标签 / 按钮、小号大写表头；亮色主题的统计卡 / 图表卡配色

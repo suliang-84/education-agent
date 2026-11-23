@@ -436,3 +436,20 @@ def test_study_time_weekday_weekend_avg_divides_by_days_in_range():
     # 工作日全勤、周末没学：周末日均是 0（不是「没数据」）
     st3 = _study_time_build(rows[:2], subs, rng, 1800, 0, 600)["stats"]
     assert st3["weekend_avg"] == 0.0 and st3["weekday_avg"] == 6.0
+
+
+def test_study_time_kp_top5_per_subject():
+    """知识点学习时长 Top5：按学科分组、按用时从多到少；用时 0 的不上榜；每科最多 5 个"""
+    from datetime import date
+    from app.services.profile_service import _study_time_build, Range
+    subs = {1: ("MATH", "数学"), 2: ("PHYSICS", "物理")}
+    rng = Range(date(2026, 11, 9), date(2026, 11, 15))
+    rows = [{"d": date(2026, 11, 9), "sid": 1, "t": 6000, "n": 10, "c": 8}]
+    kp = [{"sid": 1, "kid": i, "name": f"数学知识点{i}", "t": 600 * i, "n": i} for i in range(1, 8)]      # 7 个，用时 10~70 分钟
+    kp += [{"sid": 1, "kid": 99, "name": "没记录用时", "t": 0, "n": 3}, {"sid": 2, "kid": 50, "name": "牛顿第二定律", "t": 900, "n": 4}]
+    top = _study_time_build(rows, subs, rng, 6000, 0, 600, None, None, 0, None, kp)["kp_top"]
+    assert [x["name"] for x in top["MATH"]] == ["数学知识点7", "数学知识点6", "数学知识点5", "数学知识点4", "数学知识点3"]
+    assert top["MATH"][0]["minutes"] == 70.0 and top["MATH"][0]["answered"] == 7
+    assert [x["name"] for x in top["PHYSICS"]] == ["牛顿第二定律"] and top["PHYSICS"][0]["minutes"] == 15.0
+    assert "CHEMISTRY" not in top
+    assert _study_time_build(rows, subs, rng, 6000, 0, 600)["kp_top"] == {}

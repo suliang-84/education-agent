@@ -1023,10 +1023,12 @@ def _study_time_tips(stats, subj, types, tb, rng, wrong_pending):
     return tips[:5]
 
 
-def _study_time_build(rows, subjects, rng, t1, t0, avg_session_sec, hour_rows=None, type_rows=None, wrong_pending=0, prev_best_sec=None):
+def _study_time_build(rows, subjects, rng, t1, t0, avg_session_sec, hour_rows=None, type_rows=None, wrong_pending=0, prev_best_sec=None, kp_rows=None):
     """学习时长明细（纯计算，方便测试）。rows：每天每个学科的 {d, sid, t(秒), n, c}；subjects：{id: (code, name)}。
     时长 = 每道题的作答用时之和（系统没有记录页面在线时长，这是最接近的口径）。
-    prev_best_sec：前一段同样长度时间里，学得最久那一天的秒数（没有学习记录时传 None / 0），用来给「单日最长」做涨跌对比。"""
+    prev_best_sec：前一段同样长度时间里，学得最久那一天的秒数（没有学习记录时传 None / 0），用来给「单日最长」做涨跌对比。
+    kp_rows：每个学科下每个知识点的 {sid, kid, name, t(秒), n(答题数)}，用来出「知识点学习时长 Top5」。
+    一道题挂了几个知识点，用时就各算一份（所以各知识点的时长相加会比总时长大，只用来排名）。"""
     names = {"MATH": "数学", "PHYSICS": "物理", "CHEMISTRY": "化学"}
     def code_of(sid):
         return subjects.get(sid, ("OTHER", "其他"))[0]
@@ -1116,8 +1118,16 @@ def _study_time_build(rows, subjects, rng, t1, t0, avg_session_sec, hour_rows=No
     for key, label, lo, hi in TIME_BUCKETS:
         sec = sum(float(r["t"] or 0) for r in (hour_rows or []) if lo <= (r["h"] if r["h"] >= 6 else r["h"] + 24) < hi)
         tb.append({"key": key, "label": label, "range": f"{lo}–{min(hi, 24) if hi <= 24 else str(hi - 24) + '(次日)'}点", "minutes": round(sec / 60, 1)})
+    # 知识点学习时长 Top5：按学科分组，每科取周期内用时最长的 5 个知识点（没记录用时的不上榜）
+    kp_top: dict[str, list] = {}
+    for r in kp_rows or []:
+        if float(r["t"] or 0) <= 0:
+            continue
+        kp_top.setdefault(code_of(r["sid"]), []).append({"id": r["kid"], "name": r["name"], "minutes": round(float(r["t"]) / 60, 1), "answered": r["n"]})
+    kp_top = {c: sorted(v, key=lambda x: (-x["minutes"], -x["answered"], x["id"]))[:5] for c, v in kp_top.items()}
     return {"has_data": True, "unit": "day" if rng.daily else "week", "time_buckets": tb, "types": types,
-            "tips": _study_time_tips(stats, subj, types, tb, rng, wrong_pending), "subjects": subj, "series": series, "stats": stats, "highlights": hl[:5]}
+            "tips": _study_time_tips(stats, subj, types, tb, rng, wrong_pending), "subjects": subj, "series": series, "stats": stats, "highlights": hl[:5],
+            "kp_top": kp_top}
 
 
 async def _study_time(db, sid, rng, k, beh, wrong_pending=0):
@@ -1136,7 +1146,16 @@ async def _study_time(db, sid, rng, k, beh, wrong_pending=0):
         SELECT (a.answered_at AT TIME ZONE '{TZ}')::date d, coalesce(sum(a.time_spent_sec), 0) t
         {_base(True)} GROUP BY 1""", sid=sid, since=rng.prev_since, until=rng.since)
     prev_best = max((float(r["t"] or 0) for r in prev), default=0)
-    return _study_time_build(rows, subs, rng, k["t1"], k["t0"], beh.get("avg_seconds_per_session"), hours, types, wrong_pending, prev_best)
+    kp_rows = await _rows(db, """
+        SELECT q.subject_id sid, kp.id kid, kp.name, coalesce(sum(a.time_spent_sec), 0) t, count(*) n
+        FROM training_answer_records a
+        JOIN training_sessions s ON s.id = a.session_id
+        JOIN questions q ON q.id = a.question_id
+        CROSS JOIN LATERAL jsonb_array_elements_text(q.knowledge_point_ids) AS k(kid)
+        JOIN knowledge_points kp ON kp.id = (CASE WHEN k.kid ~ '^[0-9]+$' THEN k.kid::bigint END)
+        WHERE s.student_id = :sid AND COALESCE(a.is_seed_data, false) = false AND a.answered_at >= :since AND a.answered_at < :until
+        GROUP BY 1, 2, 3""", sid=sid, **rng.params)
+    return _study_time_build(rows, subs, rng, k["t1"], k["t0"], beh.get("avg_seconds_per_session"), hours, types, wrong_pending, prev_best, kp_rows)
 
 
 async def get_profile(db: AsyncSession, student_id: int, start: str | None = None, end: str | None = None) -> dict:
