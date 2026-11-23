@@ -58,27 +58,8 @@
         </template>
       </el-dialog>
 
-      <!-- 学习时长三图：趋势 : 学科分布 : 时段分布 = 2 : 2.5 : 1.5 -->
+      <!-- 学习时长：4 张统计卡 | 趋势 | 时段分布 = 2.5 : 2 : 1.5 -->
       <div class="chart-row">
-        <div class="chart-card">
-          <div class="chart-card__title">学习时长趋势</div>
-          <div v-if="p.study_time?.has_data" ref="studyTrendRef" class="chart-card__body" />
-          <div v-else class="chart-card__empty">{{ rangeLabel }}暂无学习记录</div>
-        </div>
-        <div class="chart-card">
-          <div class="chart-card__title">学科分布</div>
-          <div v-if="p.study_time?.has_data" ref="studyRef" class="chart-card__body" />
-          <div v-else class="chart-card__empty">{{ rangeLabel }}暂无学习记录</div>
-        </div>
-        <div class="chart-card">
-          <div class="chart-card__title">时段时长分布</div>
-          <div v-if="p.study_time?.has_data" ref="studyHourRef" class="chart-card__body" />
-          <div v-else class="chart-card__empty">暂无学习记录</div>
-        </div>
-      </div>
-
-      <!-- 时长明细：4 张统计卡 | 类型时长分布（环形图） | 建议（study_time.highlights） -->
-      <div class="detail-row">
         <div class="stat-grid">
           <div v-for="x in studyStats" :key="x.label" class="kpi kpi--plain">
             <div class="kpi__txt">
@@ -88,6 +69,25 @@
             </div>
             <div class="kpi__viz"><KpiSpark :kind="x.viz" :gid="`st-${x.viz}`" /></div>
           </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card__title">学习时长趋势</div>
+          <div v-if="p.study_time?.has_data" ref="studyTrendRef" class="chart-card__body" />
+          <div v-else class="chart-card__empty">{{ rangeLabel }}暂无学习记录</div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card__title">时段时长分布</div>
+          <div v-if="p.study_time?.has_data" ref="studyHourRef" class="chart-card__body" />
+          <div v-else class="chart-card__empty">暂无学习记录</div>
+        </div>
+      </div>
+
+      <!-- 时长明细：学科分布 | 类型时长分布（环形图） | 建议（study_time.highlights） -->
+      <div class="detail-row">
+        <div class="chart-card">
+          <div class="chart-card__title">学科分布</div>
+          <div v-if="p.study_time?.has_data" ref="studyRef" class="chart-card__body" />
+          <div v-else class="chart-card__empty">{{ rangeLabel }}暂无学习记录</div>
         </div>
         <div class="chart-card">
           <div class="chart-card__title">类型时长分布</div>
@@ -388,7 +388,13 @@ const QT_ICONS: Record<string, string> = {
 }
 // 5 张统计卡各用一种固定图案（纯装饰，不随统计数据变化），互不重复：锯齿面积 / 蜡烛 / 声波 / 圆环 / 点阵柱
 const KPI_VIZ: Record<string, 'line' | 'jagged' | 'bars' | 'wave' | 'dots' | 'ring'> = { study_time: 'jagged', sessions: 'bars', answered: 'wave', accuracy: 'ring', ai_asks: 'dots' }
-const SUBJECT_COLORS: Record<string, string> = { MATH: '#FACC15', PHYSICS: '#F87171', CHEMISTRY: '#4ADE80', OTHER: '#94A3B8' }
+// 学科色：定义在下方非 scoped 样式块的 --subj-* 变量里（亮 / 暗各一套，随主题切换）。模板直接用 var()，图表用 subjColor() 取实际色值
+const SUBJECT_COLORS: Record<string, string> = { MATH: 'var(--subj-math)', PHYSICS: 'var(--subj-physics)', CHEMISTRY: 'var(--subj-chemistry)', OTHER: 'var(--subj-other)' }
+const SUBJECT_FALLBACK: Record<string, string> = { MATH: '#8e9bf5', PHYSICS: '#ec9fbd', CHEMISTRY: '#5fc9c1', OTHER: '#6b7186' }
+function subjColor(code: string) {
+  const k = code in SUBJECT_FALLBACK ? code : 'OTHER'
+  return cssVar(`--subj-${k.toLowerCase()}`, SUBJECT_FALLBACK[k])
+}
 // 「1.5 小时」「78.0%」拆成数字和单位，单位用小一号的字显示
 function splitUnit(v: string) {
   const m = /^([-\d.,]+)\s*(.*)$/.exec(v ?? '')
@@ -578,21 +584,43 @@ function renderStudy() {
   })
 
   const c2 = initChart(studyRef.value)
+  // 学科之间留 2px 间隙：在相邻两段之间插一段不可见的占位。ECharts 堆叠柱没有「段间距」，所以先固定 y 轴上限，
+  // 再按绘图区的像素高度把 2px 换算成数据量（分钟）
+  const GAP_PX = 2, GRID_TOP = 30, GRID_BOTTOM = 24
+  const totals = series.map(x => x.total)
+  const rawMax = Math.max(1, ...totals) * 1.08
+  const stepRaw = rawMax / 3, mag = 10 ** Math.floor(Math.log10(stepRaw))
+  const step = ([1, 2, 2.5, 5, 10].find(m => m * mag >= stepRaw) ?? 10) * mag
+  const yMax = step * 3
+  const plotH = Math.max(60, (c2?.getHeight() ?? 210) - GRID_TOP - GRID_BOTTOM)
+  const gapMin = (GAP_PX / plotH) * yMax
+  const subs = t.subjects
+  const stackSeries: Record<string, unknown>[] = []
+  subs.forEach((sj, i, arr) => {
+    if (i > 0) {
+      // 占位：这一天下面已有学科、且当前学科也有数据时才留缝
+      stackSeries.push({
+        name: '', type: 'bar', stack: 'time', barWidth: 15, silent: true, tooltip: { show: false }, itemStyle: { color: 'transparent' },
+        data: series.map(x => (subs.slice(0, i).some(o => (x.minutes[o.code] ?? 0) > 0) && (x.minutes[sj.code] ?? 0) > 0 ? gapMin : 0)),
+      })
+    }
+    stackSeries.push({
+      name: sj.name, type: 'bar', stack: 'time', barWidth: 15,
+      data: series.map(x => x.minutes[sj.code] ?? 0),
+      itemStyle: { color: subjColor(sj.code), borderRadius: i === arr.length - 1 ? [3, 3, 0, 0] : 0 },
+    })
+  })
   c2?.setOption({
-    grid: { left: 38, right: 14, top: 30, bottom: 24 },
-    legend: { top: 0, itemWidth: 10, itemHeight: 8, textStyle: { color: cssVar('--text-2', '#888'), fontSize: 12 } },
+    grid: { left: 38, right: 14, top: GRID_TOP, bottom: GRID_BOTTOM },
+    legend: { top: 0, data: subs.map(x => x.name), itemWidth: 10, itemHeight: 8, textStyle: { color: cssVar('--text-2', '#888'), fontSize: 12 } },
     tooltip: {
       trigger: 'axis', axisPointer: { type: 'shadow' },
       formatter: (ps: { dataIndex: number; seriesName: string; marker: string; value: number }[]) =>
-        tip(ps[0].dataIndex) + ps.filter(x => x.value > 0).map(x => `${x.marker}${x.seriesName}：${fmtMin(x.value)}`).join('<br/>') + `<br/><b>合计：${fmtMin(series[ps[0].dataIndex].total)}</b>`,
+        tip(ps[0].dataIndex) + ps.filter(x => x.seriesName && x.value > 0).map(x => `${x.marker}${x.seriesName}：${fmtMin(x.value)}`).join('<br/>') + `<br/><b>合计：${fmtMin(series[ps[0].dataIndex].total)}</b>`,
     },
     xAxis: { type: 'category', data: series.map(x => x.label), ...axis },
-    yAxis: { ...yAxis, name: '分钟', nameTextStyle: { color: txt3, fontSize: 11 } },
-    series: t.subjects.map((sj, i, arr) => ({
-      name: sj.name, type: 'bar', stack: 'time', barWidth: 15,
-      data: series.map(x => x.minutes[sj.code] ?? 0),
-      itemStyle: { color: SUBJECT_COLORS[sj.code] ?? SUBJECT_COLORS.OTHER, borderRadius: i === arr.length - 1 ? [3, 3, 0, 0] : 0 },
-    })),
+    yAxis: { ...yAxis, max: yMax, name: '分钟', nameTextStyle: { color: txt3, fontSize: 11 } },
+    series: stackSeries,
   })
 
   const tb = t.time_buckets ?? []
@@ -697,10 +725,12 @@ onBeforeUnmount(() => { window.removeEventListener('resize', onResize); charts.f
 .empty { padding: 40px 0; text-align: center; }
 .empty-sm { padding: 6px 0; }
 
-.chart-row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 2.5fr) minmax(0, 1.5fr); gap: 15px; flex-shrink: 0; @media (max-width: 1100px) { grid-template-columns: 1fr; } }
+// 第一列 = 顶部统计条的 2 列宽（5 列、间距 15px），让下面 4 张统计卡与顶部卡片同宽
+.chart-row { display: grid; grid-template-columns: calc((100% - 60px) * 2 / 5 + 15px) minmax(0, 2fr) minmax(0, 1.5fr); gap: 15px; flex-shrink: 0; @media (max-width: 1100px) { grid-template-columns: 1fr; } }
 .detail-row { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2.5fr) minmax(0, 2.5fr); gap: 15px; flex-shrink: 0; @media (max-width: 1100px) { grid-template-columns: 1fr; } }
-.stat-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 15px; }
-.kpi--plain { min-height: 0; }
+// 这一行的图表卡与左边统计卡区（2×118 + 15 = 251px）等高：卡片内边距 + 标题共 43.5px，绘图区取 207.5px
+.chart-row .chart-card__body, .chart-row .chart-card__empty { height: 207.5px; }
+.stat-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, auto); align-content: start; gap: 15px; }
 .chart-card__body--tips { overflow-y: auto; padding-top: 8px; }
 .chart-card { position: relative; padding: 14px 16px 10px; min-width: 0; border-radius: 14px;
   --edge-a: rgba(210, 216, 255, 0.30); --edge-b: rgba(210, 216, 255, 0.035); --edge-c: rgba(210, 216, 255, 0.15);
@@ -718,7 +748,7 @@ onBeforeUnmount(() => { window.removeEventListener('resize', onResize); charts.f
 .kpi-strip { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 15px; flex-shrink: 0; @media (max-width: 1100px) { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 // 顶部统计小卡片（参考图）：深海军蓝底，左上略亮；1px 渐变描边（四角亮、边中淡）；
 // 右侧约一半宽、整卡高的区域铺细方格（向左淡出），迷你图画在方格上；标题灰蓝、数字用等宽字体、较大较细
-.kpi { position: relative; display: flex; align-items: stretch; min-width: 0; min-height: 96px; padding: 14px 16px; border-radius: 14px; overflow: hidden;
+.kpi { position: relative; display: flex; align-items: stretch; min-width: 0; height: var(--kpi-h, 118px); padding: 14px 16px; border-radius: 14px; overflow: hidden;
   --spark: #a8b0ee; --grid: rgba(190, 200, 255, 0.055); --edge-a: rgba(210, 216, 255, 0.30); --edge-b: rgba(210, 216, 255, 0.035); --edge-c: rgba(210, 216, 255, 0.15);
   background:
     radial-gradient(200px circle at 0% 0%, rgba(150, 160, 240, 0.11), transparent 70%),
@@ -822,6 +852,11 @@ onBeforeUnmount(() => { window.removeEventListener('resize', onResize); charts.f
 
 <!-- 不加 scoped：下面的规则要同时带上主题选择器（html[data-theme=...]）和页面里的类名，scoped + :global 写法会把后半截选择器丢掉 -->
 <style lang="scss">
+// 学科色（数学 / 物理 / 化学）：同一明度、同一饱和度，往页面的蓝紫灰靠，互相色相差约 100°
+//   暗色：雾蓝紫 / 柔和玫瑰 / 青绿（偏亮，压得住深底）；亮色：同色相加深
+:root { --subj-math: #5b73f0; --subj-physics: #e0608f; --subj-chemistry: #12a39b; --subj-other: #94a3b8; }
+html[data-theme="dark"] { --subj-math: #8e9bf5; --subj-physics: #ec9fbd; --subj-chemistry: #5fc9c1; --subj-other: #6b7186; }
+
 // 暗色主题（参考图）：更深的蓝黑底 + 右上角淡薰衣草光；强调色偏灰的薰衣草蓝紫；
 // 胶囊标签 / 按钮、小号大写表头；亮色主题的统计卡 / 图表卡配色
 html[data-theme="dark"] .page-root {
