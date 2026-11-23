@@ -949,8 +949,10 @@ async def _kpi_series(db, sid, rng, beh):
 
 
 def _fmt_minutes(sec):
-    m = round((sec or 0) / 60)
-    return f"{m} 分钟" if m < 60 else f"{round(m / 60, 1)} 小时"
+    """学习时长的展示文字。口径必须和「学习时长」标签页的总时长一致（stats.total_minutes 保留 1 位小数，
+    前端 fmtMin 再按 < 60 分钟 / ≥ 60 分钟换算），否则同一个数两处会因为取整顺序不同差 0.1 小时"""
+    m = round((sec or 0) / 60, 1)
+    return f"{m:g} 分钟" if m < 60 else f"{math.floor(m / 6 + 0.5) / 10:g} 小时"
 
 
 def _kpi_cards(k, beh, recent, rng, series=None):
@@ -994,7 +996,7 @@ def _study_time_tips(stats, subj, types, tb, rng, wrong_pending):
     wk, we = stats["weekday_avg"], stats["weekend_avg"]
     if wk and we and we / wk >= 1.8:
         tips.append(f"学习集中在周末（日均 {we} 分钟，工作日只有 {wk} 分钟）；建议把一部分挪到工作日，每天固定 10～15 分钟，比周末突击效果好")
-    elif we is None and wk and rng.days >= 7:
+    elif not we and wk and rng.days >= 7:
         tips.append("周末几乎没有学习记录，可以安排一次 20～30 分钟的复盘训练")
     best, avg = stats["best_day"], stats["avg_per_active_day"]
     if best and avg and stats["active_days"] >= 3 and best["minutes"] >= avg * 2:
@@ -1021,9 +1023,10 @@ def _study_time_tips(stats, subj, types, tb, rng, wrong_pending):
     return tips[:5]
 
 
-def _study_time_build(rows, subjects, rng, t1, t0, avg_session_sec, hour_rows=None, type_rows=None, wrong_pending=0):
+def _study_time_build(rows, subjects, rng, t1, t0, avg_session_sec, hour_rows=None, type_rows=None, wrong_pending=0, prev_best_sec=None):
     """学习时长明细（纯计算，方便测试）。rows：每天每个学科的 {d, sid, t(秒), n, c}；subjects：{id: (code, name)}。
-    时长 = 每道题的作答用时之和（系统没有记录页面在线时长，这是最接近的口径）。"""
+    时长 = 每道题的作答用时之和（系统没有记录页面在线时长，这是最接近的口径）。
+    prev_best_sec：前一段同样长度时间里，学得最久那一天的秒数（没有学习记录时传 None / 0），用来给「单日最长」做涨跌对比。"""
     names = {"MATH": "数学", "PHYSICS": "物理", "CHEMISTRY": "化学"}
     def code_of(sid):
         return subjects.get(sid, ("OTHER", "其他"))[0]
@@ -1053,15 +1056,20 @@ def _study_time_build(rows, subjects, rng, t1, t0, avg_session_sec, hour_rows=No
     active = {d: v for d, v in per_day.items() if v["t"] > 0}
     avg_day = total / len(active) if active else None
     best = max(active.items(), key=lambda kv: kv[1]["t"]) if active else None
-    wk = [v["t"] for d, v in active.items() if d.weekday() < 5]
-    we = [v["t"] for d, v in active.items() if d.weekday() >= 5]
+    # 周末 / 非周末日均 = 该类日子的学习总时长 ÷ 所选范围内该类日子的天数（没学习的天也算，分母不只是「有学习的天」）；
+    # 范围里没有这类日子（比如只选了周一到周三）则为 None
+    n_wd = sum(1 for i in range(rng.days) if (rng.start + timedelta(days=i)).weekday() < 5)
+    n_we = rng.days - n_wd
+    wk_total = sum(v["t"] for d, v in per_day.items() if d.weekday() < 5)
+    we_total = sum(v["t"] for d, v in per_day.items() if d.weekday() >= 5)
     stats = {
         "total_minutes": round(total / 60, 1), "prev_minutes": round(t0 / 60, 1),
         "delta_pct": round((t1 - t0) / t0 * 100) if t0 and t0 >= 600 else None,     # 前一段不足 10 分钟，比例没意义
         "active_days": len(active), "avg_per_active_day": None if avg_day is None else round(avg_day / 60, 1),
         "best_day": None if not best else {"date": str(best[0]), "minutes": round(best[1]["t"] / 60, 1)},
+        "prev_best_minutes": round(prev_best_sec / 60, 1) if prev_best_sec else None,     # 前一段的单日最长；前一段没学习则为 None（不做对比）
         "avg_per_session": None if not avg_session_sec else round(avg_session_sec / 60, 1),
-        "weekday_avg": round(sum(wk) / len(wk) / 60, 1) if wk else None, "weekend_avg": round(sum(we) / len(we) / 60, 1) if we else None,
+        "weekday_avg": round(wk_total / n_wd / 60, 1) if n_wd else None, "weekend_avg": round(we_total / n_we / 60, 1) if n_we else None,
     }
 
     hl = []
@@ -1124,7 +1132,11 @@ async def _study_time(db, sid, rng, k, beh, wrong_pending=0):
     types = await _rows(db, f"""
         SELECT s.training_dimension dim, coalesce(sum(a.time_spent_sec), 0) t, count(DISTINCT a.session_id) n
         {_base(True)} GROUP BY 1""", sid=sid, **rng.params)
-    return _study_time_build(rows, subs, rng, k["t1"], k["t0"], beh.get("avg_seconds_per_session"), hours, types, wrong_pending)
+    prev = await _rows(db, f"""
+        SELECT (a.answered_at AT TIME ZONE '{TZ}')::date d, coalesce(sum(a.time_spent_sec), 0) t
+        {_base(True)} GROUP BY 1""", sid=sid, since=rng.prev_since, until=rng.since)
+    prev_best = max((float(r["t"] or 0) for r in prev), default=0)
+    return _study_time_build(rows, subs, rng, k["t1"], k["t0"], beh.get("avg_seconds_per_session"), hours, types, wrong_pending, prev_best)
 
 
 async def get_profile(db: AsyncSession, student_id: int, start: str | None = None, end: str | None = None) -> dict:

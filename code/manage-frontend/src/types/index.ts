@@ -352,7 +352,7 @@ export interface StudyTime {
   series?: { label: string; minutes: Record<string, number>; total: number }[]
   stats?: {
     total_minutes: number; prev_minutes: number; delta_pct: number | null; active_days: number; avg_per_active_day: number | null
-    best_day: { date: string; minutes: number } | null; avg_per_session: number | null; weekday_avg: number | null; weekend_avg: number | null
+    best_day: { date: string; minutes: number } | null; prev_best_minutes?: number | null; avg_per_session: number | null; weekday_avg: number | null; weekend_avg: number | null
   }
   highlights?: { tone: 'good' | 'warn'; text: string }[]
 }

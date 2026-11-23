@@ -342,7 +342,7 @@ def test_kpi_cards():
     cards = _kpi_cards(k, beh, recent, rng)
     assert [c["key"] for c in cards] == ["study_time", "sessions", "answered", "accuracy", "ai_asks"]
     c = {x["key"]: x for x in cards}
-    assert c["study_time"]["value"] == "1.0 小时" and c["study_time"]["delta"] == 30
+    assert c["study_time"]["value"] == "1 小时" and c["study_time"]["delta"] == 30      # 与学习时长标签页的 fmtMin 同写法（整数不带 .0）
     assert c["sessions"]["value"] == "2 次" and c["sessions"]["delta"] == 1
     assert c["answered"]["value"] == "20 题" and c["answered"]["delta"] == 10
     assert c["accuracy"]["value"] == "80.0%" and c["accuracy"]["delta"] == 10.0 and c["ai_asks"]["delta"] == 4
@@ -374,6 +374,9 @@ def test_study_time_build():
     assert [x["code"] for x in r["subjects"]][:3] == ["MATH", "PHYSICS", "CHEMISTRY"] and r["subjects"][2]["minutes"] == 0
     assert r["stats"]["total_minutes"] == 45.0 and r["stats"]["delta_pct"] == 125 and r["stats"]["active_days"] == 5
     assert r["stats"]["best_day"]["minutes"] == 20.0 and r["stats"]["avg_per_session"] == 8.0
+    # 单日最长的上一周期对比：没传（前一段没学习）为 None，传了按分钟给
+    assert r["stats"]["prev_best_minutes"] is None
+    assert _study_time_build(rows, subs, rng, 2700, 1200, 480, None, None, 0, 750)["stats"]["prev_best_minutes"] == 12.5
     texts = " ".join(h["text"] for h in r["highlights"])
     assert "化学完全没有学习" in texts and "增加 125%" in texts
     # 学得久的日子（20、10 分钟）正确率高、学得短的日子低
@@ -402,3 +405,34 @@ def test_study_time_types_and_tips():
     ok = _study_time_build([{"d": d(i), "sid": 1 + i % 3, "t": 900, "n": 4, "c": 3} for i in range(7)], subs, rng, 6300, 6000, 900, [{"h": 19, "t": 6300}],
                            [{"dim": "KNOWLEDGE_POINT", "t": 3000, "n": 3}, {"dim": "ERROR_QUESTIONS", "t": 3300, "n": 3}], 0)
     assert ok["tips"] == ["学习时间的节奏和分配都比较健康，继续保持"]
+
+
+def test_fmt_minutes_matches_study_tab():
+    """顶部「学习时长」卡和学习时长标签页的总时长，同一个数必须显示成一样（前端 fmtMin：< 60 分钟保留 1 位小数，否则换成小时保留 1 位）"""
+    from app.services.profile_service import _fmt_minutes
+    assert _fmt_minutes(5220) == "1.5 小时"          # 87 分钟：先取整再换算会得到 1.4
+    assert _fmt_minutes(3570) == "59.5 分钟"         # 59.5 分钟：先取整会变成 1.0 小时
+    assert _fmt_minutes(2712) == "45.2 分钟" and _fmt_minutes(2700) == "45 分钟"
+    assert _fmt_minutes(7200) == "2 小时" and _fmt_minutes(5334) == "1.5 小时" and _fmt_minutes(0) == "0 分钟"
+
+
+def test_study_time_weekday_weekend_avg_divides_by_days_in_range():
+    """工作日 / 周末日均 = 总时长 ÷ 所选范围内这类日子的天数（没学习的天也算），不是 ÷ 有学习的天数"""
+    from datetime import date
+    from app.services.profile_service import _study_time_build, Range
+    subs = {1: ("MATH", "数学")}
+    rng = Range(date(2026, 11, 9), date(2026, 11, 15))          # 周一到周日：5 个工作日 + 2 个周末日
+    rows = [{"d": date(2026, 11, 9), "sid": 1, "t": 600, "n": 4, "c": 3},      # 周一 10 分钟
+            {"d": date(2026, 11, 11), "sid": 1, "t": 1200, "n": 6, "c": 5},    # 周三 20 分钟
+            {"d": date(2026, 11, 14), "sid": 1, "t": 3600, "n": 8, "c": 6}]    # 周六 60 分钟
+    st = _study_time_build(rows, subs, rng, 5400, 0, 600)["stats"]
+    assert st["weekday_avg"] == 6.0          # (10 + 20) ÷ 5，而不是 ÷ 2 = 15
+    assert st["weekend_avg"] == 30.0         # 60 ÷ 2，周日没学习也算一天，而不是 ÷ 1 = 60
+    # 范围里没有周末：周末日均为 None；没有工作日：工作日日均为 None
+    assert _study_time_build(rows[:2], subs, Range(date(2026, 11, 9), date(2026, 11, 11)), 1800, 0, 600)["stats"]["weekend_avg"] is None
+    only_we = [{"d": date(2026, 11, 14), "sid": 1, "t": 3600, "n": 8, "c": 6}]
+    st2 = _study_time_build(only_we, subs, Range(date(2026, 11, 14), date(2026, 11, 15)), 3600, 0, 600)["stats"]
+    assert st2["weekday_avg"] is None and st2["weekend_avg"] == 30.0
+    # 工作日全勤、周末没学：周末日均是 0（不是「没数据」）
+    st3 = _study_time_build(rows[:2], subs, rng, 1800, 0, 600)["stats"]
+    assert st3["weekend_avg"] == 0.0 and st3["weekday_avg"] == 6.0

@@ -65,7 +65,13 @@
             <div class="kpi__txt">
               <div class="kpi__lbl">{{ x.label }}</div>
               <div class="kpi__val num">{{ splitUnit(x.value).num }}<small v-if="splitUnit(x.value).unit" class="kpi__unit">{{ splitUnit(x.value).unit }}</small></div>
-              <div class="kpi__delta">{{ x.sub }}&nbsp;</div>
+              <div class="kpi__delta">
+                <span v-if="x.delta != null && x.delta !== 0" class="delta" :class="kpiTone(x)" :title="`较前一周期${x.delta > 0 ? '上升' : '下降'} ${Math.abs(x.delta)}${x.unit}`">
+                  <SvgIcon name="arrow_up" :size="11" :class="{ 'delta__down': x.delta < 0 }" />{{ Math.abs(x.delta) }}{{ x.unit }}
+                </span>
+                <span v-else-if="x.delta === 0" class="delta">持平</span>
+                <span v-else>&nbsp;</span>
+              </div>
             </div>
             <div class="kpi__viz"><KpiSpark :kind="x.viz" :gid="`st-${x.viz}`" /></div>
           </div>
@@ -373,7 +379,7 @@ import { useRoute } from 'vue-router'
 import * as echarts from 'echarts'
 import { studentApi } from '@/api'
 import { ElMessage } from 'element-plus'
-import type { StudentProfile, ProfileWarning, ProfileKpi, FivePower } from '@/types'
+import type { StudentProfile, ProfileWarning, FivePower } from '@/types'
 import { FivePowerLabels } from '@/types'
 import KpiSpark from '@/components/KpiSpark.vue'
 import { formatDate } from '@/utils/format'
@@ -410,12 +416,16 @@ const TYPE_COLORS: Record<string, string> = { KNOWLEDGE_POINT: '#5E8DF9', UNIT: 
 const studyStats = computed(() => {
   const st = p.value?.study_time?.stats
   const bd = st?.best_day
-  return [
-    { label: '平均每次训练', value: fmtMin(st?.avg_per_session), sub: '每次训练的作答时长', viz: 'dial' as const },
-    { label: '单日最长', value: fmtMin(bd?.minutes), sub: bd ? bd.date.slice(5).replace('-', '/') : '', viz: 'ridge' as const },
-    { label: '周末日均', value: fmtMin(st?.weekend_avg), sub: '周六、周日有学习的天', viz: 'bubbles' as const },
-    { label: '工作日日均', value: fmtMin(st?.weekday_avg), sub: '周一至周五有学习的天', viz: 'tide' as const },
+  // 单日最长：较前一段同样长度时间的变化（分钟，和顶部统计卡同口径：各自四舍五入后相减）；前一段没有学习记录则不显示
+  const bestDelta = bd && st?.prev_best_minutes != null ? Math.round(bd.minutes) - Math.round(st.prev_best_minutes) : null
+  type StatCard = { label: string; value: string; delta: number | null; unit: string; good: 'up' | 'down' | null; viz: 'dial' | 'ridge' | 'bubbles' | 'tide' }
+  const cards: StatCard[] = [
+    { label: '平均每次训练时长', value: fmtMin(st?.avg_per_session), delta: null, unit: '分钟', good: 'up', viz: 'dial' },
+    { label: bd ? `单日最长学习时长（${bd.date.slice(5).replace('-', '/')}）` : '单日最长学习时长', value: fmtMin(bd?.minutes), delta: bestDelta, unit: '分钟', good: 'up', viz: 'ridge' },
+    { label: '周末日均学习时长', value: fmtMin(st?.weekend_avg), delta: null, unit: '分钟', good: 'up', viz: 'bubbles' },
+    { label: '非周末日均学习时长', value: fmtMin(st?.weekday_avg), delta: null, unit: '分钟', good: 'up', viz: 'tide' },
   ]
+  return cards
 })
 const COG_STATUS: Record<string, string> = { below: '发挥不稳', above: '实战更强', ok: '与测试相符', few: '做题太少' }
 // 年级名称与学生列表保持一致
@@ -440,7 +450,7 @@ const rangeShortcuts = [
 ]
 const disableFuture = (d: Date) => d.getTime() > Date.now()
 // 变大是好事的指标：上升绿 / 下降红；变小是好事的（空答率等）反过来；没有好坏的（每题用时）用灰色
-function kpiTone(k: ProfileKpi) {
+function kpiTone(k: { delta: number | null; good: 'up' | 'down' | null }) {
   if (!k.delta) return ''
   if (!k.good) return ''
   return (k.delta > 0) === (k.good === 'up') ? 'delta--up' : 'delta--down'
