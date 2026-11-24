@@ -92,13 +92,23 @@
         </div>
         <!-- 学习时长：学科学习时长分布 -->
         <div v-else-if="activeKpi === 'study_time'" class="chart-card">
-          <div class="chart-card__title">学科学习时长分布</div>
+          <div class="chart-card__head">
+            <div class="chart-card__title">学科学习时长分布</div>
+            <div v-if="p.study_time?.has_data" class="seg" role="tablist">
+              <button v-for="sj in studyOptions" :key="sj.code" type="button" class="seg__btn" :class="{ 'is-active': studyCode === sj.code }" @click="studyPick = sj.code">{{ sj.name }}</button>
+            </div>
+          </div>
           <div v-if="p.study_time?.has_data" ref="studyRef" class="chart-card__body" />
           <div v-else class="chart-card__empty">{{ rangeLabel }}暂无学习记录</div>
         </div>
         <!-- 训练次数：次数分布（按科目堆叠） -->
         <div v-else-if="activeKpi === 'sessions'" class="chart-card">
-          <div class="chart-card__title">训练次数分布</div>
+          <div class="chart-card__head">
+            <div class="chart-card__title">训练次数分布</div>
+            <div v-if="p.training?.has_data" class="seg" role="tablist">
+              <button v-for="sj in sessLineOptions" :key="sj.code" type="button" class="seg__btn" :class="{ 'is-active': sessLineCode === sj.code }" @click="sessLinePick = sj.code">{{ sj.name }}</button>
+            </div>
+          </div>
           <div v-if="p.training?.has_data" ref="sessTrendRef" class="chart-card__body" />
           <div v-else class="chart-card__empty">{{ rangeLabel }}暂无训练记录</div>
         </div>
@@ -478,7 +488,7 @@ function fmtMin(m?: number | null) {
 // 练习方式的颜色（和小程序「练习方式」同一批名称）：和学科色同一个思路，只用页面本身的蓝紫灰色阶（定义在下方非 scoped 样式块的 --type-* 变量里，亮 / 暗各一套）。
 // 7 档明度会让相邻两段太像，所以相邻的练习方式一深一浅交错排，图例也分得开
 const TYPE_VAR: Record<string, string> = { KNOWLEDGE_POINT: 'kp', UNIT: 'unit', ERROR_QUESTIONS: 'err', FAVORITES: 'fav', SMART: 'smart', RANDOM: 'random', SEMESTER: 'sem' }
-const TYPE_FALLBACK: Record<string, string> = { kp: '#7f9bff', unit: '#4fd0c4', err: '#f0809a', fav: '#f0bb5c', smart: '#b595ff', random: '#7a84a6', sem: '#6cc8f2' }
+const TYPE_FALLBACK: Record<string, string> = { kp: '#8aa0ff', unit: '#c4d4ff', err: '#a58bf0', fav: '#d8cdfb', smart: '#6272e6', random: '#7a84a6', sem: '#7ab4f5' }
 function typeColor(key: string) {
   const k = TYPE_VAR[key] ?? 'sem'
   return cssVar(`--type-${k}`, TYPE_FALLBACK[k])
@@ -744,13 +754,23 @@ function renderRadar() {
 }
 
 // 三张学习时长图（趋势 / 学科堆叠 / 时段）。图表一直在页面上，数据加载完就画
+// 学科学习时长分布 / 训练次数分布：总计 + 各科切换（默认总计）；换了日期范围后这个科目没了就回到总计
+function useLineView(subjects: () => { code: string; name: string; count?: number }[] | undefined) {
+  const picked = ref('ALL')
+  const options = computed(() => [{ code: 'ALL', name: '总计' }, ...(subjects() ?? []).filter(x => SUBJECT_CODES.includes(x.code) || (x.count ?? 1) > 0)])
+  const code = computed(() => (options.value.some(x => x.code === picked.value) ? picked.value : 'ALL'))
+  return { picked, options, code }
+}
+const { picked: studyPick, options: studyOptions, code: studyCode } = useLineView(() => p.value?.study_time?.subjects)
+const { picked: sessLinePick, options: sessLineOptions, code: sessLineCode } = useLineView(() => p.value?.training?.subjects)
+
 function renderStudy() {
   const t = p.value?.study_time
   if (!t?.has_data || !t.series || !t.subjects) return
   const series = t.series
-  renderSubjectStack(studyRef.value, {
-    subjects: t.subjects, labels: series.map(x => x.label), barWidth: 15, axisName: '分钟', fmt: fmtMin,
-    valueOf: (i, code) => series[i].minutes[code] ?? 0, totalOf: i => series[i].total, titleOf: i => `${series[i].label}`,
+  renderSubjectLines(studyRef.value, {
+    labels: series.map(x => x.label), subjects: t.subjects, totalVals: series.map(x => x.total), valueOf: (i, code) => series[i].minutes[code] ?? 0,
+    only: studyCode.value, totalOnly: true, fmt: fmtMin, axisName: '分钟', nullText: '无记录',
   })
 
   renderStudyType()
@@ -781,6 +801,14 @@ function renderTypeDonut(el: HTMLElement | undefined, o: {
   const cw = c?.getWidth() ?? 400, ch = c?.getHeight() ?? 207
   const ringR = Math.max(40, Math.min(0.86 * Math.min(cw, ch) / 2, (cw - 112 - 12) / 2))
   const ringCx = ringR
+  // 每一段圆环用斜向渐变：一头是本色（略透明），另一头高亮（暗色偏白，亮色偏深）
+  const dark = document.documentElement.dataset.theme === 'dark'
+  const ringGrad = (hex: string) => {
+    const n = parseInt(hex.replace('#', ''), 16), ch = [n >> 16 & 255, n >> 8 & 255, n & 255]
+    const mid = ch.map(v => Math.round(dark ? v + (255 - v) * 0.55 : v * 0.7))
+    const rgb = (a: number[], al: number) => `rgba(${a[0]}, ${a[1]}, ${a[2]}, ${al})`
+    return { type: 'linear', x: 0, y: 0, x2: 1, y2: 1, colorStops: [{ offset: 0, color: rgb(ch, 0.75) }, { offset: 1, color: rgb(mid, 1) }] }
+  }
   const RING_EXTRA = 3   // 圆环在原环宽（= 0.1125 r ≈ 10px）上再加宽 3px：外缘不动，内缘往里收
   c?.setOption({
     title: { text: o.centerText, subtext: o.centerSub, left: ringCx, top: 'middle', textAlign: 'center', itemGap: 4,
@@ -791,63 +819,11 @@ function renderTypeDonut(el: HTMLElement | undefined, o: {
     series: [
       { type: 'pie', radius: [ringR * 0.7625 - RING_EXTRA, ringR * 0.875], center: [ringCx, '50%'], padAngle: 3, avoidLabelOverlap: false, label: { show: false }, labelLine: { show: false },
         itemStyle: { borderRadius: 5 }, emphasis: { scale: false },
-        data: o.items.map(x => ({ name: x.name, value: x.value, extra: x.extra, itemStyle: { color: x.color ?? typeColor(x.key) } })) },
+        data: o.items.map(x => ({ name: x.name, value: x.value, extra: x.extra, itemStyle: { color: ringGrad(x.color ?? typeColor(x.key)) } })) },
       // 外圈一条细线，和参考图一样
       { type: 'pie', radius: [ringR * 0.9875, ringR], center: [ringCx, '50%'], silent: true, label: { show: false }, labelLine: { show: false }, tooltip: { show: false },
         data: [{ value: 1, itemStyle: { color: 'rgba(128,128,128,0.22)' } }] },
     ],
-  })
-}
-
-// 按学科堆叠的柱状图（学科学习时长分布、训练次数分布共用）：学科色 + 学科之间 2px 间隙
-function renderSubjectStack(el: HTMLElement | undefined, o: {
-  subjects: { code: string; name: string }[]; labels: string[]; barWidth: number; axisName: string; integer?: boolean
-  fmt: (v: number) => string; valueOf: (i: number, code: string) => number; totalOf: (i: number) => number; titleOf: (i: number) => string
-}) {
-  const c = initDimChart(el)
-  const txt3 = cssVar('--text-3', '#999')
-  const axis = { axisLabel: { color: txt3, fontSize: 11 }, axisLine: { lineStyle: { color: 'rgba(128,128,128,0.25)' } }, axisTick: { show: false } }
-  // 学科之间留 2px 间隙：在相邻两段之间插一段不可见的占位。ECharts 堆叠柱没有「段间距」，所以先固定 y 轴上限，
-  // 再按绘图区的像素高度把 2px 换算成数据量
-  // GRID_BOTTOM 只用来估算绘图区高度（x 轴文字占的高度）；grid.bottom 本身是 0，文字贴着卡片底部 15px 内边距的边
-  const GAP_PX = 2, GRID_TOP = 30, GRID_BOTTOM = 24
-  const n = o.labels.length
-  const totals = Array.from({ length: n }, (_, i) => o.totalOf(i))
-  const rawMax = Math.max(1, ...totals) * 1.08
-  const stepRaw = rawMax / 3, mag = 10 ** Math.floor(Math.log10(stepRaw))
-  // y 轴上限取「3 个整齐刻度」：次数这类整数量用整数刻度，时长用 1 / 2 / 2.5 / 5 的倍数
-  const step = o.integer
-    ? ([1, 2, 3, 4, 5, 10, 20, 25, 30, 40, 50, 100, 200, 250, 500, 1000].find(m => m >= stepRaw) ?? Math.ceil(stepRaw))
-    : ([1, 2, 2.5, 5, 10].find(m => m * mag >= stepRaw) ?? 10) * mag
-  const yMax = step * 3
-  const plotH = Math.max(60, (c?.getHeight() ?? 210) - GRID_TOP - GRID_BOTTOM)
-  const gap = (GAP_PX / plotH) * yMax
-  const subs = o.subjects
-  const stackSeries: Record<string, unknown>[] = []
-  subs.forEach((sj, i, arr) => {
-    if (i > 0) {
-      // 占位：这个点下面已有学科、且当前学科也有数据时才留缝
-      stackSeries.push({
-        name: '', type: 'bar', stack: 'sj', barWidth: o.barWidth, silent: true, tooltip: { show: false }, itemStyle: { color: 'transparent' },
-        data: Array.from({ length: n }, (_, k) => (subs.slice(0, i).some(x => o.valueOf(k, x.code) > 0) && o.valueOf(k, sj.code) > 0 ? gap : 0)),
-      })
-    }
-    stackSeries.push({
-      name: sj.name, type: 'bar', stack: 'sj', barWidth: o.barWidth, data: Array.from({ length: n }, (_, k) => o.valueOf(k, sj.code)),
-      itemStyle: { color: subjColor(sj.code), borderRadius: i === arr.length - 1 ? [3, 3, 0, 0] : 0 },
-    })
-  })
-  c?.setOption({
-    grid: { left: 0, right: 0, top: GRID_TOP, bottom: 0, containLabel: true },
-    legend: { top: 0, data: subs.map(x => x.name), itemWidth: 10, itemHeight: 8, textStyle: { color: cssVar('--text-2', '#888'), fontSize: 12 } },
-    tooltip: {
-      trigger: 'axis', axisPointer: { type: 'shadow' },
-      formatter: (ps: { dataIndex: number; seriesName: string; marker: string; value: number }[]) =>
-        `${o.titleOf(ps[0].dataIndex)}<br/>` + ps.filter(x => x.seriesName && x.value > 0).map(x => `${x.marker}${x.seriesName}：${o.fmt(x.value)}`).join('<br/>') + `<br/><b>合计：${o.fmt(o.totalOf(ps[0].dataIndex))}</b>`,
-    },
-    xAxis: { type: 'category', data: o.labels, ...axis },
-    yAxis: { type: 'value', splitNumber: 3, max: yMax, ...(o.integer ? { minInterval: 1 } : {}), splitLine: { lineStyle: { color: 'rgba(160,168,220,0.14)', type: 'dashed' } }, axisLabel: { color: txt3, fontSize: 11 }, name: o.axisName, nameTextStyle: { color: txt3, fontSize: 11 } },
-    series: stackSeries,
   })
 }
 
@@ -857,13 +833,20 @@ function renderSessions() {
   if (!t?.has_data || !t.series || !t.types) return
   const series = t.series
 
-  // ① 训练次数分布：每个点（按天 / 按周）按科目堆叠，学科色和学科学习时长分布一致
-  renderSubjectStack(sessTrendRef.value, {
-    subjects: t.subjects ?? [], labels: series.map(x => x.label), barWidth: t.unit === 'week' ? 26 : 15, axisName: '次', integer: true,
-    fmt: v => `${v} 次`, valueOf: (i, code) => series[i].by_subject?.[code] ?? 0, totalOf: i => series[i].total, titleOf: i => series[i].label,
-  })
+  // ① 训练次数分布：总计 + 各科的平滑折线，学科色和学科学习时长分布一致
+  renderSessionLines()
 
   renderSessionType()
+}
+
+function renderSessionLines() {
+  const t = p.value?.training
+  if (!t?.has_data || !t.series) return
+  const series = t.series
+  renderSubjectLines(sessTrendRef.value, {
+    labels: series.map(x => x.label), subjects: t.subjects ?? [], totalVals: series.map(x => x.total), valueOf: (i, code) => series[i].by_subject?.[code] ?? 0,
+    only: sessLineCode.value, totalOnly: true, fmt: v => `${v} 次`, integer: true, axisName: '次',
+  })
 }
 
 // ② 练习方式次数分布：所选科目各练习方式的训练次数（悬停时带「做完的占多少」：同样的次数，哪种方式更容易中途退出）
@@ -925,7 +908,7 @@ function renderAnswerType() {
   })
 }
 // 难度分布：环形图。基础 / 进阶 / 挑战三档，颜色是 --diff-* 变量（页面蓝紫灰色阶）
-const DIFF_FALLBACK: Record<string, string> = { basic: '#7da6ff', advanced: '#f0bb5c', challenge: '#f0809a' }
+const DIFF_FALLBACK: Record<string, string> = { basic: '#c4caf0', advanced: '#8f97ea', challenge: '#6a72d0' }
 function renderAnswerDiff() {
   const items = ansDiffItems.value
   if (!items.length) return
@@ -943,29 +926,38 @@ function renderAnswerDiff() {
 // x 轴文字很小很暗，悬停的那一天最亮、越远越暗，日期之间用小圆点分隔；最低的那条线下面有一团模糊的柔光。
 // 暗色用黑白灰（靠亮度和虚实区分）；亮色保留学科色。某个点答题太少（后端给 null）这条线在这里断开不画，用相邻的点连起来；
 // 各科的面积画得很淡（有的科目前面几天样本不足，线是从中间开始的，面积浓了起点会有一道竖切边），合计那层最明显
-function renderAccuracyTrend() {
-  const a = p.value?.accuracy
-  const t = a?.trend
-  if (!a?.has_data || !t) return
+// 平滑折线图（学习时长分布 / 训练次数分布 / 正确率趋势共用）：只看某一科时只画这一科的线，「总计」时画合计（虚线）+ 各科
+function renderSubjectLines(el: HTMLElement | undefined, o: {
+  labels: string[]; subjects: { code: string; name: string }[]; totalVals: (number | null)[]; valueOf: (i: number, code: string) => number | null
+  only: string; fmt: (v: number) => string; percent?: boolean; integer?: boolean; axisName?: string; nullText?: string
+  totalOnly?: boolean   // 「总计」只画合计一条线（不叠各科）
+}) {
   const dark = document.documentElement.dataset.theme === 'dark'
   const txt3 = cssVar('--text-3', '#999')
   const rgba = (hex: string, al: number) => { const n = parseInt(hex.replace('#', ''), 16); return `rgba(${n >> 16 & 255}, ${n >> 8 & 255}, ${n & 255}, ${al})` }
   const lineClr = (code: string) => subjColor(code)
   const totalClr = dark ? '#8b90ab' : '#475066'
+  const totalSoloClr = dark ? '#8f97cf' : '#8fb0fb'   // 「总计」线两端的主色
+  const darken = (hex: string, k: number) => { const n = parseInt(hex.replace('#', ''), 16); const f = (v: number) => Math.round(v * k).toString(16).padStart(2, '0'); return `#${f(n >> 16 & 255)}${f(n >> 8 & 255)}${f(n & 255)}` }
+  const totalMidClr = dark ? '#ffffff' : '#3d4fc4'      // 中间：暗色是白，亮色白底看不见，改用深靛     // 只画合计时用亮一点的色
   const hoverFill = dark ? '#0d0f1c' : '#ffffff'
   const fillOf = (hex: string, top: number) => ({ color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: rgba(hex, top) }, { offset: 1, color: rgba(hex, 0) }] } })
-  const lineSer = (name: string, data: (number | null)[], clr: string, width: number, o: { dashed?: boolean; top: number; z: number }) => ({
+  // 线两端渐隐、中间最亮：横向渐变描边（两端 14% 透明度 → 中间 100%）
+  const fadeClr = (hex: string) => ({ type: 'linear', x: 0, y: 0, x2: 1, y2: 0, colorStops: [{ offset: 0, color: rgba(hex, 0.38) }, { offset: 0.5, color: rgba(hex, 1) }, { offset: 1, color: rgba(hex, 0.38) }] })
+  const lineSer = (name: string, data: (number | null)[], clr: string, width: number, o: { dashed?: boolean; top: number; z: number; mid?: string }) => ({
     name, type: 'line', z: o.z, data, smooth: 0.55, smoothMonotone: 'x', symbol: 'none', connectNulls: true,
-    lineStyle: { color: clr, width, cap: 'round', type: o.dashed ? [3, 6.5] : 'solid' }, itemStyle: { color: clr }, areaStyle: fillOf(clr, o.top),
+    lineStyle: { color: o.mid ? { type: 'linear', x: 0, y: 0, x2: 1, y2: 0, colorStops: [{ offset: 0, color: clr }, { offset: 0.5, color: o.mid }, { offset: 1, color: clr }] } : fadeClr(clr), width, cap: 'round', type: o.dashed ? [3, 6.5] : 'solid' }, itemStyle: { color: clr }, areaStyle: fillOf(clr, o.top),
   })
-  const series = t.series
-  const labels = series.map(x => x.label)
+  const labels = o.labels
   const nPts = labels.length
-  const subs = a.subjects.filter(x => SUBJECT_CODES.includes(x.code) || x.count > 0)
-  const defs = [{ name: '合计', clr: totalClr, vals: series.map(x => x.accuracy) }, ...subs.map(sj => ({ name: sj.name, clr: lineClr(sj.code), vals: series.map(x => x.by_subject[sj.code]?.accuracy ?? null) }))]
+  const subs = o.only === 'ALL' ? (o.totalOnly ? [] : o.subjects) : o.subjects.filter(x => x.code === o.only)
+  const defs = [
+    ...(o.only === 'ALL' ? [{ name: '合计', clr: totalClr, vals: o.totalVals }] : []),
+    ...subs.map(sj => ({ name: sj.name, clr: lineClr(sj.code), vals: labels.map((_, i) => o.valueOf(i, sj.code)) })),
+  ]
   const hoverPoints = (i: number) => (i < 0 ? [] : defs.filter(d => d.vals[i] != null).map(d => ({ value: [i, d.vals[i]], itemStyle: { color: hoverFill, borderColor: dark ? '#e8eaf8' : d.clr, borderWidth: 1.6 } })))
   // 底部柔光：每个点取最低的那条学科线
-  const low = series.map(x => { const v = subs.map(sj => x.by_subject[sj.code]?.accuracy).filter((y): y is number => y != null); return v.length ? Math.min(...v) : x.accuracy })
+  const low = labels.map((_, i) => { const v = defs.map(d => d.vals[i]).filter((y): y is number => y != null); return v.length ? Math.min(...v) : null })
   const glowClr = dark ? '#aab0e6' : '#5e8df9'
   const glowSer = {
     name: '', type: 'line', z: 0, data: low, smooth: 0.55, smoothMonotone: 'x', symbol: 'none', connectNulls: true, silent: true, legendHoverLink: false, tooltip: { show: false },
@@ -977,32 +969,31 @@ function renderAccuracyTrend() {
     ? { d0: { color: '#dfe2f4', fontSize: 11, fontWeight: 700 }, d1: { color: '#8b90ab', fontSize: 11 }, d2: { color: '#646a88', fontSize: 11 }, dn: { color: '#474c66', fontSize: 11 } }
     : { d0: { color: '#2d3550', fontSize: 11, fontWeight: 700 }, d1: { color: '#6b7390', fontSize: 11 }, d2: { color: '#9aa1b8', fontSize: 11 }, dn: { color: '#b9bfd0', fontSize: 11 } }
   const labelFmt = (active: number) => (v: string, idx: number) => `{${active < 0 ? 'd2' : ['d0', 'd1', 'd2'][Math.min(2, Math.abs(idx - active))] ?? 'dn'}|${v}}`
-  const c = initDimChart(accTrendRef.value)
+  const c = initDimChart(el)
   c?.setOption({
     grid: { left: 0, right: 0, top: 30, bottom: 0, containLabel: true },
-    legend: { top: 0, data: defs.map(d => d.name), itemWidth: 12, itemHeight: 3, icon: 'roundRect', textStyle: { color: cssVar('--text-2', '#888'), fontSize: 12 } },
+    legend: { show: !o.totalOnly, top: 0, data: defs.map(d => d.name), itemWidth: 12, itemHeight: 3, icon: 'roundRect', textStyle: { color: cssVar('--text-2', '#888'), fontSize: 12 } },
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'line', lineStyle: { color: dark ? 'rgba(255, 255, 255, 0.28)' : 'rgba(71, 80, 102, 0.3)', width: 1, type: 'solid' } },
       backgroundColor: dark ? 'rgba(18, 20, 36, 0.92)' : 'rgba(255, 255, 255, 0.96)', borderColor: dark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(94, 141, 249, 0.2)',
       textStyle: { color: dark ? '#dfe2f4' : '#2d3550', fontSize: 12 },
       formatter: (ps: { dataIndex: number; seriesName: string; marker: string; value: number | null }[]) =>
-        `${labels[ps[0].dataIndex]}<br/>` + ps.filter(x => x.seriesName).map(x => `${x.marker}${x.seriesName}：${x.value == null ? '样本不足' : x.value + '%'}`).join('<br/>'),
+        `${labels[ps[0].dataIndex]}<br/>` + ps.filter(x => x.seriesName).map(x => `${x.marker}${x.seriesName}：${x.value == null ? (o.nullText ?? '样本不足') : o.fmt(x.value)}`).join('<br/>'),
     },
     xAxis: [
-      { type: 'category', data: labels, boundaryGap: true, axisLine: { show: false }, axisTick: { show: false }, axisLabel: { formatter: labelFmt(-1), rich: labelRich, margin: 10 } },
-      { type: 'value', min: 0, max: nPts, show: false },     // 只用来摆「日期之间的小圆点」：整数位置 = 两个日期之间的边界
+      { type: 'category', data: labels, boundaryGap: false, axisLine: { show: false }, axisTick: { show: false }, axisLabel: { formatter: labelFmt(-1), rich: labelRich, margin: 10, alignMinLabel: 'left', alignMaxLabel: 'right' } },
+      { type: 'value', min: 0, max: Math.max(1, nPts - 1), show: false },     // 只用来摆「日期之间的小圆点」：整数位置 = 两个日期之间的边界
     ],
-    yAxis: { type: 'value', min: 0, max: 100, interval: 25, axisLine: { show: false }, axisTick: { show: false },
-      splitLine: { lineStyle: { color: dark ? 'rgba(255, 255, 255, 0.07)' : 'rgba(128, 128, 128, 0.16)', type: 'dashed' } }, axisLabel: { color: txt3, fontSize: 11, formatter: (v: number) => `${v}%` } },
+    yAxis: { type: 'value', min: 0, ...(o.percent ? { max: 100, interval: 25 } : { splitNumber: 3, ...(o.integer ? { minInterval: 1 } : {}) }), name: o.axisName, nameTextStyle: { color: txt3, fontSize: 11, align: 'left' }, axisLine: { show: false }, axisTick: { show: false },
+      splitLine: { lineStyle: { color: dark ? 'rgba(255, 255, 255, 0.07)' : 'rgba(128, 128, 128, 0.16)', type: 'dashed' } }, axisLabel: { color: txt3, fontSize: 11, formatter: (v: number) => (o.percent ? `${v}%` : `${v}`) } },
     series: [
       glowSer,
-      lineSer('合计', defs[0].vals, totalClr, 3, { dashed: true, top: dark ? 0.2 : 0.1, z: 1 }),
-      ...defs.slice(1).map((d, i) => lineSer(d.name, d.vals, d.clr, 2, { top: dark ? 0.1 : 0.05, z: 2 + i })),
+      ...defs.map((d, i) => (d.name === '合计' ? (o.totalOnly ? lineSer('合计', d.vals, totalSoloClr, 3, { top: dark ? 0.5 : 0.3, z: 1, mid: totalMidClr }) : lineSer('合计', d.vals, totalClr, 3, { dashed: true, top: dark ? 0.2 : 0.1, z: 1 })) : lineSer(d.name, d.vals, d.clr, o.only === 'ALL' ? 2 : 3, { top: o.only === 'ALL' ? (dark ? 0.1 : 0.05) : (dark ? 0.5 : 0.3), z: 2 + i, mid: o.only === 'ALL' ? undefined : (dark ? '#ffffff' : darken(d.clr, 0.62)) }))),
       { type: 'scatter', id: 'hover', name: '', xAxisIndex: 0, yAxisIndex: 0, silent: true, z: 10, legendHoverLink: false, tooltip: { show: false }, symbol: 'circle', symbolSize: 10, data: [] },
       { type: 'scatter', name: '', xAxisIndex: 1, yAxisIndex: 0, silent: true, clip: false, z: 0, legendHoverLink: false, tooltip: { show: false },
         symbol: 'circle', symbolSize: 3, symbolOffset: [0, 17], itemStyle: { color: dark ? '#3d4260' : '#c3c9d8' },
-        data: Array.from({ length: Math.max(0, nPts - 1) }, (_, i) => [i + 1, 0]) },
+        data: Array.from({ length: Math.max(0, nPts - 1) }, (_, i) => [i + 0.5, 0]) },
     ],
   })
   // 悬停时：x 轴文字跟着换亮度，每条线上出现小圆圈（updateAxisPointer 给出悬停的是第几个日期）
@@ -1017,6 +1008,14 @@ function renderAccuracyTrend() {
     setActive(info ? Math.round(info.value) : -1)
   })
   c?.on('globalout', () => setActive(-1))
+}
+
+function renderAccuracyTrend() {
+  const a = p.value?.accuracy
+  const t = a?.trend
+  if (!a?.has_data || !t) return
+  const subs = a.subjects.filter(x => SUBJECT_CODES.includes(x.code) || x.count > 0)
+  renderSubjectLines(accTrendRef.value, { labels: t.series.map(x => x.label), subjects: subs, totalVals: t.series.map(x => x.accuracy), valueOf: (i, code) => t.series[i].by_subject[code]?.accuracy ?? null, only: 'ALL', fmt: v => `${v}%`, percent: true })
 }
 
 // ── 正确率明细：题型正确率、难度正确率（0~100% 的胶囊柱状图）──
@@ -1067,8 +1066,8 @@ function renderAiAsks() {
   })
   const per = a.periods
   const PERIOD_CLR: Record<string, string> = dark
-    ? { night: '#7f9bff', morning: '#f0bb5c', afternoon: '#4fd0c4', evening: '#b595ff' }
-    : { night: '#4f6bed', morning: '#e5a23a', afternoon: '#14a39a', evening: '#9b6bdf' }
+    ? { night: '#6a72d0', morning: '#c4d4ff', afternoon: '#7ab4f5', evening: '#b3a0f5' }
+    : { night: '#3d4fc4', morning: '#a9bdf9', afternoon: '#5fa0e8', evening: '#8a6fe0' }
   renderTypeDonut(aiPeriodRef.value, {
     items: per.map(x => ({ key: x.key, name: x.label, value: x.count, extra: x, color: PERIOD_CLR[x.key] })),
     centerText: `${a.stats.total} 次`, centerSub: '提问次数',
@@ -1097,6 +1096,8 @@ const activeKpi = ref('study_time')
 function pickKpi(key: string) { if (DETAIL_KEYS.includes(key)) activeKpi.value = key }
 // 学习时长明细区里的图表是 v-if 出来的：从别的维度切回来要重新画
 watch(activeKpi, async () => { await nextTick(); renderDetail() })
+watch(studyCode, async () => { await nextTick(); if (activeKpi.value === 'study_time') renderStudy() })
+watch(sessLineCode, async () => { await nextTick(); if (activeKpi.value === 'sessions') renderSessionLines() })
 watch(typeCode, async () => { await nextTick(); if (activeKpi.value === 'study_time') renderStudyType() })
 watch(sessTypeCode, async () => { await nextTick(); if (activeKpi.value === 'sessions') renderSessionType() })
 watch(ansTypeCode, async () => { await nextTick(); if (activeKpi.value === 'answered') renderAnswerType() })
@@ -1322,10 +1323,10 @@ onBeforeUnmount(() => { window.removeEventListener('resize', onResize); charts.f
 // 相邻类型一眼能分开，又和页面的蓝紫基调、五力色同一家族。学科、难度、练习方式、时段各用一套，都在这里改
 :root { --subj-math: #4f6bed; --subj-physics: #14a39a; --subj-chemistry: #9b6bdf; --subj-other: #aab0c0; }
 html[data-theme="dark"] { --subj-math: #7f9bff; --subj-physics: #4fd0c4; --subj-chemistry: #b595ff; --subj-other: #5b617c; }
-:root { --diff-basic: #4f8cf0; --diff-advanced: #e5a23a; --diff-challenge: #e0607e; }
-html[data-theme="dark"] { --diff-basic: #7da6ff; --diff-advanced: #f0bb5c; --diff-challenge: #f0809a; }
-:root { --type-kp: #4f6bed; --type-unit: #14a39a; --type-err: #e0607e; --type-fav: #e5a23a; --type-smart: #9b6bdf; --type-random: #8f9ab8; --type-sem: #3fb0e6; }
-html[data-theme="dark"] { --type-kp: #7f9bff; --type-unit: #4fd0c4; --type-err: #f0809a; --type-fav: #f0bb5c; --type-smart: #b595ff; --type-random: #7a84a6; --type-sem: #6cc8f2; }
+:root { --diff-basic: #a9bdf9; --diff-advanced: #6272e6; --diff-challenge: #3d4fc4; }
+html[data-theme="dark"] { --diff-basic: #c4caf0; --diff-advanced: #8f97ea; --diff-challenge: #6a72d0; }
+:root { --type-kp: #4f6bed; --type-unit: #8fb0fb; --type-err: #7a5fd6; --type-fav: #b4a6f0; --type-smart: #3d4fc4; --type-random: #9aa3c4; --type-sem: #5fa0e8; }
+html[data-theme="dark"] { --type-kp: #8aa0ff; --type-unit: #c4d4ff; --type-err: #a58bf0; --type-fav: #d8cdfb; --type-smart: #6272e6; --type-random: #7a84a6; --type-sem: #7ab4f5; }
 
 // 暗色主题（参考图）：更深的蓝黑底 + 右上角淡薰衣草光；强调色偏灰的薰衣草蓝紫；
 // 胶囊标签 / 按钮、小号大写表头；亮色主题的统计卡 / 图表卡配色
