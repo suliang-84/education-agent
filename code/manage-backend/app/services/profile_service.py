@@ -509,25 +509,6 @@ async def _behavior(db, sid, rng):
     }
 
 
-async def _power_trend(db, sid, rng):
-    """五力训练趋势，跟随所选日期范围：14 天以内按天（某天某力答题少于 2 道不画点），更长按周（少于 3 道不画点）"""
-    min_n = 2 if rng.daily else 3
-    rows = await _rows(db, f"""
-        SELECT {rng.bucket_sql()} w, a.power_type p, count(*) n, count(*) FILTER (WHERE a.is_correct) c
-        {_base(True)} AND a.power_type IS NOT NULL GROUP BY 1, 2""", sid=sid, **rng.bucket_params, **rng.params)
-    by = {(r["w"], r["p"]): r for r in rows}
-    weeks = []
-    for w in range(rng.points - 1, -1, -1):
-        item = {"weeks_ago": w, "label": rng.bucket_label(w), "powers": {}}
-        for p in POWERS:
-            r = by.get((w, p))
-            item["powers"][p] = {"answered": r["n"] if r else 0, "accuracy": _pct(r["c"], r["n"]) if r and r["n"] >= min_n else None}
-        weeks.append(item)
-    total = sum(r["n"] for r in rows)
-    return {"weeks": weeks, "answered": total, "unit": "day" if rng.daily else "week", "min_answers": min_n,
-            "has_data": any(v["accuracy"] is not None for w in weeks for v in w["powers"].values())}
-
-
 async def _diagnosis(db, sid, rng):
     """答题诊断：跳题（未作答就提交）、错因构成（时间范围内）；同一道题反复做是否有进步（需要看全部历史，不受时间范围限制）"""
     blank_sql = "coalesce(btrim(a.student_answer), '') = ''"
@@ -1746,7 +1727,6 @@ async def get_profile(db: AsyncSession, student_id: int, start: str | None = Non
     beh = await _behavior(db, student_id, rng)
     ai = await _ai(db, student_id, rng)
     traits = await _traits(db, student_id)
-    cog["power_trend"] = await _power_trend(db, student_id, rng)
     if cog.get("has_profile"):
         cog["insights"] = _cognitive_insights(cog, await _power_stats(db, student_id, rng), rng)
     diagnosis = await _diagnosis(db, student_id, rng)

@@ -1495,6 +1495,16 @@ $form-height:       30px;
   overflow-x: hidden;
 }
 
+// 页面根盒子（.page-root）是带 overflow 的滚动容器：它的边缘会把卡片的阴影 / 光晕 / 描边光裁掉。
+// 如果 15px 留白放在父盒子 .content-area 的 padding 里，滚动容器的边就紧贴卡片外 0~10px，裁切线会在背景上露出一道竖线。
+// 所以让 .page-root 反向吃掉父盒子的 padding（margin: -15px），再用自己的 padding: 15px 把内容推回原位：
+// 版面位置不变，但滚动容器的边缘移到了视口边上，阴影有地方铺开。
+.content-area > .page-root {
+  margin: -15px;
+  padding: 15px;
+  max-width: 1470px;   // 原来 1440 是内容宽度，现在 padding 算在盒子内，所以 +30
+}
+
 // ── 表格铺满卡片并内部滚动 ───────────────────────────────────
 // 用法：在含 el-table 的 surface div 加上 surface--table class
 // 结构：.surface--table > [el-table, .paginator]

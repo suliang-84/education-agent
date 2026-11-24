@@ -325,26 +325,16 @@
       </div>
       </template>
 
-      <!-- 分维度标签页 -->
-      <div class="surface section-block tabs-block">
-        <el-tabs v-model="tab" @tab-change="onTabChange">
-          <!-- ① 认知能力 -->
-          <el-tab-pane label="认知能力" name="cognitive">
-            <template v-if="p.cognitive.has_profile">
-              <div class="cog-grid">
-                <div>
-                  <div ref="radarRef" class="radar-chart" />
-                </div>
-                <div>
-                  <div class="sub-title">五力训练态势</div>
-                  <template v-if="p.cognitive.power_trend?.has_data">
-                    <div ref="trendPowerRef" class="history-chart" />
-                  </template>
-                  <div v-else class="empty-sm">{{ rangeLabel }}还没有足够的做题数据</div>
-                </div>
-              </div>
-              <div class="cog-compare">
-                <div class="sub-title">测试得分 vs 实战表现</div>
+      <!-- ═══ 下面各模块平铺：认知能力（整行）→ 个人洞察 | 学习信息摘要 → 预警 | 建议 ═══ -->
+      <div class="chart-card cog-card">
+        <div class="chart-card__head">
+          <div class="chart-card__title">认知能力</div>
+          <span class="card-hint">测试得分是五力测试的成绩，实战正确率是所选日期范围内的做题表现</span>
+        </div>
+        <template v-if="p.cognitive.has_profile">
+          <div class="cog-layout">
+            <div class="cog-layout__radar"><div ref="radarRef" class="radar-chart" /></div>
+            <div class="cog-layout__main">
                 <el-table v-if="cogInsights" :data="cogInsights.powers" size="small" class="mini-table cog-table">
                   <el-table-column label="能力" width="70"><template #default="{ row }"><span :style="{ color: POWER_COLORS[row.key], fontWeight: 600 }">{{ row.label }}</span></template></el-table-column>
                   <el-table-column label="测试得分" min-width="120">
@@ -374,180 +364,40 @@
                     </template>
                   </el-table-column>
                 </el-table>
-              </div>
-              <div v-if="cogInsights?.highlights.length" class="cog-hl">
-                <div class="sub-title">认知洞察</div>
-                <div v-for="(h, i) in cogInsights.highlights" :key="i" class="hl-item"><span class="hl-item__dot" :class="`tone--${h.tone}`" />{{ h.text }}</div>
-              </div>
-            </template>
-            <template v-else>
-              <div class="empty">该学生尚未完成五力测试，暂无能力画像</div>
-              <div class="sub-title" style="margin-top:15px">五力训练态势</div>
-              <div v-if="p.cognitive.power_trend?.has_data" ref="trendPowerRef" class="history-chart" />
-              <div v-else class="empty-sm">{{ rangeLabel }}还没有足够的做题数据</div>
-            </template>
-          </el-tab-pane>
-
-          <!-- ② 学习时长 -->
-          <el-tab-pane label="学习时长" name="study" lazy>
-            <template v-if="p.study_time?.has_data && p.study_time.stats">
-              <div class="tiles" style="grid-template-columns:repeat(5,minmax(0,1fr))">
-                <div class="tile"><div class="tile__num num">{{ fmtMin(p.study_time.stats.total_minutes) }}</div>
-                  <div class="tile__lbl">总时长<template v-if="p.study_time.stats.delta_pct != null">（<span class="delta" :class="p.study_time.stats.delta_pct >= 0 ? 'delta--up' : 'delta--down'">{{ p.study_time.stats.delta_pct >= 0 ? '+' : '' }}{{ p.study_time.stats.delta_pct }}%</span>）</template></div></div>
-                <div class="tile"><div class="tile__num num">{{ fmtMin(p.study_time.stats.avg_per_active_day) }}</div><div class="tile__lbl">活跃日均（{{ p.study_time.stats.active_days }} 天）</div></div>
-                <div class="tile"><div class="tile__num num">{{ fmtMin(p.study_time.stats.best_day?.minutes) }}</div><div class="tile__lbl">单日最长（{{ p.study_time.stats.best_day ? p.study_time.stats.best_day.date.slice(5).replace('-', '/') : '—' }}）</div></div>
-                <div class="tile"><div class="tile__num num">{{ fmtMin(p.study_time.stats.avg_per_session) }}</div><div class="tile__lbl">平均每次训练</div></div>
-                <div class="tile"><div class="tile__num num">{{ fmtMin(p.study_time.stats.weekday_avg) }} / {{ fmtMin(p.study_time.stats.weekend_avg) }}</div><div class="tile__lbl">工作日 / 周末日均</div></div>
-              </div>
-              <div class="two-col" style="margin-top:10px">
-                <div>
-                  <div class="sub-title">学科学习时长分布</div>
-                  <div v-for="x in p.study_time.subjects" :key="x.code" class="rate-row">
-                    <span class="rate-row__label"><i class="subj-dot" :style="{ background: SUBJECT_COLORS[x.code] ?? SUBJECT_COLORS.OTHER }" />{{ x.name }}</span>
-                    <div class="bar"><div class="bar__fill" :style="{ width: (x.share ?? 0) + '%', background: SUBJECT_COLORS[x.code] ?? SUBJECT_COLORS.OTHER }" /></div>
-                    <span class="num">{{ fmtMin(x.minutes) }}　{{ x.share ?? 0 }}%</span>
-                  </div>
-                </div>
-                <div v-if="p.study_time.highlights?.length">
-                  <div class="sub-title">学习时长洞察</div>
-                  <div v-for="(h, i) in p.study_time.highlights" :key="i" class="hl-item"><span class="hl-item__dot" :class="`tone--${h.tone}`" />{{ h.text }}</div>
-                </div>
-              </div>
-            </template>
-            <div v-else class="empty">{{ rangeLabel }}还没有足够的学习记录</div>
-          </el-tab-pane>
-
-          <!-- ② 学业掌握 -->
-          <el-tab-pane label="学业掌握" name="mastery" lazy>
-            <div class="tiles">
-              <div class="tile"><div class="tile__num num">{{ p.mastery.answered }}</div><div class="tile__lbl">{{ rangeLabel }}答题</div></div>
-              <div class="tile"><div class="tile__num num">{{ fmtPct(p.mastery.accuracy) }}</div><div class="tile__lbl">{{ rangeLabel }}正确率</div></div>
-              <div class="tile"><div class="tile__num num">{{ p.mastery.wrong_pending }}</div><div class="tile__lbl">待攻克错题</div></div>
-              <div class="tile"><div class="tile__num num">{{ p.mastery.wrong_mastered }}</div><div class="tile__lbl">已攻克错题（{{ fmtPct(p.mastery.wrong_mastered_rate) }}）</div></div>
-              <div class="tile"><div class="tile__num num">{{ p.mastery.stubborn_questions }}</div><div class="tile__lbl">顽固错题（错 ≥ 3 次）</div></div>
-              <div class="tile"><div class="tile__num num">{{ p.mastery.favorites }}</div><div class="tile__lbl">收藏题数</div></div>
             </div>
+          </div>
+          <div v-if="cogInsights?.highlights.length" class="cog-hls">
+            <div v-for="(h, i) in cogInsights.highlights" :key="i" class="hl-chip"><span class="hl-item__dot" :class="`tone--${h.tone}`" />{{ h.text }}</div>
+          </div>
+        </template>
+        <div v-else class="chart-card__empty cog-empty">该学生尚未完成五力测试，暂无能力画像</div>
+      </div>
 
-            <div class="sub-title">当前学期进度</div>
-            <div class="rate-row">
-              <span class="rate-row__label">已练知识点</span>
-              <div class="bar"><div class="bar__fill" :style="{ width: (p.mastery.semester_progress.rate ?? 0) + '%' }" /></div>
-              <span class="rate-row__val num">{{ p.mastery.semester_progress.practiced }} / {{ p.mastery.semester_progress.total }}</span>
-            </div>
+      <div class="bottom-row">
+        <div class="chart-card">
+          <div class="chart-card__head">
+            <div class="chart-card__title">个人洞察</div>
+            <span v-if="p.traits.personal_insight_updated_at" class="card-hint">更新于 {{ formatDate(p.traits.personal_insight_updated_at) }}</span>
+          </div>
+          <div v-if="p.traits.personal_insight" class="quote">{{ p.traits.personal_insight }}</div>
+          <div v-else class="card-empty">暂无个人洞察。学生与 AI 助教聊天后会自动生成，也可以在「摘要」页手动填写。</div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card__head">
+            <div class="chart-card__title">学习信息摘要</div>
+            <span class="card-hint">编辑请前往「摘要」页</span>
+          </div>
+          <div v-if="p.traits.learning_summary" class="quote">{{ p.traits.learning_summary }}</div>
+          <div v-else class="card-empty">暂无</div>
+        </div>
+      </div>
 
-            <div class="three-col">
-              <div>
-                <div class="sub-title">题型正确率</div>
-                <div v-for="r in p.mastery.by_type" :key="r.key" class="rate-row">
-                  <span class="rate-row__label"><SvgIcon :name="QT_ICONS[r.key] ?? 'qt_application'" :size="14" :class="`qt-i qt-i--${r.key}`" />{{ r.label }}</span>
-                  <div class="bar"><div class="bar__fill" :style="{ width: (r.accuracy ?? 0) + '%' }" /></div>
-                  <span class="rate-row__val num">{{ fmtPct(r.accuracy) }}<small>{{ r.answered }}题</small></span>
-                </div>
-                <div v-if="!p.mastery.by_type.length" class="empty-sm">暂无数据</div>
-              </div>
-              <div>
-                <div class="sub-title">难度表现</div>
-                <div v-for="r in p.mastery.by_difficulty" :key="r.key" class="rate-row">
-                  <span class="rate-row__label">{{ r.label }}</span>
-                  <div class="bar"><div class="bar__fill" :style="{ width: (r.accuracy ?? 0) + '%' }" /></div>
-                  <span class="rate-row__val num">{{ fmtPct(r.accuracy) }}<small>{{ r.answered }}题</small></span>
-                </div>
-                <div v-if="!p.mastery.by_difficulty.length" class="empty-sm">暂无数据</div>
-              </div>
-              <div>
-                <div class="sub-title">科目表现</div>
-                <div v-for="r in p.mastery.by_subject" :key="r.key" class="rate-row">
-                  <span class="rate-row__label">{{ r.label }}</span>
-                  <div class="bar"><div class="bar__fill" :style="{ width: (r.accuracy ?? 0) + '%' }" /></div>
-                  <span class="rate-row__val num">{{ fmtPct(r.accuracy) }}<small>{{ r.answered }}题</small></span>
-                </div>
-                <div v-if="!p.mastery.by_subject.length" class="empty-sm">暂无数据</div>
-              </div>
-            </div>
-
-            <div class="two-col two-col--stack">
-              <div>
-                <div class="sub-title">薄弱知识点 Top 5</div>
-                <el-table :data="p.mastery.weak_kps" size="small" :show-header="true" class="mini-table" empty-text="还没有错误率达到 40%、且做过 2 次以上的知识点">
-                  <el-table-column prop="name" label="知识点" min-width="130" show-overflow-tooltip />
-                  <el-table-column label="错误率" width="80"><template #default="{ row }"><span class="num" style="color:var(--red)">{{ fmtPct(row.error_rate) }}</span></template></el-table-column>
-                  <el-table-column label="做题" width="60"><template #default="{ row }"><span class="num">{{ row.errors }}/{{ row.attempts }}</span></template></el-table-column>
-                  <el-table-column label="错因" min-width="170">
-                    <template #default="{ row }">
-                      <span class="cause-mini" :title="`没作答 ${row.blank_errors} · 秒答 ${row.rush_errors} · 认真做仍错 ${row.thoughtful_errors}`">
-                        空答 {{ row.blank_errors }} · 秒答 {{ row.rush_errors }} · 认真错 {{ row.thoughtful_errors }}
-                      </span>
-                    </template>
-                  </el-table-column>
-                  <el-table-column label="可能的前置" min-width="120" show-overflow-tooltip>
-                    <template #default="{ row }"><span v-if="row.root_kp" class="cause-mini">{{ row.root_kp.name }}</span><span v-else style="color:var(--text-3)">—</span></template>
-                  </el-table-column>
-                  <el-table-column label="走向" width="64">
-                    <template #default="{ row }">
-                      <span v-if="row.trend" class="trend-tag" :class="`trend--${row.trend}`">{{ TREND_LABELS[row.trend] }}</span>
-                      <span v-else style="color:var(--text-3)">—</span>
-                    </template>
-                  </el-table-column>
-                </el-table>
-              </div>
-              <div>
-                <div class="sub-title">强项知识点 Top 5</div>
-                <el-table :data="p.mastery.strong_kps" size="small" class="mini-table" empty-text="还没有错误率低于 40%、且做过 2 次以上的知识点">
-                  <el-table-column prop="name" label="知识点" min-width="140" show-overflow-tooltip />
-                  <el-table-column prop="chapter" label="单元" min-width="120" show-overflow-tooltip />
-                  <el-table-column label="错误率" width="90"><template #default="{ row }"><span class="num" style="color:var(--green)">{{ fmtPct(row.error_rate) }}</span></template></el-table-column>
-                  <el-table-column label="做题" width="70"><template #default="{ row }"><span class="num">{{ row.errors }}/{{ row.attempts }}</span></template></el-table-column>
-                </el-table>
-              </div>
-            </div>
-          </el-tab-pane>
-
-          <!-- ④ AI 互动 -->
-          <el-tab-pane label="AI 互动" name="ai" lazy>
-            <div class="tiles">
-              <div class="tile"><div class="tile__num num">{{ p.ai_interaction.student_messages }}</div><div class="tile__lbl">{{ rangeLabel }}学生发言数</div></div>
-              <div class="tile"><div class="tile__num num">{{ p.ai_interaction.assistant_messages }}</div><div class="tile__lbl">{{ rangeLabel }}助教回复数</div></div>
-              <div class="tile"><div class="tile__num num">{{ p.ai_interaction.aha_count }}</div><div class="tile__lbl">{{ rangeLabel }}顿悟次数</div></div>
-              <div class="tile"><div class="tile__num ts">{{ p.ai_interaction.last_chat_at ? formatDate(p.ai_interaction.last_chat_at) : '—' }}</div><div class="tile__lbl">最近聊天</div></div>
-            </div>
-            <div class="two-col">
-              <div>
-                <div class="sub-title">启发策略效果（得分越高越适合该学生）</div>
-                <el-table :data="p.ai_interaction.strategies" size="small" class="mini-table" empty-text="还没有用过启发策略">
-                  <el-table-column prop="name" label="策略" min-width="120" />
-                  <el-table-column label="得分" width="80"><template #default="{ row }"><span class="num">{{ row.score ?? '—' }}</span></template></el-table-column>
-                  <el-table-column prop="uses" label="使用" width="60" />
-                  <el-table-column prop="likes" label="点赞" width="60" />
-                  <el-table-column prop="dislikes" label="点踩" width="60" />
-                </el-table>
-              </div>
-              <div>
-                <div class="sub-title">近期交流概况</div>
-                <div class="text-box" v-if="p.ai_interaction.chat_summary">{{ p.ai_interaction.chat_summary }}</div>
-                <div class="empty-sm" v-else>暂无聊天概况</div>
-                <div class="sub-title" style="margin-top:10px">近期困惑</div>
-                <div v-if="intentList.length" class="tag-list">
-                  <span v-for="t in intentList" :key="t" class="tag">{{ t }}</span>
-                </div>
-                <div class="empty-sm" v-else>暂无</div>
-              </div>
-            </div>
-          </el-tab-pane>
-
-          <!-- ⑤ 个人特质 -->
-          <el-tab-pane label="个人特质" name="traits" lazy>
-            <div class="sub-title">个人洞察</div>
-            <div class="text-box" v-if="p.traits.personal_insight">{{ p.traits.personal_insight }}</div>
-            <div class="empty-sm" v-else>暂无个人洞察。学生与 AI 助教聊天后会自动生成，也可以在「摘要」页手动填写。</div>
-            <div class="foot-note" v-if="p.traits.personal_insight_updated_at">更新于 {{ formatDate(p.traits.personal_insight_updated_at) }}</div>
-            <div class="sub-title" style="margin-top:15px">学习信息摘要</div>
-            <div class="text-box" v-if="p.traits.learning_summary">{{ p.traits.learning_summary }}</div>
-            <div class="empty-sm" v-else>暂无</div>
-            <div class="foot-note">编辑请前往「摘要」页。</div>
-          </el-tab-pane>
-          <!-- ⑥ 预警 -->
-          <el-tab-pane :label="`预警（${p.warnings.open.length}）`" name="warnings" lazy>
-            <div class="hint-text" style="margin-bottom:8px">规则和阈值可在「配置管理」里修改</div>
+      <div class="bottom-row">
+        <div class="chart-card">
+          <div class="chart-card__head">
+            <div class="chart-card__title">预警<span v-if="p.warnings.open.length" class="count-badge num">{{ p.warnings.open.length }}</span></div>
+            <span class="card-hint">规则和阈值可在「配置管理」里修改</span>
+          </div>
             <div v-if="p.warnings.open.length" class="warn-list">
               <div v-for="w in p.warnings.open" :key="w.id" class="warn-item">
                 <span class="level-tag" :class="`level--${w.level}`">{{ w.level_label }}</span>
@@ -561,10 +411,9 @@
                 </el-button>
               </div>
             </div>
-            <div v-else class="empty-sm">目前没有需要关注的预警</div>
-
+            <div v-else class="card-empty">目前没有需要关注的预警</div>
             <template v-if="p.warnings.handled.length">
-              <div class="sub-title" style="margin-top:12px">最近处理过的预警</div>
+              <div class="warn-sub">最近处理过的预警</div>
               <div v-for="w in p.warnings.handled" :key="w.id" class="warn-item warn-item--done">
                 <span class="level-tag" :class="`level--${w.level}`">{{ w.level_label }}</span>
                 <div class="warn-item__main">
@@ -574,16 +423,14 @@
                 <span class="warn-item__time">{{ formatDate(w.handled_at) }} 处理</span>
               </div>
             </template>
-          </el-tab-pane>
-
-          <!-- ⑦ 建议 -->
-          <el-tab-pane label="建议" name="tips" lazy>
-            <div v-if="p.summary.tips.length" class="tips">
-              <div v-for="(t, i) in p.summary.tips" :key="i" class="tip"><span class="tip__no num">{{ i + 1 }}</span>{{ t }}</div>
-            </div>
-            <div v-else class="empty-sm">暂无建议</div>
-          </el-tab-pane>
-        </el-tabs>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card__title">建议</div>
+          <div v-if="p.summary.tips.length" class="tips tips--card">
+            <div v-for="(t, i) in p.summary.tips" :key="i" class="tip"><span class="tip__no num">{{ i + 1 }}</span>{{ t }}</div>
+          </div>
+          <div v-else class="card-empty">暂无建议</div>
+        </div>
       </div>
     </template>
   </div>
@@ -613,7 +460,7 @@ const KPI_VIZ: Record<string, 'bars' | 'wave' | 'dots' | 'ring' | 'swing'> = { s
 // 学科色：定义在下方非 scoped 样式块的 --subj-* 变量里（亮 / 暗各一套，随主题切换）。模板直接用 var()，图表用 subjColor() 取实际色值
 const SUBJECT_COLORS: Record<string, string> = { MATH: 'var(--subj-math)', PHYSICS: 'var(--subj-physics)', CHEMISTRY: 'var(--subj-chemistry)', OTHER: 'var(--subj-other)' }
 const SUBJECT_CODES = ['MATH', 'PHYSICS', 'CHEMISTRY']
-const SUBJECT_FALLBACK: Record<string, string> = { MATH: '#e4e7fb', PHYSICS: '#9aa3dc', CHEMISTRY: '#5c6499', OTHER: '#444a66' }
+const SUBJECT_FALLBACK: Record<string, string> = { MATH: '#7f9bff', PHYSICS: '#4fd0c4', CHEMISTRY: '#b595ff', OTHER: '#5b617c' }
 function subjColor(code: string) {
   const k = code in SUBJECT_FALLBACK ? code : 'OTHER'
   return cssVar(`--subj-${k.toLowerCase()}`, SUBJECT_FALLBACK[k])
@@ -631,7 +478,7 @@ function fmtMin(m?: number | null) {
 // 练习方式的颜色（和小程序「练习方式」同一批名称）：和学科色同一个思路，只用页面本身的蓝紫灰色阶（定义在下方非 scoped 样式块的 --type-* 变量里，亮 / 暗各一套）。
 // 7 档明度会让相邻两段太像，所以相邻的练习方式一深一浅交错排，图例也分得开
 const TYPE_VAR: Record<string, string> = { KNOWLEDGE_POINT: 'kp', UNIT: 'unit', ERROR_QUESTIONS: 'err', FAVORITES: 'fav', SMART: 'smart', RANDOM: 'random', SEMESTER: 'sem' }
-const TYPE_FALLBACK: Record<string, string> = { kp: '#e4e7fb', unit: '#7a85c6', err: '#b4bbec', fav: '#4c5489', smart: '#9aa3dc', random: '#626ca6', sem: '#8590cc' }
+const TYPE_FALLBACK: Record<string, string> = { kp: '#7f9bff', unit: '#4fd0c4', err: '#f0809a', fav: '#f0bb5c', smart: '#b595ff', random: '#7a84a6', sem: '#6cc8f2' }
 function typeColor(key: string) {
   const k = TYPE_VAR[key] ?? 'sem'
   return cssVar(`--type-${k}`, TYPE_FALLBACK[k])
@@ -737,7 +584,6 @@ const route = useRoute()
 const studentId = Number(route.params.id)
 const loading = ref(false)
 const p = ref<StudentProfile>()
-const tab = ref('cognitive')
 // 统计日期范围：默认近 7 天（含今天），可自选，最长 90 天
 const MAX_RANGE_DAYS = 90
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -780,7 +626,6 @@ const aiTrendRef = ref<HTMLElement>()
 const aiPeriodRef = ref<HTMLElement>()
 const accTypeRef = ref<HTMLElement>()
 const accDiffRef = ref<HTMLElement>()
-const trendPowerRef = ref<HTMLElement>()
 const charts: echarts.ECharts[] = []
 
 const handleVisible = ref(false)
@@ -1080,7 +925,7 @@ function renderAnswerType() {
   })
 }
 // 难度分布：环形图。基础 / 进阶 / 挑战三档，颜色是 --diff-* 变量（页面蓝紫灰色阶）
-const DIFF_FALLBACK: Record<string, string> = { basic: '#e4e7fb', advanced: '#9aa3dc', challenge: '#5c6499' }
+const DIFF_FALLBACK: Record<string, string> = { basic: '#7da6ff', advanced: '#f0bb5c', challenge: '#f0809a' }
 function renderAnswerDiff() {
   const items = ansDiffItems.value
   if (!items.length) return
@@ -1105,8 +950,7 @@ function renderAccuracyTrend() {
   const dark = document.documentElement.dataset.theme === 'dark'
   const txt3 = cssVar('--text-3', '#999')
   const rgba = (hex: string, al: number) => { const n = parseInt(hex.replace('#', ''), 16); return `rgba(${n >> 16 & 255}, ${n >> 8 & 255}, ${n & 255}, ${al})` }
-  const DARK_SUBJ: Record<string, string> = { MATH: '#5d6597', PHYSICS: '#e6e8f8', CHEMISTRY: '#8f97cf', OTHER: '#6b7186' }
-  const lineClr = (code: string) => (dark ? (DARK_SUBJ[code] ?? DARK_SUBJ.OTHER) : subjColor(code))
+  const lineClr = (code: string) => subjColor(code)
   const totalClr = dark ? '#8b90ab' : '#475066'
   const hoverFill = dark ? '#0d0f1c' : '#ffffff'
   const fillOf = (hex: string, top: number) => ({ color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: rgba(hex, top) }, { offset: 1, color: rgba(hex, 0) }] } })
@@ -1154,7 +998,7 @@ function renderAccuracyTrend() {
     series: [
       glowSer,
       lineSer('合计', defs[0].vals, totalClr, 3, { dashed: true, top: dark ? 0.2 : 0.1, z: 1 }),
-      ...defs.slice(1).map((d, i) => lineSer(d.name, d.vals, d.clr, d.name === '物理' && dark ? 2.4 : 1.8, { top: dark ? 0.1 : 0.05, z: 2 + i })),
+      ...defs.slice(1).map((d, i) => lineSer(d.name, d.vals, d.clr, 2, { top: dark ? 0.1 : 0.05, z: 2 + i })),
       { type: 'scatter', id: 'hover', name: '', xAxisIndex: 0, yAxisIndex: 0, silent: true, z: 10, legendHoverLink: false, tooltip: { show: false }, symbol: 'circle', symbolSize: 10, data: [] },
       { type: 'scatter', name: '', xAxisIndex: 1, yAxisIndex: 0, silent: true, clip: false, z: 0, legendHoverLink: false, tooltip: { show: false },
         symbol: 'circle', symbolSize: 3, symbolOffset: [0, 17], itemStyle: { color: dark ? '#3d4260' : '#c3c9d8' },
@@ -1202,7 +1046,7 @@ function renderAiAsks() {
   const a = p.value?.ai_asks
   if (!a?.has_data) return
   const dark = document.documentElement.dataset.theme === 'dark'
-  const barClr = dark ? '#9aa3dc' : '#5e8df9'
+  const barClr = dark ? '#7f9bff' : '#4f6bed'
   const ahaClr = dark ? '#e6e8f8' : '#475066'
   const txt3 = cssVar('--text-3', '#999')
   const alpha = (hex: string, al: number) => { const n = parseInt(hex.replace('#', ''), 16); return `rgba(${n >> 16 & 255}, ${n >> 8 & 255}, ${n & 255}, ${al})` }
@@ -1223,8 +1067,8 @@ function renderAiAsks() {
   })
   const per = a.periods
   const PERIOD_CLR: Record<string, string> = dark
-    ? { night: '#5c6499', morning: '#9aa3dc', afternoon: '#c4caf0', evening: '#e4e7fb' }
-    : { night: '#3b4a8a', morning: '#5e8df9', afternoon: '#8fb0fb', evening: '#c3d4fd' }
+    ? { night: '#7f9bff', morning: '#f0bb5c', afternoon: '#4fd0c4', evening: '#b595ff' }
+    : { night: '#4f6bed', morning: '#e5a23a', afternoon: '#14a39a', evening: '#9b6bdf' }
   renderTypeDonut(aiPeriodRef.value, {
     items: per.map(x => ({ key: x.key, name: x.label, value: x.count, extra: x, color: PERIOD_CLR[x.key] })),
     centerText: `${a.stats.total} 次`, centerSub: '提问次数',
@@ -1243,31 +1087,9 @@ function renderDetail() {
   else if (activeKpi.value === 'ai_asks') renderAiAsks()
 }
 
-function renderPowerTrend() {
-  const c = initChart(trendPowerRef.value)
-  const t = p.value?.cognitive.power_trend
-  if (!c || !t?.has_data) return
-  c.setOption({
-    grid: { left: 0, right: 0, top: 30, bottom: 0, containLabel: true },
-    legend: { top: 0, textStyle: { color: cssVar('--text-2', '#888') } },
-    tooltip: {
-      trigger: 'axis',
-      formatter: (ps: { dataIndex: number; seriesName: string; marker: string; value: number | null }[]) =>
-        `${t.weeks[ps[0].dataIndex].label}<br/>` + ps.map((x) => `${x.marker}${x.seriesName}：${x.value === null || x.value === undefined ? '数据不足' : x.value + '%'}`).join('<br/>'),
-    },
-    xAxis: { type: 'category', data: t.weeks.map(w => w.label), axisLabel: { color: cssVar('--text-3', '#999'), fontSize: 11 } },
-    yAxis: { type: 'value', min: 0, max: 100, splitLine: { lineStyle: { color: 'rgba(128,128,128,0.15)' } }, axisLabel: { color: cssVar('--text-3', '#999') } },
-    series: POWERS.map(k => ({
-      name: FivePowerLabels[k], type: 'line', smooth: true, symbolSize: 7, connectNulls: true,
-      data: t.weeks.map(w => w.powers[k]?.accuracy ?? null),
-      itemStyle: { color: POWER_COLORS[k] }, lineStyle: { color: POWER_COLORS[k], width: 2 },
-    })),
-  })
-}
-
 async function drawTab() {
   await nextTick()
-  if (tab.value === 'cognitive') { renderRadar(); renderPowerTrend() }
+  renderRadar()
 }
 // 顶部统计卡选中的维度：决定中间明细区显示什么。DETAIL_KEYS 是已经有明细区的维度，其余卡片暂时不可选
 const DETAIL_KEYS = ['study_time', 'sessions', 'answered', 'accuracy', 'ai_asks']
@@ -1281,12 +1103,6 @@ watch(ansTypeCode, async () => { await nextTick(); if (activeKpi.value === 'answ
 watch(ansDiffCode, async () => { await nextTick(); if (activeKpi.value === 'answered') renderAnswerDiff() })
 watch(accTypeCode, async () => { await nextTick(); if (activeKpi.value === 'accuracy') renderAccuracyType() })
 watch(accDiffCode, async () => { await nextTick(); if (activeKpi.value === 'accuracy') renderAccuracyDiff() })
-function onTabChange() {
-  drawTab()
-  // 表格在没显示的标签页里算不出列宽，切过来后通知它重新布局
-  nextTick(() => window.dispatchEvent(new Event('resize')))
-}
-
 async function load() {
   loading.value = true
   try {
@@ -1473,22 +1289,43 @@ onBeforeUnmount(() => { window.removeEventListener('resize', onResize); charts.f
   &:hover, &:focus { background: transparent !important; border-color: transparent !important; } }
 .handle-msg { margin-bottom: 10px; font-size: 13px; line-height: 1.7; color: var(--text-2); }
 
-.tabs-block :deep(.el-tabs__header) { margin-bottom: 8px; }
+// ── 认知能力 / 个人洞察 / 学习信息摘要 / 预警 / 建议：都是和中间明细区同款的 chart-card ──
+.card-hint { font-size: 12px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.card-empty { padding: 18px 0 6px; font-size: 13px; color: var(--text-3); }
+.bottom-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; @media (max-width: 1100px) { grid-template-columns: 1fr; } }
+.bottom-row .chart-card { display: flex; flex-direction: column; }
+// 认知能力：左雷达、右表格，下面一排洞察
+.cog-layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 20px; align-items: center; margin-top: 6px; @media (max-width: 1100px) { grid-template-columns: 1fr; } }
+.cog-layout .radar-chart { height: 250px; }
+.cog-hls { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 10px; margin-top: 12px; }
+.hl-chip { position: relative; padding: 9px 12px 9px 26px; border-radius: 10px; font-size: 13px; line-height: 1.6; color: var(--text-1);
+  background: color-mix(in srgb, var(--text-3) 8%, transparent); border: 1px solid color-mix(in srgb, var(--text-3) 14%, transparent);
+  .hl-item__dot { left: 11px; top: 16px; } }
+.cog-empty { height: 120px; }
+// 文字段落：不画方框，左侧一条细竖线 + 极淡底色，像引用
+.quote { margin-top: 10px; padding: 10px 14px; border-radius: 0 10px 10px 0; font-size: 13px; line-height: 1.85; color: var(--text-1); white-space: pre-wrap; word-break: break-word;
+  border-left: 2px solid color-mix(in srgb, var(--color-primary) 55%, transparent); background: color-mix(in srgb, var(--text-3) 7%, transparent); }
+.count-badge { display: inline-block; min-width: 18px; height: 18px; margin-left: 8px; padding: 0 6px; border-radius: 999px; vertical-align: 1px; text-align: center; line-height: 18px; font-size: 11px; font-weight: 600;
+  color: var(--amber); background: color-mix(in srgb, var(--amber) 18%, transparent); }
+// 预警：每条是一行圆角浅底，不再用分隔线
+.bottom-row .warn-list { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.bottom-row .warn-item { padding: 9px 12px; border: none; border-radius: 10px; background: color-mix(in srgb, var(--text-3) 8%, transparent); }
+.warn-sub { margin: 14px 0 8px; font-size: 12px; color: var(--text-3); }
+.bottom-row .warn-item--done { margin-bottom: 8px; background: transparent; border: 1px dashed color-mix(in srgb, var(--text-3) 22%, transparent); }
+.tips--card { margin-top: 10px; .tip { margin-bottom: 9px; } }
 // ── 暗色主题（参考图）：胶囊标签 / 按钮、小号大写表头、底部区块的深蓝玻璃 ──
 </style>
 
 <!-- 不加 scoped：下面的规则要同时带上主题选择器（html[data-theme=...]）和页面里的类名，scoped + :global 写法会把后半截选择器丢掉 -->
 <style lang="scss">
-// 学科色（数学 / 物理 / 化学）：用页面本身的蓝紫灰色阶，三档明度拉开（和统计卡、图表的灰紫同一个色相），不再引入别的色相
-//   暗色：近白 / 中灰紫 / 深灰紫（堆叠柱从下往上由亮到暗）；亮色：深靛 / 中靛 / 浅靛
-:root { --diff-basic: #3d4fc4; --diff-advanced: #7c8cf0; --diff-challenge: #b4bdf9; }
-html[data-theme="dark"] { --diff-basic: #e4e7fb; --diff-advanced: #9aa3dc; --diff-challenge: #5c6499; }
-:root { --subj-math: #3d4fc4; --subj-physics: #7c8cf0; --subj-chemistry: #b4bdf9; --subj-other: #cbd0dd; }
-// 练习方式色（类型时长分布）：按小程序「练习方式」的顺序，一深一浅交错
-//   暗色：近白 → 深灰紫；亮色：深靛 → 浅靛，其中「按学期」用中性灰
-:root { --type-kp: #2f3fa8; --type-unit: #9aa6f5; --type-err: #4a5bd0; --type-fav: #b8c0fa; --type-smart: #6272e6; --type-random: #c9cfe0; --type-sem: #8190ee; }
-html[data-theme="dark"] { --type-kp: #e4e7fb; --type-unit: #7a85c6; --type-err: #b4bbec; --type-fav: #4c5489; --type-smart: #9aa3dc; --type-random: #626ca6; --type-sem: #8590cc; }
-html[data-theme="dark"] { --subj-math: #e4e7fb; --subj-physics: #9aa3dc; --subj-chemistry: #5c6499; --subj-other: #444a66; }
+// 图表分类色：以页面主色靛蓝为基准，沿色环取 靛蓝 / 青绿 / 紫 / 琥珀 / 玫红 / 天蓝，饱和度压低（亮色偏深、暗色偏亮），
+// 相邻类型一眼能分开，又和页面的蓝紫基调、五力色同一家族。学科、难度、练习方式、时段各用一套，都在这里改
+:root { --subj-math: #4f6bed; --subj-physics: #14a39a; --subj-chemistry: #9b6bdf; --subj-other: #aab0c0; }
+html[data-theme="dark"] { --subj-math: #7f9bff; --subj-physics: #4fd0c4; --subj-chemistry: #b595ff; --subj-other: #5b617c; }
+:root { --diff-basic: #4f8cf0; --diff-advanced: #e5a23a; --diff-challenge: #e0607e; }
+html[data-theme="dark"] { --diff-basic: #7da6ff; --diff-advanced: #f0bb5c; --diff-challenge: #f0809a; }
+:root { --type-kp: #4f6bed; --type-unit: #14a39a; --type-err: #e0607e; --type-fav: #e5a23a; --type-smart: #9b6bdf; --type-random: #8f9ab8; --type-sem: #3fb0e6; }
+html[data-theme="dark"] { --type-kp: #7f9bff; --type-unit: #4fd0c4; --type-err: #f0809a; --type-fav: #f0bb5c; --type-smart: #b595ff; --type-random: #7a84a6; --type-sem: #6cc8f2; }
 
 // 暗色主题（参考图）：更深的蓝黑底 + 右上角淡薰衣草光；强调色偏灰的薰衣草蓝紫；
 // 胶囊标签 / 按钮、小号大写表头；亮色主题的统计卡 / 图表卡配色
@@ -1532,5 +1369,34 @@ html[data-theme="dark"] .page-root {
   .form-topbar .el-button, .form-topbar .el-date-editor, .form-topbar .el-date-editor.el-input__wrapper { border-radius: 999px !important; }
   .form-topbar .el-date-editor { padding-left: 14px; padding-right: 14px; }
   .el-table th.el-table__cell { font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); }
+}
+
+// ── 表格（.mini-table）：和卡片融成一体，不分层 ──
+// 没有表头底色、没有斑马纹、没有外框；表头只是一行小号淡色文字，下面一条细线；行与行之间用极淡的细线，悬停时整行泛一层淡淡的光。
+// el-table 内部会重新定义变量，所以这里直接在 .el-table 作用域里覆盖，并写死颜色
+:root { --tbl-line: rgba(96, 141, 248, 0.14); --tbl-head: #8a92aa; --tbl-text: #2d3550; --tbl-text-2: #5a6380; --tbl-hover: rgba(94, 141, 249, 0.07); }
+html[data-theme="dark"] { --tbl-line: rgba(210, 216, 255, 0.08); --tbl-head: #7f86a6; --tbl-text: #dfe2f4; --tbl-text-2: #a2a8c4; --tbl-hover: rgba(160, 170, 240, 0.08); }
+.page-root .mini-table.el-table {
+  --el-table-bg-color: transparent; --el-table-tr-bg-color: transparent; --el-table-header-bg-color: transparent;
+  --el-table-row-hover-bg-color: transparent; --el-table-border-color: transparent; --el-table-border: none;
+  --el-table-text-color: var(--tbl-text); --el-table-header-text-color: var(--tbl-head);
+  background: transparent; font-size: 13px;
+  &::before, .el-table__inner-wrapper::before { display: none; }
+  .el-table__inner-wrapper { border: none !important; border-radius: 0; }
+  .el-table__inner-wrapper, .el-table__header-wrapper, .el-table__body-wrapper, thead, tbody, tr { background: transparent !important; }
+  th.el-table__cell { background: transparent !important; height: auto; padding: 4px 0 8px; border-bottom: 1px solid var(--tbl-line) !important; color: var(--tbl-head) !important;
+    font-size: 11.5px; font-weight: 500; letter-spacing: 0.04em; text-transform: none; }
+  td.el-table__cell { height: auto; padding: 10px 0; border-bottom: 1px solid var(--tbl-line) !important; color: var(--tbl-text); background: transparent !important; transition: background .2s; }
+  tr:last-child td.el-table__cell { border-bottom: none !important; }
+  .cell { padding: 0 !important; color: inherit; line-height: 1.5; }
+  th.el-table__cell, td.el-table__cell { padding-left: 8px !important; padding-right: 8px !important; }
+  th.el-table__cell:first-child, td.el-table__cell:first-child { padding-left: 0 !important; }
+  th .cell { color: inherit; }
+  tbody tr:hover > td.el-table__cell { background: var(--tbl-hover) !important; }
+  tbody tr > td.el-table__cell:first-child { border-radius: 8px 0 0 8px; }
+  tbody tr > td.el-table__cell:last-child { border-radius: 0 8px 8px 0; }
+  .el-table__empty-block { background: transparent; }
+  .el-table__empty-text { color: var(--tbl-head); }
+  .cause-mini { color: var(--tbl-text-2); }
 }
 </style>

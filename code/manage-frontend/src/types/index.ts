@@ -305,10 +305,6 @@ export interface TrainingConfigList {
 }
 
 // ── 学生画像（管理员视图，一期）────────────────────────────────
-export interface PowerTrend {
-  weeks: { weeks_ago: number; label: string; powers: Record<string, { answered: number; accuracy: number | null }> }[]
-  answered: number; has_data: boolean; unit: 'day' | 'week'; min_answers: number
-}
 export interface CognitivePower {
   key: string; label: string; test: number | null; answered: number; accuracy: number | null; prev_accuracy: number | null
   delta: number | null; gap: number | null; share: number | null; blank_rate: number | null; avg_seconds: number | null
@@ -471,7 +467,6 @@ export interface StudentProfile {
     training_info?: { total_training_count: number; total_question_count: number; last_trained_at: string | null } | null
     primary_strength?: string; primary_weakness?: string; secondary_weakness?: string; preferred_force?: string; recommended_mode?: string
     confidence?: number | null; tags?: string[]
-    power_trend?: PowerTrend
     previous_test?: { tested_at: string; final: Record<string, number> } | null
     insights?: CognitiveInsights
   }
