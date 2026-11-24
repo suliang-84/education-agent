@@ -1110,10 +1110,22 @@ def _study_time_build(rows, subjects, rng, t1, t0, avg_session_sec, hour_rows=No
             hl.append({"tone": "warn", "text": f"每次训练平均只有 {a} 分钟，时间偏碎，难以进入状态"})
         elif a > 40:
             hl.append({"tone": "warn", "text": f"每次训练平均 {a} 分钟，偏长，注意中途休息"})
-    tot_type = sum(float(r["t"] or 0) for r in (type_rows or []))
-    tmap = {r["dim"]: r for r in (type_rows or [])}
-    types = [{"key": k, "label": DIM_LABELS.get(k, k), "minutes": round(float(tmap[k]["t"] or 0) / 60, 1), "sessions": tmap[k]["n"],
-              "share": _pct(float(tmap[k]["t"] or 0), tot_type) if k in tmap else 0.0} for k in DIM_ORDER if k in tmap]
+    # 练习方式（类型）时长：type_rows 是「学科 × 练习方式」的 {sid, dim, t(秒), n(训练次数)}。
+    # types 是所有学科合起来的（建议里的规则在用），types_by_subject 是每个学科各自的分布（占比按这个学科自己的总时长算）。
+    # 一次训练只属于一个学科，所以训练次数可以直接相加
+    def type_dist(rs):
+        m: dict[str, dict] = {}
+        for r in rs:
+            e = m.setdefault(r["dim"], {"t": 0.0, "n": 0})
+            e["t"] += float(r["t"] or 0)
+            e["n"] += int(r["n"] or 0)
+        tot = sum(v["t"] for v in m.values())
+        return [{"key": k, "label": DIM_LABELS.get(k, k), "minutes": round(m[k]["t"] / 60, 1), "sessions": m[k]["n"], "share": _pct(m[k]["t"], tot)} for k in DIM_ORDER if k in m]
+    types = type_dist(type_rows or [])
+    by_code: dict[str, list] = {}
+    for r in type_rows or []:
+        by_code.setdefault(code_of(r.get("sid")), []).append(r)
+    types_by_subject = {c: type_dist(v) for c, v in by_code.items()}
     tb = []
     for key, label, lo, hi in TIME_BUCKETS:
         sec = sum(float(r["t"] or 0) for r in (hour_rows or []) if lo <= (r["h"] if r["h"] >= 6 else r["h"] + 24) < hi)
@@ -1126,8 +1138,573 @@ def _study_time_build(rows, subjects, rng, t1, t0, avg_session_sec, hour_rows=No
         kp_top.setdefault(code_of(r["sid"]), []).append({"id": r["kid"], "name": r["name"], "minutes": round(float(r["t"]) / 60, 1), "answered": r["n"]})
     kp_top = {c: sorted(v, key=lambda x: (-x["minutes"], -x["answered"], x["id"]))[:5] for c, v in kp_top.items()}
     return {"has_data": True, "unit": "day" if rng.daily else "week", "time_buckets": tb, "types": types,
+            "types_by_subject": types_by_subject,
             "tips": _study_time_tips(stats, subj, types, tb, rng, wrong_pending), "subjects": subj, "series": series, "stats": stats, "highlights": hl[:5],
             "kp_top": kp_top}
+
+
+WEEKDAY_LABELS = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+
+
+def _sessions_build(rows, rng, wrong_pending=0, subjects=None, kp_rows=None):
+    """训练次数明细（纯计算，方便测试）。
+    rows：所选范围和前一段同样长度时间内开始的训练，每条 {started_at, session_status, training_dimension, total_questions, answered, correct}。
+    口径说明：
+    · 完成 = session_status 为 completed，其余（中途退出 / 提前结束 / 进行中）都算「未完成」；
+    · 退出训练不保存（视为放弃）是正常流程，所以不用「完成次数 ÷ 总次数」衡量，而用「作答题数 ÷ 下发题数」（答题完成度）；
+    · 日均 / 周末日均 / 非周末日均 都 ÷ 所选范围内对应的天数（没训练的天也算），和学习时长的口径一致；
+    · 一次训练归到一个学科：取下发题目里数量最多的学科（实际数据里一次训练都是单科，没作答的训练也能从下发的题目判断）。
+    rows 里的 subject_id 是这个学科的 id，subjects 是 {id: (code, name)}；对不上的归到「其他」。
+    kp_rows：所选范围内每个学科下每个知识点被训练的次数 {sid, kid, name, n(训练次数), done(其中完成的)}，用来出「知识点训练次数 Top5」。
+    一次训练算训练过某知识点 = 这次下发的题目里有题挂了它（一次训练里多道题涉及同一个知识点只算一次）。"""
+    cur = [r for r in rows if rng.since <= r["started_at"] < rng.until]
+    prv = [r for r in rows if rng.prev_since <= r["started_at"] < rng.since]
+    n = len(cur)
+    if n == 0:
+        return {"has_data": False, "range_label": rng.label}
+    day = lambda r: r["started_at"].astimezone(BJ).date()
+    ans = lambda r: int(r["answered"] or 0)
+    iss = lambda r: int(r["total_questions"] or 0)
+    done = lambda r: r["session_status"] == "completed"
+
+    per_day: dict[date, int] = {}
+    for r in cur:
+        per_day[day(r)] = per_day.get(day(r), 0) + 1
+    prv_day: dict[date, int] = {}
+    for r in prv:
+        prv_day[day(r)] = prv_day.get(day(r), 0) + 1
+
+    def completion(rs):
+        issued = sum(iss(r) for r in rs)
+        return _pct(sum(min(ans(r), iss(r)) if iss(r) else ans(r) for r in rs), issued) if issued >= 10 else None     # 下发不足 10 题，比例没意义
+
+    def avg_answered(rs):
+        a = [ans(r) for r in rs if ans(r) > 0]
+        return round(sum(a) / len(a), 1) if a else None
+
+    best = max(per_day.items(), key=lambda kv: (kv[1], kv[0]))            # 次数相同取最近的一天
+    n_wd = sum(1 for i in range(rng.days) if (rng.start + timedelta(days=i)).weekday() < 5)
+    n_we = rng.days - n_wd
+    wk_n = sum(c for d, c in per_day.items() if d.weekday() < 5)
+    we_n = sum(c for d, c in per_day.items() if d.weekday() >= 5)
+    gap = run = 0                                                       # 范围内最长连续没训练的天数
+    for i in range(rng.days):
+        run = 0 if (rng.start + timedelta(days=i)) in per_day else run + 1
+        gap = max(gap, run)
+    full = sum(1 for r in cur if iss(r) and ans(r) >= iss(r))
+    none = sum(1 for r in cur if ans(r) == 0)
+    stats = {
+        "total": n, "prev_total": len(prv), "days": rng.days, "active_days": len(per_day), "done": sum(1 for r in cur if done(r)),
+        "avg_per_day": round(n / rng.days, 1), "prev_avg_per_day": round(len(prv) / rng.days, 1) if prv else None,
+        "best_day": {"date": str(best[0]), "count": best[1]}, "prev_best_count": max(prv_day.values()) if prv_day else None,
+        "completion": completion(cur), "prev_completion": completion(prv),
+        "avg_answered": avg_answered(cur), "prev_avg_answered": avg_answered(prv),
+        "weekday_avg": round(wk_n / n_wd, 1) if n_wd else None, "weekend_avg": round(we_n / n_we, 1) if n_we else None,
+        "max_gap_days": gap,
+        "completeness": {"full": full, "partial": n - full - none, "none": none},       # 全部作答 / 作答一部分 / 一题没答
+    }
+
+    # 学科：一次训练归到一个学科
+    subjects = subjects or {}
+    names = {"MATH": "数学", "PHYSICS": "物理", "CHEMISTRY": "化学"}
+    code_of = lambda r: subjects.get(r.get("subject_id"), ("OTHER", "其他"))[0]
+    per_subj: dict[str, int] = {}
+    for r in cur:
+        per_subj[code_of(r)] = per_subj.get(code_of(r), 0) + 1
+    codes = list(SUBJECT_ORDER) + sorted(c for c in per_subj if c not in SUBJECT_ORDER)
+    name_of = lambda c: names.get(c) or next((v[1] for v in subjects.values() if v[0] == c), "其他")
+    subj = [{"code": c, "name": name_of(c), "count": per_subj.get(c, 0), "share": _pct(per_subj.get(c, 0), n)} for c in codes]
+
+    # 趋势：按天 / 按周，从旧到新，每个点按学科拆分（同时保留完成 / 未完成）
+    pts = rng.points
+    buckets = [{"label": rng.bucket_label(w), "done": 0, "undone": 0, "by_subject": {c: 0 for c in codes}} for w in range(pts - 1, -1, -1)]
+    for r in cur:
+        i = pts - 1 - rng.bucket_of_date(day(r))
+        if 0 <= i < pts:
+            buckets[i]["done" if done(r) else "undone"] += 1
+            buckets[i]["by_subject"][code_of(r)] += 1
+    series = [{**b, "total": b["done"] + b["undone"]} for b in buckets]
+
+    # 练习方式：次数、占比、做完的比例（顺序同小程序「练习方式」）
+    def type_dist(rs):                                    # 占比按这组训练自己的总数算
+        by_dim: dict[str, list] = {}
+        for r in rs:
+            by_dim.setdefault(r["training_dimension"], []).append(r)
+        keys = [k for k in DIM_ORDER if k in by_dim] + sorted(k for k in by_dim if k not in DIM_ORDER)
+        return [{"key": k, "label": DIM_LABELS.get(k, k), "count": len(by_dim[k]), "share": _pct(len(by_dim[k]), len(rs)),
+                 "done_rate": _pct(sum(1 for r in by_dim[k] if done(r)), len(by_dim[k]))} for k in keys]
+    types = type_dist(cur)
+    types_by_subject = {c: type_dist([r for r in cur if code_of(r) == c]) for c in per_subj}      # 每个学科各自的分布（占比按这个学科自己的训练数算）
+
+    # 知识点训练次数 Top5：按学科分组，每科取周期内被训练次数最多的 5 个知识点
+    kp_top: dict[str, list] = {}
+    for r in kp_rows or []:
+        if int(r["n"] or 0) <= 0:
+            continue
+        kp_top.setdefault(code_of({"subject_id": r["sid"]}), []).append({"id": r["kid"], "name": r["name"], "count": int(r["n"]), "done": int(r["done"] or 0)})
+    kp_top = {c: sorted(v, key=lambda x: (-x["count"], -x["done"], x["id"]))[:5] for c, v in kp_top.items()}
+
+    # 洞察（最多 5 条）：每条都是能直接照着做的一句话
+    tips = []
+    if none >= 2 and none / n >= 0.2:
+        tips.append(f"{none} 次训练一题都没答就退出了（占 {round(none / n * 100)}%），建议点开后先做第一题，别只是看看就退出")
+    partial = n - full - none
+    if partial >= 3 and partial / n >= 0.25:
+        tips.append(f"{partial} 次训练只做了一部分就退出（占 {round(partial / n * 100)}%）；每次把下发的题做完再退出，答题完成度才上得去")
+    need = max(2, rng.days * 4 // 7) if rng.days <= 14 else None
+    if need and 0 < len(per_day) < need:
+        tips.append(f"{rng.label}只有 {len(per_day)} 天在训练（共 {rng.days} 天），建议每周至少 4 天，哪怕每天只做一组")
+    avg_active = n / len(per_day)
+    if len(per_day) >= 3 and best[1] >= 3 and best[1] >= avg_active * 2:
+        tips.append(f"{best[0].month}/{best[0].day} 一天训练 {best[1]} 次，是有训练那几天平均（{round(avg_active, 1)} 次）的 {round(best[1] / avg_active, 1)} 倍；建议分摊到相邻几天，避免突击")
+    wk, we = stats["weekday_avg"], stats["weekend_avg"]
+    if wk and we and we / wk >= 1.8:
+        tips.append(f"训练集中在周末（周末日均 {we} 次，非周末只有 {wk} 次）；建议每天固定一组，比周末突击效果好")
+    elif not we and wk and rng.days >= 7:
+        tips.append("周末没有训练记录，可以安排一次复盘训练")
+    if gap >= 3 and rng.days >= 7:
+        tips.append(f"中间连续 {gap} 天没有训练，间隔太久容易遗忘，建议至少隔天安排一组")
+    top = max(types, key=lambda x: x["count"])
+    if (top["share"] or 0) >= 70 and n >= 5:
+        tips.append(f"{top['share']:g}% 的训练用的是「{top['label']}」，方式比较单一；可以穿插错题集和智能训练")
+    err = next((x for x in types if x["key"] == "ERROR_QUESTIONS"), None)
+    if wrong_pending >= 5 and (err is None or (err["share"] or 0) < 10):
+        tips.append(f"还有 {wrong_pending} 道错题没有攻克，但错题集训练只占 {0 if err is None else err['share']:g}%（{0 if err is None else err['count']} 次）；建议每次训练前先做一组错题集")
+    low = [x for x in types if x["count"] >= 4 and x["done_rate"] is not None and stats["done"] / n * 100 - x["done_rate"] >= 25]
+    if low:
+        w = min(low, key=lambda x: x["done_rate"])
+        tips.append(f"「{w['label']}」训练只有 {w['done_rate']:g}% 做完了，明显低于整体（{_pct(stats['done'], n):g}%）；可能题量或难度不合适，值得留意")
+    night = sum(1 for r in cur if r["started_at"].astimezone(BJ).hour >= 22 or r["started_at"].astimezone(BJ).hour < 6)
+    if n >= 5 and night / n >= 0.2:
+        tips.append(f"深夜（22 点以后）开始的训练占 {round(night / n * 100)}%，建议把时间提前，保证睡眠")
+    if not tips:
+        tips.append("训练的频率和完成度都比较健康，继续保持")
+    return {"has_data": True, "unit": "day" if rng.daily else "week", "stats": stats, "subjects": subj, "series": series, "types": types, "types_by_subject": types_by_subject, "kp_top": kp_top, "tips": tips[:5]}
+
+
+async def _sessions_stats(db, sid, rng, wrong_pending=0):
+    """训练次数明细：所选范围和前一段同样长度时间内开始的训练，每条带上实际作答题数 / 答对题数"""
+    rows = await _rows(db, """
+        SELECT s.started_at, s.session_status, s.training_dimension, s.total_questions, subj.sid subject_id,
+               count(a.id) answered, count(a.id) FILTER (WHERE a.is_correct) correct
+        FROM training_sessions s
+        LEFT JOIN training_answer_records a ON a.session_id = s.id AND COALESCE(a.is_seed_data, false) = false
+        -- 这次训练的学科：下发的题目（快照里的 question_ids）里数量最多的学科。没作答的训练也能判断
+        LEFT JOIN LATERAL (
+            SELECT q.subject_id sid
+            FROM jsonb_array_elements_text(CASE WHEN jsonb_typeof(s.question_snapshot->'question_ids') = 'array' THEN s.question_snapshot->'question_ids' ELSE '[]'::jsonb END) e(qid)
+            JOIN questions q ON q.id = (CASE WHEN e.qid ~ '^[0-9]+$' THEN e.qid::bigint END)
+            WHERE q.subject_id IS NOT NULL GROUP BY q.subject_id ORDER BY count(*) DESC, q.subject_id LIMIT 1
+        ) subj ON true
+        WHERE s.student_id = :sid AND s.started_at >= :prev AND s.started_at < :until
+        GROUP BY s.id, subj.sid""", sid=sid, prev=rng.prev_since, **rng.params)
+    subs = {r["id"]: (r["code"], r["name"]) for r in await _rows(db, "SELECT id, code, name FROM subjects")}
+    # 知识点训练次数：下发的题目（快照里的 question_ids）挂的知识点；一次训练里同一个知识点只算一次
+    kp_rows = await _rows(db, """
+        SELECT q.subject_id sid, kp.id kid, kp.name, count(DISTINCT s.id) n, count(DISTINCT s.id) FILTER (WHERE s.session_status = 'completed') done
+        FROM training_sessions s
+        CROSS JOIN LATERAL jsonb_array_elements_text(CASE WHEN jsonb_typeof(s.question_snapshot->'question_ids') = 'array' THEN s.question_snapshot->'question_ids' ELSE '[]'::jsonb END) e(qid)
+        JOIN questions q ON q.id = (CASE WHEN e.qid ~ '^[0-9]+$' THEN e.qid::bigint END)
+        CROSS JOIN LATERAL jsonb_array_elements_text(q.knowledge_point_ids) k(kid)
+        JOIN knowledge_points kp ON kp.id = (CASE WHEN k.kid ~ '^[0-9]+$' THEN k.kid::bigint END)
+        WHERE s.student_id = :sid AND s.started_at >= :since AND s.started_at < :until
+        GROUP BY 1, 2, 3""", sid=sid, **rng.params)
+    return _sessions_build(rows, rng, wrong_pending, subs, kp_rows)
+
+
+def _answer_dist(cube, field, labels, code_of, codes):
+    """按学科输出「题型 / 难度」分布：每个有答题的学科一份，固定输出全部档位（没做过的是 0）。
+    cube 里每行 {sid, qt, df, n(答题数), c(答对数)}；field 是 qt（题型）或 df（难度）；labels 是 {key: 名称}（决定档位和顺序）"""
+    out: dict[str, list] = {}
+    for c in codes:
+        rs = [r for r in cube if code_of(r["sid"]) == c and r[field]]
+        tot = sum(int(r["n"] or 0) for r in rs)
+        row = lambda k: [r for r in rs if r[field] == k]
+        out[c] = [{"key": k, "label": lb, "count": sum(int(r["n"] or 0) for r in row(k)), "correct": sum(int(r["c"] or 0) for r in row(k)),
+                   "accuracy": _pct(sum(int(r["c"] or 0) for r in row(k)), sum(int(r["n"] or 0) for r in row(k))),
+                   "share": _pct(sum(int(r["n"] or 0) for r in row(k)), tot)} for k, lb in labels.items()]
+    return out
+
+
+def _answers_build(cube, subjects, prev_total, wrong_rows, stubborn_rows, fav_rows, kp_rows):
+    """答题数明细（纯计算，方便测试）。
+    cube：所选范围内「学科 × 题型 × 难度」的 {sid, qt, df, n(答题数), c(答对数)}；
+    wrong_rows：错题 {sid, k(review_status), n}；stubborn_rows：顽固错题（同一道题错 3 次以上）{sid, n}；fav_rows：收藏 {sid, n}；
+    kp_rows：所选范围内每个学科下每个知识点的 {sid, kid, name, n, c}；prev_total：前一段同样长度时间的答题数。
+    错题 / 顽固错题 / 收藏是「当前状态」，不随日期范围变；答题数、题型、难度、知识点都是所选范围内的。
+    待攻克 = review_status 为 unreview，已攻克 = aha_achieved。"""
+    subjects = subjects or {}
+    names = {"MATH": "数学", "PHYSICS": "物理", "CHEMISTRY": "化学"}
+    code_of = lambda sid: subjects.get(sid, ("OTHER", "其他"))[0]
+    name_of = lambda c: names.get(c) or next((v[1] for v in subjects.values() if v[0] == c), "其他")
+    n = lambda r: int(r["n"] or 0)
+
+    total = sum(n(r) for r in cube)
+    correct = sum(int(r["c"] or 0) for r in cube)
+    per: dict[str, list[int]] = {}                                      # 学科 -> [答题数, 答对数]
+    for r in cube:
+        e = per.setdefault(code_of(r["sid"]), [0, 0])
+        e[0] += n(r)
+        e[1] += int(r["c"] or 0)
+    wrong_codes = {code_of(r["sid"]) for r in wrong_rows} | {code_of(r["sid"]) for r in stubborn_rows} | {code_of(r["sid"]) for r in fav_rows}
+    codes = list(SUBJECT_ORDER) + sorted(c for c in (set(per) | wrong_codes) if c not in SUBJECT_ORDER)
+    subj = [{"code": c, "name": name_of(c), "count": per.get(c, [0, 0])[0], "correct": per.get(c, [0, 0])[1],
+             "accuracy": _pct(per.get(c, [0, 0])[1], per.get(c, [0, 0])[0]), "share": _pct(per.get(c, [0, 0])[0], total)} for c in codes]
+
+    # 错题 / 顽固错题 / 收藏：总数 + 每个学科的数量（卡片悬停时看）
+    bd = {c: {"pending": 0, "mastered": 0, "stubborn": 0, "favorites": 0} for c in codes}
+    for r in wrong_rows:
+        key = {"unreview": "pending", "aha_achieved": "mastered"}.get(r["k"])
+        if key:
+            bd[code_of(r["sid"])][key] += n(r)
+    for r in stubborn_rows:
+        bd[code_of(r["sid"])]["stubborn"] += n(r)
+    for r in fav_rows:
+        bd[code_of(r["sid"])]["favorites"] += n(r)
+    pending, mastered = sum(v["pending"] for v in bd.values()), sum(v["mastered"] for v in bd.values())
+    stubborn, fav = sum(v["stubborn"] for v in bd.values()), sum(v["favorites"] for v in bd.values())
+    stats = {"total": total, "prev_total": prev_total, "correct": correct, "accuracy": _pct(correct, total),
+             "wrong_pending": pending, "wrong_mastered": mastered, "mastered_rate": _pct(mastered, pending + mastered),
+             "stubborn": stubborn, "favorites": fav, "breakdown": bd}
+
+    # 题型 / 难度分布：按学科，固定输出全部题型 / 全部难度（没做过的是 0，看得出「没做过挑战题」）
+    types_by_subject = _answer_dist(cube, "qt", TYPE_LABELS, code_of, per)
+    difficulty_by_subject = _answer_dist(cube, "df", DIFF_LABELS, code_of, per)
+
+    # 知识点答题数 Top5：按学科，答题数多的在前（并列答对多的在前）
+    kp_top: dict[str, list] = {}
+    for r in kp_rows:
+        if n(r) > 0:
+            kp_top.setdefault(code_of(r["sid"]), []).append({"id": r["kid"], "name": r["name"], "count": n(r), "correct": int(r["c"] or 0),
+                                                              "accuracy": _pct(int(r["c"] or 0), n(r))})
+    kp_top = {c: sorted(v, key=lambda x: (-x["count"], -x["correct"], x["id"]))[:5] for c, v in kp_top.items()}
+
+    # 总结（最多 5 条）：每条都是能直接照着做的一句话
+    tips = []
+    if pending >= 5:
+        tips.append(f"还有 {pending} 道错题没攻克（已攻克 {mastered} 道，攻克率 {stats['mastered_rate']:g}%），建议每周做一组错题集")
+    elif pending == 0 and mastered > 0:
+        tips.append(f"错题已全部攻克（共 {mastered} 道），继续保持")
+    if stubborn >= 1:
+        tips.append(f"有 {stubborn} 道顽固错题（同一道题错 3 次以上），需要讲解或换个思路")
+    main = [x for x in subj if x["code"] in SUBJECT_ORDER]
+    if total >= 20 and main:
+        top = max(main, key=lambda x: x["count"])
+        rest = [x for x in main if x is not top]
+        if (top["share"] or 0) >= 70 and rest:
+            tips.append(f"{top['name']}占 {top['share']:g}%（{top['count']} 题），" + "、".join(f"{x['name']} {x['count']} 题" for x in rest) + "，建议各科均衡")
+    ok = [x for x in main if x["count"] >= 10 and x["accuracy"] is not None]
+    if len(ok) >= 2:
+        lo, hi = min(ok, key=lambda x: x["accuracy"]), max(ok, key=lambda x: x["accuracy"])
+        if hi["accuracy"] - lo["accuracy"] >= 20:
+            tips.append(f"「{lo['name']}」正确率 {lo['accuracy']:g}%，比「{hi['name']}」（{hi['accuracy']:g}%）低 {round(hi['accuracy'] - lo['accuracy'])} 个百分点，最需要补")
+    # 题型短板：所有学科合起来，答得够多的题型里正确率最低、且明显低于整体
+    by_type: dict[str, list[int]] = {}
+    for r in cube:
+        if r["qt"]:
+            e = by_type.setdefault(r["qt"], [0, 0])
+            e[0] += n(r)
+            e[1] += int(r["c"] or 0)
+    overall = _pct(correct, total)
+    weak = [(k, v) for k, v in by_type.items() if v[0] >= 10 and overall is not None and _pct(v[1], v[0]) is not None and overall - _pct(v[1], v[0]) >= 15]
+    if weak:
+        k, v = min(weak, key=lambda kv: _pct(kv[1][1], kv[1][0]))
+        tips.append(f"「{TYPE_LABELS.get(k, k)}」正确率仅 {_pct(v[1], v[0]):g}%（{v[0]} 题），低于整体（{overall:g}%），值得专项练")
+    # 难度结构：基本都是基础题
+    by_diff = {k: sum(n(r) for r in cube if r["df"] == k) for k in DIFF_LABELS}
+    hard = by_diff["advanced"] + by_diff["challenge"]
+    if total >= 30 and sum(by_diff.values()) and hard / sum(by_diff.values()) < 0.1:
+        tips.append(f"{round(by_diff['basic'] / sum(by_diff.values()) * 100)}% 是基础题，进阶以上仅 {hard} 题，基础稳了可逐步加进阶题")
+    # 知识点集中
+    allkp: dict[int, list] = {}
+    for r in kp_rows:
+        e = allkp.setdefault(r["kid"], [r["name"], 0])
+        e[1] += n(r)
+    if allkp and total >= 30:
+        kid, (nm, c) = max(allkp.items(), key=lambda kv: kv[1][1])
+        if c / total >= 0.3:
+            tips.append(f"「{nm}」答了 {c} 题（占 {round(c / total * 100)}%），可以分散到更多知识点")
+    # 答题量变化
+    if prev_total >= 10 and total <= prev_total * 0.5:
+        tips.append(f"答题量比前一段（{prev_total} 题）减少了 {round((1 - total / prev_total) * 100)}%，节奏慢下来了")
+    if fav >= 5:
+        tips.append(f"收藏了 {fav} 道题，可以抽时间回头再做一遍")
+    if not tips:
+        tips.append("答题的覆盖和质量都比较均衡，继续保持")
+    return {"has_data": total > 0, "stats": stats, "subjects": subj, "types_by_subject": types_by_subject, "difficulty_by_subject": difficulty_by_subject,
+            "kp_top": kp_top, "tips": tips[:5]}
+
+
+async def _answers_stats(db, sid, rng):
+    """答题数明细：所选范围内的答题按「学科 × 题型 × 难度」汇总，加上错题 / 顽固错题 / 收藏 / 知识点 Top5"""
+    cube = await _rows(db, f"""
+        SELECT q.subject_id sid, q.question_type qt, q.difficulty df, count(*) n, count(*) FILTER (WHERE a.is_correct) c
+        {_base(True)} GROUP BY 1, 2, 3""", sid=sid, **rng.params)
+    prev = await _one(db, f"SELECT count(*) n {_BASE} AND a.answered_at >= :prev AND a.answered_at < :since", sid=sid, prev=rng.prev_since, since=rng.since)
+    wrong = await _rows(db, """
+        SELECT q.subject_id sid, w.review_status k, count(*) n FROM wrong_answer_records w JOIN questions q ON q.id = w.question_id
+        WHERE w.student_id = :sid GROUP BY 1, 2""", sid=sid)
+    stubborn = await _rows(db, f"""
+        SELECT x.sid, count(*) n FROM (SELECT q.subject_id sid, a.question_id {_BASE} AND NOT a.is_correct GROUP BY 1, 2 HAVING count(*) >= 3) x GROUP BY 1""", sid=sid)
+    fav = await _rows(db, """
+        SELECT q.subject_id sid, count(*) n FROM question_favorites f JOIN questions q ON q.id = f.question_id WHERE f.student_id = :sid GROUP BY 1""", sid=sid)
+    kp_rows = await _rows(db, """
+        SELECT q.subject_id sid, kp.id kid, kp.name, count(*) n, count(*) FILTER (WHERE a.is_correct) c
+        FROM training_answer_records a
+        JOIN training_sessions s ON s.id = a.session_id
+        JOIN questions q ON q.id = a.question_id
+        CROSS JOIN LATERAL jsonb_array_elements_text(q.knowledge_point_ids) k(kid)
+        JOIN knowledge_points kp ON kp.id = (CASE WHEN k.kid ~ '^[0-9]+$' THEN k.kid::bigint END)
+        WHERE s.student_id = :sid AND COALESCE(a.is_seed_data, false) = false AND a.answered_at >= :since AND a.answered_at < :until
+        GROUP BY 1, 2, 3""", sid=sid, **rng.params)
+    subs = {r["id"]: (r["code"], r["name"]) for r in await _rows(db, "SELECT id, code, name FROM subjects")}
+    return _answers_build(cube, subs, prev["n"] if prev else 0, wrong, stubborn, fav, kp_rows)
+
+
+def _accuracy_build(cube, subjects, prev, causes, kp_rows, semester, trend_rows=None, rng=None, kp_meta=None):
+    """正确率明细（纯计算，方便测试）。口径和「学业掌握」标签页一致，但都限定在所选日期范围内，并且按学科拆开。
+    cube：「学科 × 题型 × 难度」的 {sid, qt, df, n, c}；prev：前一段同样长度时间的 {n, c}；
+    causes：错因构成 {wrong, blank(没作答), rush(秒答)}，认真做仍错 = 错题 − 没作答 − 秒答；
+    kp_rows：每个学科下每个知识点 {sid, kid, name, n, c, b(没作答的错题), r(秒答的错题)}；semester：当前学期进度 {practiced, total, rate}；
+    trend_rows + rng：趋势用，每个点（按天 / 按周）每个学科的 {w(0 = 最近一天 / 最后一周), sid, n, c}；
+    kp_meta：{知识点 id: {trend(走向 up / flat / down), root_kp(可能的前置知识点)}}，和「学业掌握」标签页同一套（那边按全部历史算），给薄弱知识点表格用。
+    趋势里某个点答题太少（按天 < 2 题、按周 < 3 题）正确率给 None，不画（样本太小的正确率没意义）。
+    薄弱知识点 = 做过 2 次以上、错误率 ≥ 40%；强项 = 做过 2 次以上、错误率 < 40%。"""
+    subjects = subjects or {}
+    names = {"MATH": "数学", "PHYSICS": "物理", "CHEMISTRY": "化学"}
+    code_of = lambda sid: subjects.get(sid, ("OTHER", "其他"))[0]
+    name_of = lambda c: names.get(c) or next((v[1] for v in subjects.values() if v[0] == c), "其他")
+    n = lambda r: int(r["n"] or 0)
+    total = sum(n(r) for r in cube)
+    correct = sum(int(r["c"] or 0) for r in cube)
+    per: dict[str, list[int]] = {}
+    for r in cube:
+        e = per.setdefault(code_of(r["sid"]), [0, 0])
+        e[0] += n(r)
+        e[1] += int(r["c"] or 0)
+    codes = list(SUBJECT_ORDER) + sorted(c for c in per if c not in SUBJECT_ORDER)
+    subj = [{"code": c, "name": name_of(c), "count": per.get(c, [0, 0])[0], "correct": per.get(c, [0, 0])[1],
+             "accuracy": _pct(per.get(c, [0, 0])[1], per.get(c, [0, 0])[0])} for c in codes]
+    types_by_subject = _answer_dist(cube, "qt", TYPE_LABELS, code_of, per)
+    difficulty_by_subject = _answer_dist(cube, "df", DIFF_LABELS, code_of, per)
+
+    # 知识点：薄弱（错误率 ≥ 40%）/ 强项（错误率 < 40%），每个学科各取 5 个；错因 = 没作答 / 秒答 / 认真做仍错
+    kps: dict[str, list] = {}
+    for r in kp_rows:
+        if n(r) < 2:
+            continue
+        c_ok, wrong = int(r["c"] or 0), n(r) - int(r["c"] or 0)
+        blank, rush = min(int(r.get("b") or 0), wrong), int(r.get("r") or 0)
+        kps.setdefault(code_of(r["sid"]), []).append({
+            "id": r["kid"], "name": r["name"], "count": n(r), "correct": c_ok, "accuracy": _pct(c_ok, n(r)), "error_rate": _pct(wrong, n(r)),
+            "wrong": wrong, "blank": blank, "rush": min(rush, wrong - blank), "thoughtful": max(0, wrong - blank - rush),
+            "trend": (kp_meta or {}).get(r["kid"], {}).get("trend"), "root_kp": (kp_meta or {}).get(r["kid"], {}).get("root_kp")})
+    weak_all = [x for v in kps.values() for x in v if (x["error_rate"] or 0) >= 40]
+    strong_all = [x for v in kps.values() for x in v if (x["error_rate"] or 0) < 40]
+    weak_by_subject = {c: sorted([x for x in v if (x["error_rate"] or 0) >= 40], key=lambda x: (-x["error_rate"], -x["wrong"], x["id"]))[:5] for c, v in kps.items()}
+    strong_by_subject = {c: sorted([x for x in v if (x["error_rate"] or 0) < 40], key=lambda x: (x["error_rate"], -x["count"], x["id"]))[:5] for c, v in kps.items()}
+
+    wrong = int(causes.get("wrong") or 0) if causes else 0
+    blank, rush = int(causes.get("blank") or 0), int(causes.get("rush") or 0)
+    acc, prev_acc = _pct(correct, total), (_pct(int(prev["c"] or 0), int(prev["n"] or 0)) if prev and int(prev["n"] or 0) >= 10 else None)
+    stats = {"total": total, "correct": correct, "wrong": total - correct, "accuracy": acc, "prev_accuracy": prev_acc, "prev_total": int(prev["n"] or 0) if prev else 0, "prev_correct": int(prev["c"] or 0) if prev_acc is not None else None,
+             "weak_kps": len(weak_all), "strong_kps": len(strong_all), "semester": semester or {"practiced": 0, "total": 0, "rate": None},
+             "causes": {"wrong": wrong, "blank": blank, "rush": rush, "thoughtful": max(0, wrong - blank - rush)}}
+
+    # 总结（最多 5 条）：每条尽量一行放下
+    tips = []
+    if acc is not None:
+        if prev_acc is not None and abs(acc - prev_acc) >= 3:
+            tips.append(f"整体正确率 {acc:g}%，比前一段{'提高' if acc > prev_acc else '下降'}了 {abs(round(acc - prev_acc, 1)):g} 个百分点")
+        else:
+            tips.append(f"整体正确率 {acc:g}%（共 {total} 题）" + ("，和前一段差不多" if prev_acc is not None else ""))
+    if wrong >= 10:
+        if blank / wrong >= 0.2:
+            tips.append(f"{blank} 道错题是没作答（占错题 {round(blank / wrong * 100)}%），先把题做完比做对更重要")
+        elif rush / wrong >= 0.3:
+            tips.append(f"{rush} 道错题是 {RUSH_SECONDS} 秒内秒答（占 {round(rush / wrong * 100)}%），建议放慢审题")
+        elif (wrong - blank - rush) / wrong >= 0.5:
+            tips.append(f"{round((wrong - blank - rush) / wrong * 100)}% 的错题是认真做了仍错，是知识点没吃透，需要讲解")
+    if weak_all:
+        w = max(weak_all, key=lambda x: (x["error_rate"], x["wrong"]))
+        tips.append(f"{len(weak_all)} 个知识点错误率超过 40%，最薄弱是「{w['name']}」（{w['error_rate']:g}%）")
+    ok = [x for x in subj if x["code"] in SUBJECT_ORDER and x["count"] >= 10 and x["accuracy"] is not None]
+    if len(ok) >= 2:
+        lo, hi = min(ok, key=lambda x: x["accuracy"]), max(ok, key=lambda x: x["accuracy"])
+        if hi["accuracy"] - lo["accuracy"] >= 20:
+            tips.append(f"「{lo['name']}」正确率 {lo['accuracy']:g}%，比「{hi['name']}」（{hi['accuracy']:g}%）低 {round(hi['accuracy'] - lo['accuracy'])} 个百分点，最需要补")
+    by_type: dict[str, list[int]] = {}
+    for r in cube:
+        if r["qt"]:
+            e = by_type.setdefault(r["qt"], [0, 0])
+            e[0] += n(r)
+            e[1] += int(r["c"] or 0)
+    low = [(k, v) for k, v in by_type.items() if v[0] >= 10 and acc is not None and _pct(v[1], v[0]) is not None and acc - _pct(v[1], v[0]) >= 15]
+    if low:
+        k, v = min(low, key=lambda kv: _pct(kv[1][1], kv[1][0]))
+        tips.append(f"「{TYPE_LABELS.get(k, k)}」正确率仅 {_pct(v[1], v[0]):g}%（{v[0]} 题），低于整体，值得专项练")
+    by_diff = {k: [sum(n(r) for r in cube if r["df"] == k), sum(int(r["c"] or 0) for r in cube if r["df"] == k)] for k in DIFF_LABELS}
+    b_acc, a_acc = _pct(by_diff["basic"][1], by_diff["basic"][0]), _pct(by_diff["advanced"][1], by_diff["advanced"][0])
+    if by_diff["basic"][0] >= 20 and b_acc is not None and b_acc < 60:
+        tips.append(f"基础题正确率只有 {b_acc:g}%，先把基础题做稳，再往进阶走")
+    elif by_diff["advanced"][0] >= 10 and a_acc is not None and b_acc is not None and b_acc - a_acc >= 20:
+        tips.append(f"进阶题正确率 {a_acc:g}%，比基础题（{b_acc:g}%）低 {round(b_acc - a_acc)} 个百分点")
+    sem = stats["semester"]
+    if sem.get("total") and (sem.get("rate") or 0) < 30:
+        tips.append(f"当前学期只练过 {sem['practiced']}/{sem['total']} 个知识点（{sem['rate']:g}%），可以多覆盖一些")
+    if strong_all:
+        g = min(strong_all, key=lambda x: (x["error_rate"], -x["count"]))
+        tips.append(f"强项是「{g['name']}」（正确率 {g['accuracy']:g}%），可以适当加难")
+    if not tips:
+        tips.append("正确率整体稳定，继续保持")
+    # 正确率趋势：从旧到新，每个点有整体正确率和各学科正确率
+    trend = None
+    if rng is not None:
+        pts, min_n = rng.points, (2 if rng.daily else 3)
+        buckets = [{"label": rng.bucket_label(w), "n": 0, "c": 0, "by": {c: [0, 0] for c in codes}} for w in range(pts - 1, -1, -1)]
+        for r in trend_rows or []:
+            i = pts - 1 - int(r["w"])
+            if 0 <= i < pts:
+                b = buckets[i]
+                b["n"] += n(r)
+                b["c"] += int(r["c"] or 0)
+                if code_of(r["sid"]) in b["by"]:
+                    b["by"][code_of(r["sid"])][0] += n(r)
+                    b["by"][code_of(r["sid"])][1] += int(r["c"] or 0)
+        trend = {"unit": "day" if rng.daily else "week", "series": [
+            {"label": b["label"], "count": b["n"], "accuracy": _pct(b["c"], b["n"]) if b["n"] >= min_n else None,
+             "by_subject": {c: {"count": v[0], "accuracy": _pct(v[1], v[0]) if v[0] >= min_n else None} for c, v in b["by"].items()}} for b in buckets]}
+    return {"has_data": total > 0, "stats": stats, "subjects": subj, "trend": trend, "types_by_subject": types_by_subject, "difficulty_by_subject": difficulty_by_subject,
+            "weak_by_subject": weak_by_subject, "strong_by_subject": strong_by_subject, "tips": tips[:5]}
+
+
+async def _accuracy_stats(db, sid, rng, semester=None):
+    """正确率明细：所选范围内的答题按「学科 × 题型 × 难度」汇总，加上前一段的对比、错因构成、每个学科的薄弱 / 强项知识点"""
+    blank_sql = "coalesce(btrim(a.student_answer), '') = ''"
+    cube = await _rows(db, f"""
+        SELECT q.subject_id sid, q.question_type qt, q.difficulty df, count(*) n, count(*) FILTER (WHERE a.is_correct) c
+        {_base(True)} GROUP BY 1, 2, 3""", sid=sid, **rng.params)
+    prev = await _one(db, f"SELECT count(*) n, count(*) FILTER (WHERE a.is_correct) c {_BASE} AND a.answered_at >= :prev AND a.answered_at < :since", sid=sid, prev=rng.prev_since, since=rng.since)
+    causes = await _one(db, f"""
+        SELECT count(*) FILTER (WHERE NOT a.is_correct) wrong, count(*) FILTER (WHERE NOT a.is_correct AND {blank_sql}) blank,
+               count(*) FILTER (WHERE NOT a.is_correct AND NOT ({blank_sql}) AND a.time_spent_sec <= :rush) rush
+        {_base(True)}""", sid=sid, rush=RUSH_SECONDS, **rng.params)
+    kp_rows = await _rows(db, f"""
+        SELECT q.subject_id sid, kp.id kid, kp.name, count(*) n, count(*) FILTER (WHERE a.is_correct) c,
+               count(*) FILTER (WHERE NOT a.is_correct AND {blank_sql}) b,
+               count(*) FILTER (WHERE NOT a.is_correct AND NOT ({blank_sql}) AND a.time_spent_sec <= :rush) r
+        FROM training_answer_records a
+        JOIN training_sessions s ON s.id = a.session_id
+        JOIN questions q ON q.id = a.question_id
+        CROSS JOIN LATERAL jsonb_array_elements_text(q.knowledge_point_ids) k(kid)
+        JOIN knowledge_points kp ON kp.id = (CASE WHEN k.kid ~ '^[0-9]+$' THEN k.kid::bigint END)
+        WHERE s.student_id = :sid AND COALESCE(a.is_seed_data, false) = false AND a.answered_at >= :since AND a.answered_at < :until
+        GROUP BY 1, 2, 3""", sid=sid, rush=RUSH_SECONDS, **rng.params)
+    trend_rows = await _rows(db, f"""
+        SELECT {rng.bucket_sql()} w, q.subject_id sid, count(*) n, count(*) FILTER (WHERE a.is_correct) c
+        {_base(True)} GROUP BY 1, 2""", sid=sid, **rng.bucket_params, **rng.params)
+    subs = {r["id"]: (r["code"], r["name"]) for r in await _rows(db, "SELECT id, code, name FROM subjects")}
+    # 薄弱知识点表格里的「走向」「可能的前置」：和学业掌握标签页同一套知识点统计（按全部历史算）
+    kps_all = await _kp_stats(db, sid)
+    roots = pa_find_prerequisites(kps_all)
+    kp_meta = {k["id"]: {"trend": k["trend"], "root_kp": roots.get(k["id"])} for k in kps_all}
+    return _accuracy_build(cube, subs, prev, causes, kp_rows, semester, trend_rows, rng, kp_meta)
+
+
+PERIODS = [("night", "凌晨", 0, 6), ("morning", "上午", 6, 12), ("afternoon", "下午", 12, 18), ("evening", "晚上", 18, 24)]
+
+
+def _ai_build(rows, rng, prev_since=None):
+    """AI 提问明细（纯计算）。
+    rows：所选范围和前一段同样长度时间内的聊天消息，每条 {sid(会话), role, at, aha, rating, strat, strat_name, ask_ans(要答案), mood(聊情绪), summary, started}。
+    提问次数 = 学生发的消息数；对话次数 = 有消息的会话数；顿悟 = 被标成顿悟触发的助教回复；场均提问 = 提问数 ÷ 对话次数"""
+    prev_since = prev_since or rng.prev_since
+    cur = [r for r in rows if r["at"] >= rng.since]
+    old = [r for r in rows if r["at"] < rng.since]
+    ask = lambda rs: sum(1 for r in rs if r["role"] == "student")
+    sess = lambda rs: len({r["sid"] for r in rs})
+    aha = lambda rs: sum(1 for r in rs if r["aha"])
+    total, sessions, ahas = ask(cur), sess(cur), aha(cur)
+    avg = lambda rs: round(ask(rs) / sess(rs), 1) if sess(rs) else None
+    stats = {"total": total, "prev_total": ask(old), "sessions": sessions, "prev_sessions": sess(old), "aha": ahas, "prev_aha": aha(old),
+             "avg_ask": avg(cur), "prev_avg_ask": avg(old)}
+    stu = [r for r in cur if r["role"] == "student"]
+
+    # 提问趋势：每个点（按天 / 按周）的提问数和顿悟数，从旧到新
+    by_b: dict[int, list[int]] = {}
+    for r in cur:
+        e = by_b.setdefault(rng.bucket_of(r["at"]), [0, 0])
+        e[0] += r["role"] == "student"
+        e[1] += bool(r["aha"])
+    series = [{"label": rng.bucket_label(w), "count": by_b.get(w, [0, 0])[0], "aha": by_b.get(w, [0, 0])[1]} for w in range(rng.points - 1, -1, -1)]
+
+    # 提问时段（北京时间）：凌晨 / 上午 / 下午 / 晚上
+    per = {k: 0 for k, *_ in PERIODS}
+    for r in stu:
+        h = r["at"].astimezone(BJ).hour
+        for k, _, lo, hi in PERIODS:
+            if lo <= h < hi:
+                per[k] += 1
+    periods = [{"key": k, "label": lb, "range": f"{lo}:00-{hi}:00", "count": per[k], "share": _pct(per[k], total)} for k, lb, lo, hi in PERIODS]
+
+    # 启发策略：助教回复用了哪些策略、学生点赞 / 点踩了多少
+    st: dict[str, dict] = {}
+    for r in cur:
+        if r["role"] == "assistant" and r["strat"]:
+            e = st.setdefault(r["strat"], {"id": r["strat"], "name": r["strat_name"] or r["strat"], "uses": 0, "likes": 0, "dislikes": 0})
+            e["uses"] += 1
+            e["likes"] += r["rating"] == "like"
+            e["dislikes"] += r["rating"] == "dislike"
+    strategies = sorted(st.values(), key=lambda x: (-x["uses"], -x["likes"], x["id"]))[:5]
+    rated = [r for r in cur if r["role"] == "assistant" and r["rating"] in ("like", "dislike")]
+    likes = sum(1 for r in rated if r["rating"] == "like")
+    like_rate = _pct(likes, len(rated))
+
+    ask_ans = sum(1 for r in stu if r["ask_ans"])
+    mood = sum(1 for r in stu if r["mood"])
+    top_p = max(periods, key=lambda x: x["count"]) if total else None
+    stats.update({"like_rate": like_rate, "rated": len(rated), "ask_answer": ask_ans, "mood": mood})
+
+    tips = []
+    if total == 0:
+        pass
+    else:
+        if stats["prev_total"] and total != stats["prev_total"]:
+            d = total - stats["prev_total"]
+            tips.append(f"提问 {total} 次，较前一周期{'增加' if d > 0 else '减少'} {abs(d)} 次")
+        else:
+            tips.append(f"提问 {total} 次，来自 {sessions} 次对话，场均 {stats['avg_ask']} 问")
+        if ahas:
+            tips.append(f"出现 {ahas} 次顿悟（{_pct(ahas, sessions):g}% 的对话），引导式提问见效")
+        elif sessions >= 3:
+            tips.append(f"{sessions} 次对话都没有出现顿悟，可多用提示引导，少直接讲解")
+        if ask_ans:
+            tips.append(f"有 {ask_ans} 次直接要答案，建议鼓励先动手再提问")
+        if mood:
+            tips.append(f"有 {mood} 次聊到心情，可适当关注学习状态")
+        if top_p and top_p["count"] and total >= 5:
+            tips.append(f"最常在{top_p['label']}提问（{top_p['share']:g}%），可在这个时段多做答疑")
+        if like_rate is not None and len(rated) >= 3:
+            tips.append(f"助教回复点赞率 {like_rate:g}%（{len(rated)} 条被评价）")
+        last = max((r for r in cur if r["summary"]), key=lambda r: r["started"], default=None)
+        if last:
+            sm = last["summary"].strip()
+            tips.append("最近一次：" + (sm if len(sm) <= 42 else sm[:41] + "…"))
+    return {"has_data": total > 0 or sessions > 0, "stats": stats, "series": series, "unit": "day" if rng.daily else "week",
+            "periods": periods, "strategies": strategies, "tips": tips[:5]}
+
+
+async def _ai_stats(db, sid, rng):
+    rows = await _rows(db, """
+        SELECT m.session_id::text sid, m.role, m.created_at "at", COALESCE(m.is_aha_trigger, false) aha, m.student_rating rating,
+               m.strategy_id strat, st.strategy_name strat_name,
+               (m.role = 'student' AND m.content ~ '答案') ask_ans, (m.role = 'student' AND m.content ~ '心情|难过|压抑|不开心|焦虑|烦|沮丧|低落') mood,
+               cs.session_summary summary, cs.started_at started
+        FROM ai_chat_messages m
+        JOIN ai_chat_sessions cs ON cs.id = m.session_id
+        LEFT JOIN ai_heuristic_strategies st ON st.strategy_id = m.strategy_id
+        WHERE cs.student_id = :sid AND m.created_at >= :prev AND m.created_at < :until""", sid=sid, prev=rng.prev_since, until=rng.until)
+    return _ai_build(rows, rng)
 
 
 async def _study_time(db, sid, rng, k, beh, wrong_pending=0):
@@ -1140,8 +1717,8 @@ async def _study_time(db, sid, rng, k, beh, wrong_pending=0):
         SELECT extract(hour FROM a.answered_at AT TIME ZONE '{TZ}')::int h, coalesce(sum(a.time_spent_sec), 0) t
         {_base(True)} GROUP BY 1""", sid=sid, **rng.params)
     types = await _rows(db, f"""
-        SELECT s.training_dimension dim, coalesce(sum(a.time_spent_sec), 0) t, count(DISTINCT a.session_id) n
-        {_base(True)} GROUP BY 1""", sid=sid, **rng.params)
+        SELECT q.subject_id sid, s.training_dimension dim, coalesce(sum(a.time_spent_sec), 0) t, count(DISTINCT a.session_id) n
+        {_base(True)} GROUP BY 1, 2""", sid=sid, **rng.params)
     prev = await _rows(db, f"""
         SELECT (a.answered_at AT TIME ZONE '{TZ}')::date d, coalesce(sum(a.time_spent_sec), 0) t
         {_base(True)} GROUP BY 1""", sid=sid, since=rng.prev_since, until=rng.since)
@@ -1181,12 +1758,16 @@ async def get_profile(db: AsyncSession, student_id: int, start: str | None = Non
     kstats = await _kpi_stats(db, student_id, rng)
     kpis = _kpi_cards(kstats, beh, recent, rng, await _kpi_series(db, student_id, rng, beh))
     study_time = await _study_time(db, student_id, rng, kstats, beh, mastery.get("wrong_pending") or 0)
+    training = await _sessions_stats(db, student_id, rng, mastery.get("wrong_pending") or 0)
+    answers = await _answers_stats(db, student_id, rng)
+    accuracy = await _accuracy_stats(db, student_id, rng, mastery.get("semester_progress"))
+    ai_asks = await _ai_stats(db, student_id, rng)
     beh.pop("_sessions", None)
     await profile_warning_service.sync(db, student_id, basic)
     warnings = await profile_warning_service.list_warnings(db, student_id)
     return {
         "generated_at": datetime.now(timezone.utc), "range": rng.info(),
-        "summary": summary, "kpis": kpis, "study_time": study_time, "basic": basic, "cognitive": cog, "mastery": mastery,
+        "summary": summary, "kpis": kpis, "study_time": study_time, "training": training, "answers": answers, "accuracy": accuracy, "ai_asks": ai_asks, "basic": basic, "cognitive": cog, "mastery": mastery,
         "behavior": beh, "diagnosis": diagnosis, "insights": insights, "ai_interaction": ai, "traits": traits,
         "warnings": warnings,
     }

@@ -453,3 +453,320 @@ def test_study_time_kp_top5_per_subject():
     assert [x["name"] for x in top["PHYSICS"]] == ["牛顿第二定律"] and top["PHYSICS"][0]["minutes"] == 15.0
     assert "CHEMISTRY" not in top
     assert _study_time_build(rows, subs, rng, 6000, 0, 600)["kp_top"] == {}
+
+
+def _sess_rows():
+    """固定的一周（2026-11-09 周一 ~ 11-15 周日）+ 前一周，每条：开始时间、状态、练习方式、下发题数、实际作答题数"""
+    from datetime import datetime
+    from app.services.profile_service import BJ
+    subj = {(11, 9): 1, (11, 11): 2, (11, 14): 3}                      # 11/9 数学、11/11 物理、11/14 化学，其余（前一周）数学
+    mk = lambda m, d, h, st, dim, tot, ans: {"started_at": datetime(2026, m, d, h, 0, tzinfo=BJ), "session_status": st, "training_dimension": dim,
+                                             "total_questions": tot, "answered": ans, "correct": ans // 2, "subject_id": subj.get((m, d), 1)}
+    cur = [mk(11, 9, 10, "completed", "KNOWLEDGE_POINT", 5, 5), mk(11, 9, 11, "abandoned", "KNOWLEDGE_POINT", 5, 2),
+           mk(11, 11, 20, "abandoned", "ERROR_QUESTIONS", 5, 0), mk(11, 14, 23, "completed", "RANDOM", 5, 5), mk(11, 14, 9, "abandoned", "RANDOM", 5, 0)]
+    prv = [mk(11, 3, 10, "completed", "KNOWLEDGE_POINT", 5, 5), mk(11, 3, 15, "completed", "KNOWLEDGE_POINT", 5, 4)]
+    return cur + prv
+
+
+def test_sessions_build_stats():
+    from datetime import date
+    from app.services.profile_service import _sessions_build, Range
+    rng = Range(date(2026, 11, 9), date(2026, 11, 15))
+    r = _sessions_build(_sess_rows(), rng)
+    st = r["stats"]
+    assert r["has_data"] and st["total"] == 5 and st["prev_total"] == 2 and st["active_days"] == 3 and st["done"] == 2
+    assert st["avg_per_day"] == 0.7 and st["prev_avg_per_day"] == 0.3                        # 5 ÷ 7、2 ÷ 7（没训练的天也算）
+    assert st["best_day"] == {"date": "2026-11-14", "count": 2} and st["prev_best_count"] == 2     # 11/9 和 11/14 都是 2 次，取最近的
+    assert st["completion"] == 48.0 and st["prev_completion"] == 90.0                        # 作答 12 ÷ 下发 25；前一周 9 ÷ 10
+    assert st["avg_answered"] == 4.0 and st["prev_avg_answered"] == 4.5                      # 只算作答了的训练：(5+2+5)÷3
+    assert st["weekday_avg"] == 0.6 and st["weekend_avg"] == 1.0                             # 工作日 3 ÷ 5，周末 2 ÷ 2
+    assert st["max_gap_days"] == 2 and st["completeness"] == {"full": 2, "partial": 1, "none": 2}
+    # 趋势：按天、从旧到新、完成 / 未完成
+    assert [x["label"] for x in r["series"]] == ["11/9", "11/10", "11/11", "11/12", "11/13", "11/14", "11/15"]
+    assert {k: r["series"][0][k] for k in ("label", "done", "undone", "total")} == {"label": "11/9", "done": 1, "undone": 1, "total": 2}
+    assert r["series"][5]["total"] == 2 and r["series"][6]["total"] == 0
+    # 练习方式：顺序同小程序，带占比和做完的比例
+    assert [(x["key"], x["count"], x["share"], x["done_rate"]) for x in r["types"]] == [
+        ("KNOWLEDGE_POINT", 2, 40.0, 50.0), ("ERROR_QUESTIONS", 1, 20.0, 0.0), ("RANDOM", 2, 40.0, 50.0)]
+    assert "weekdays" not in r
+
+
+def test_sessions_build_tips_and_edges():
+    from datetime import date
+    from app.services.profile_service import _sessions_build, Range
+    rng = Range(date(2026, 11, 9), date(2026, 11, 15))
+    tips = " ".join(_sessions_build(_sess_rows(), rng, wrong_pending=8)["tips"])
+    assert "2 次训练一题都没答" in tips and "只有 3 天在训练" in tips and "深夜" in tips
+    assert "还有 8 道错题" not in tips                                  # 错题集占 20%，不算练得少
+    # 没练过错题集、还有积压错题：提醒
+    no_err = [x for x in _sess_rows() if x["training_dimension"] != "ERROR_QUESTIONS"]
+    assert any("还有 8 道错题" in t and "错题集训练只占 0%（0 次）" in t for t in _sessions_build(no_err, rng, 8)["tips"])
+    assert len(_sessions_build(_sess_rows(), rng, 8)["tips"]) <= 5
+    # 本期没有训练：没数据
+    assert _sessions_build([x for x in _sess_rows() if x["started_at"].day < 8], rng)["has_data"] is False
+    # 前一段没有训练：对比值为 None（页面不显示涨跌），其余照常
+    only_cur = [x for x in _sess_rows() if x["started_at"].day >= 9]
+    st = _sessions_build(only_cur, rng)["stats"]
+    assert st["prev_total"] == 0 and st["prev_avg_per_day"] is None and st["prev_best_count"] is None and st["prev_completion"] is None
+    # 一周只有周一训练：周末日均 0（不是没数据）；训练天数太少会提醒
+    mon = [x for x in _sess_rows() if x["started_at"].day == 9]
+    r = _sessions_build(mon, rng)
+    assert r["stats"]["weekend_avg"] == 0.0 and r["stats"]["weekday_avg"] == 0.4 and any("周末没有训练记录" in t for t in r["tips"])
+
+
+def test_sessions_build_by_subject():
+    """训练次数趋势按学科拆分：每个点各学科的训练次数、各学科总次数和占比"""
+    from datetime import date
+    from app.services.profile_service import _sessions_build, Range
+    subs = {1: ("MATH", "数学"), 2: ("PHYSICS", "物理"), 3: ("CHEMISTRY", "化学")}
+    rng = Range(date(2026, 11, 9), date(2026, 11, 15))
+    r = _sessions_build(_sess_rows(), rng, 0, subs)
+    assert [(x["code"], x["name"], x["count"], x["share"]) for x in r["subjects"]] == [("MATH", "数学", 2, 40.0), ("PHYSICS", "物理", 1, 20.0), ("CHEMISTRY", "化学", 2, 40.0)]
+    assert r["series"][0]["by_subject"] == {"MATH": 2, "PHYSICS": 0, "CHEMISTRY": 0}        # 11/9
+    assert r["series"][2]["by_subject"] == {"MATH": 0, "PHYSICS": 1, "CHEMISTRY": 0}        # 11/11
+    assert r["series"][5]["by_subject"] == {"MATH": 0, "PHYSICS": 0, "CHEMISTRY": 2}        # 11/14
+    assert all(sum(x["by_subject"].values()) == x["total"] for x in r["series"])               # 每个点各学科相加 = 合计
+    # 没传学科表 / 学科对不上：归到「其他」，不丢
+    r2 = _sessions_build(_sess_rows(), rng)
+    assert r2["subjects"][-1]["code"] == "OTHER" and r2["subjects"][-1]["count"] == 5 and r2["subjects"][0]["count"] == 0
+    # 有学科 id 但为 None（没法判断）：同样归「其他」
+    rows = _sess_rows()
+    for x in rows:
+        x["subject_id"] = None
+    assert _sessions_build(rows, rng, 0, subs)["subjects"][-1] == {"code": "OTHER", "name": "其他", "count": 5, "share": 100.0}
+
+
+def test_sessions_build_kp_top5():
+    """知识点训练次数 Top5：按学科分组、按训练次数从多到少（并列看做完的多少）；每科最多 5 个"""
+    from datetime import date
+    from app.services.profile_service import _sessions_build, Range
+    subs = {1: ("MATH", "数学"), 2: ("PHYSICS", "物理")}
+    rng = Range(date(2026, 11, 9), date(2026, 11, 15))
+    kp = [{"sid": 1, "kid": i, "name": f"数学知识点{i}", "n": i, "done": i // 2} for i in range(1, 8)]        # 7 个知识点，训练 1~7 次
+    kp += [{"sid": 1, "kid": 20, "name": "并列但做完更多", "n": 3, "done": 3}, {"sid": 1, "kid": 21, "name": "没训练", "n": 0, "done": 0},
+           {"sid": 2, "kid": 50, "name": "牛顿第二定律", "n": 4, "done": 1}]
+    top = _sessions_build(_sess_rows(), rng, 0, subs, kp)["kp_top"]
+    assert [x["name"] for x in top["MATH"]] == ["数学知识点7", "数学知识点6", "数学知识点5", "数学知识点4", "并列但做完更多"]      # 训练 3 次的有两个，做完多的在前
+    assert top["MATH"][0] == {"id": 7, "name": "数学知识点7", "count": 7, "done": 3}
+    assert [x["name"] for x in top["PHYSICS"]] == ["牛顿第二定律"] and "CHEMISTRY" not in top
+    assert _sessions_build(_sess_rows(), rng, 0, subs)["kp_top"] == {}
+
+
+def test_study_time_types_by_subject():
+    """类型时长分布按学科区分：types 是所有学科合起来的，types_by_subject 是每个学科自己的分布（占比按本学科总时长算）"""
+    from datetime import date
+    from app.services.profile_service import _study_time_build, Range
+    subs = {1: ("MATH", "数学"), 2: ("PHYSICS", "物理")}
+    rng = Range(date(2026, 11, 9), date(2026, 11, 15))
+    rows = [{"d": date(2026, 11, 9), "sid": 1, "t": 3600, "n": 10, "c": 8}, {"d": date(2026, 11, 10), "sid": 2, "t": 1200, "n": 6, "c": 3}]
+    types = [{"sid": 1, "dim": "KNOWLEDGE_POINT", "t": 2700, "n": 3}, {"sid": 1, "dim": "RANDOM", "t": 900, "n": 2},
+             {"sid": 2, "dim": "KNOWLEDGE_POINT", "t": 600, "n": 1}, {"sid": 2, "dim": "UNIT", "t": 600, "n": 1}]
+    r = _study_time_build(rows, subs, rng, 4800, 0, 600, None, types)
+    # 合起来：知识点 3300 秒 / 总 4800 秒 = 68.8%，随机 18.8%，按单元 12.5%
+    assert [(x["key"], x["minutes"], x["sessions"], x["share"]) for x in r["types"]] == [("KNOWLEDGE_POINT", 55.0, 4, 68.8), ("UNIT", 10.0, 1, 12.5), ("RANDOM", 15.0, 2, 18.8)]
+    by = r["types_by_subject"]
+    assert [(x["key"], x["share"]) for x in by["MATH"]] == [("KNOWLEDGE_POINT", 75.0), ("RANDOM", 25.0)]       # 数学：2700 / 3600、900 / 3600
+    assert [(x["key"], x["share"], x["minutes"]) for x in by["PHYSICS"]] == [("KNOWLEDGE_POINT", 50.0, 10.0), ("UNIT", 50.0, 10.0)]
+    assert "CHEMISTRY" not in by
+    # 老格式（没有学科）：合起来的照常，按学科的全归「其他」
+    r2 = _study_time_build(rows, subs, rng, 4800, 0, 600, None, [{"dim": "UNIT", "t": 600, "n": 1}])
+    assert r2["types"][0]["key"] == "UNIT" and list(r2["types_by_subject"]) == ["OTHER"]
+
+
+def test_sessions_build_types_by_subject():
+    """练习方式次数分布按学科区分：types 是所有学科合起来的，types_by_subject 是每个学科自己的（占比按本学科的训练数算）"""
+    from datetime import date
+    from app.services.profile_service import _sessions_build, Range
+    subs = {1: ("MATH", "数学"), 2: ("PHYSICS", "物理"), 3: ("CHEMISTRY", "化学")}
+    rng = Range(date(2026, 11, 9), date(2026, 11, 15))
+    r = _sessions_build(_sess_rows(), rng, 0, subs)
+    # 本期 5 次：11/9 数学×2（知识点，完成 + 放弃）、11/11 物理×1（错题集，放弃）、11/14 化学×2（随机，完成 + 放弃）
+    assert [(x["key"], x["count"], x["share"]) for x in r["types"]] == [("KNOWLEDGE_POINT", 2, 40.0), ("ERROR_QUESTIONS", 1, 20.0), ("RANDOM", 2, 40.0)]
+    by = r["types_by_subject"]
+    assert [(x["key"], x["count"], x["share"], x["done_rate"]) for x in by["MATH"]] == [("KNOWLEDGE_POINT", 2, 100.0, 50.0)]
+    assert [(x["key"], x["count"], x["share"], x["done_rate"]) for x in by["PHYSICS"]] == [("ERROR_QUESTIONS", 1, 100.0, 0.0)]
+    assert [(x["key"], x["count"], x["share"], x["done_rate"]) for x in by["CHEMISTRY"]] == [("RANDOM", 2, 100.0, 50.0)]
+    # 各学科的次数相加 = 合计
+    assert sum(x["count"] for v in by.values() for x in v) == sum(x["count"] for x in r["types"]) == 5
+    assert set(by) == {"MATH", "PHYSICS", "CHEMISTRY"}              # 没有训练的学科不出现
+
+
+def _ans_data():
+    subs = {1: ("MATH", "数学"), 2: ("PHYSICS", "物理"), 3: ("CHEMISTRY", "化学")}
+    cube = [{"sid": 1, "qt": "SINGLE_CHOICE", "df": "basic", "n": 20, "c": 15}, {"sid": 1, "qt": "FILL_BLANK", "df": "basic", "n": 30, "c": 10},
+            {"sid": 1, "qt": "MULTIPLE_CHOICE", "df": "advanced", "n": 5, "c": 1},
+            {"sid": 2, "qt": "SINGLE_CHOICE", "df": "basic", "n": 10, "c": 9}, {"sid": 2, "qt": "TRUE_FALSE", "df": "basic", "n": 5, "c": 5}]
+    wrong = [{"sid": 1, "k": "unreview", "n": 6}, {"sid": 1, "k": "aha_achieved", "n": 4}, {"sid": 2, "k": "unreview", "n": 1}]
+    kp = [{"sid": 1, "kid": 1, "name": "角的分类", "n": 25, "c": 10}, {"sid": 1, "kid": 2, "name": "余角与补角", "n": 20, "c": 8}, {"sid": 2, "kid": 50, "name": "牛顿第二定律", "n": 8, "c": 7}]
+    return subs, cube, wrong, [{"sid": 1, "n": 2}], [{"sid": 1, "n": 3}, {"sid": 2, "n": 1}], kp
+
+
+def test_answers_build_stats_and_distributions():
+    from app.services.profile_service import _answers_build
+    subs, cube, wrong, stub, fav, kp = _ans_data()
+    r = _answers_build(cube, subs, 100, wrong, stub, fav, kp)
+    st = r["stats"]
+    assert r["has_data"] and st["total"] == 70 and st["correct"] == 40 and st["accuracy"] == 57.1 and st["prev_total"] == 100
+    # 错题 / 顽固错题 / 收藏：总数，以及每个学科的数量
+    assert (st["wrong_pending"], st["wrong_mastered"], st["mastered_rate"], st["stubborn"], st["favorites"]) == (7, 4, 36.4, 2, 4)
+    assert st["breakdown"]["MATH"] == {"pending": 6, "mastered": 4, "stubborn": 2, "favorites": 3} and st["breakdown"]["PHYSICS"]["pending"] == 1
+    # 科目答题数：数学 55、物理 15、化学 0；占比和正确率按各自算
+    assert [(x["code"], x["count"], x["share"], x["accuracy"]) for x in r["subjects"]] == [("MATH", 55, 78.6, 47.3), ("PHYSICS", 15, 21.4, 93.3), ("CHEMISTRY", 0, 0.0, None)]
+    # 题型：固定输出 5 种（没做过的是 0），占比按这个学科自己的答题数
+    math_t = r["types_by_subject"]["MATH"]
+    assert [x["key"] for x in math_t] == ["SINGLE_CHOICE", "MULTIPLE_CHOICE", "TRUE_FALSE", "FILL_BLANK", "APPLICATION"]
+    assert [(x["count"], x["accuracy"]) for x in math_t] == [(20, 75.0), (5, 20.0), (0, None), (30, 33.3), (0, None)] and math_t[3]["share"] == 54.5
+    assert set(r["types_by_subject"]) == {"MATH", "PHYSICS"}                                   # 没答题的学科不出现
+    # 难度：基础 / 进阶 / 挑战固定 3 档
+    assert [(x["key"], x["count"]) for x in r["difficulty_by_subject"]["MATH"]] == [("basic", 50), ("advanced", 5), ("challenge", 0)]
+    assert [(x["key"], x["count"]) for x in r["difficulty_by_subject"]["PHYSICS"]] == [("basic", 15), ("advanced", 0), ("challenge", 0)]
+    # 知识点 Top5：按答题数从多到少，带正确率
+    assert [(x["name"], x["count"], x["accuracy"]) for x in r["kp_top"]["MATH"]] == [("角的分类", 25, 40.0), ("余角与补角", 20, 40.0)]
+    assert [x["name"] for x in r["kp_top"]["PHYSICS"]] == ["牛顿第二定律"] and "CHEMISTRY" not in r["kp_top"]
+
+
+def test_answers_build_tips():
+    from app.services.profile_service import _answers_build
+    subs, cube, wrong, stub, fav, kp = _ans_data()
+    tips = _answers_build(cube, subs, 100, wrong, stub, fav, kp)["tips"]
+    assert len(tips) <= 5
+    assert "还有 7 道错题没攻克（已攻克 4 道，攻克率 36.4%）" in tips[0] and "2 道顽固错题" in tips[1]
+    assert all(len(t) <= 48 for t in tips)                              # 页面上一条尽量一行放下（5 条要放进 210px 的卡片）
+    assert "数学占 78.6%（55 题）" in tips[2] and "物理 15 题、化学 0 题" in tips[2]
+    assert "「数学」正确率 47.3%，比「物理」（93.3%）低 46 个百分点" in tips[3] and "「填空题」正确率仅 33.3%" in tips[4]
+    # 没有错题 / 顽固 / 收藏，只有基础题：基础题占比、答题量下降、知识点集中的提醒
+    only = [{"sid": 1, "qt": "SINGLE_CHOICE", "df": "basic", "n": 40, "c": 36}]
+    t2 = " ".join(_answers_build(only, subs, 100, [], [], [], [{"sid": 1, "kid": 1, "name": "角的分类", "n": 30, "c": 27}])["tips"])
+    assert "100% 是基础题，进阶以上仅 0 题" in t2 and "「角的分类」答了 30 题（占 75%）" in t2 and "答题量比前一段（100 题）减少了 60%" in t2
+    # 错题全部攻克 / 什么问题都没有：给肯定
+    assert "错题已全部攻克（共 3 道）" in _answers_build(only, subs, 0, [{"sid": 1, "k": "aha_achieved", "n": 3}], [], [], [])["tips"][0]
+    small = [{"sid": 1, "qt": "SINGLE_CHOICE", "df": "advanced", "n": 10, "c": 9}]                  # 样本小，哪条规则都不触发
+    assert _answers_build(small, subs, 0, [], [], [], [])["tips"] == ["答题的覆盖和质量都比较均衡，继续保持"]
+
+
+def test_answers_build_no_answers_keeps_state_stats():
+    """所选范围内没有答题：图表没数据，但错题 / 顽固 / 收藏是当前状态，照样给"""
+    from app.services.profile_service import _answers_build
+    subs, _, wrong, stub, fav, _ = _ans_data()
+    r = _answers_build([], subs, 0, wrong, stub, fav, [])
+    assert r["has_data"] is False and r["stats"]["total"] == 0 and r["stats"]["accuracy"] is None
+    assert r["stats"]["wrong_pending"] == 7 and r["stats"]["stubborn"] == 2 and r["stats"]["favorites"] == 4
+    assert r["types_by_subject"] == {} and r["kp_top"] == {} and [x["count"] for x in r["subjects"]] == [0, 0, 0]
+
+
+def _acc_data():
+    subs = {1: ("MATH", "数学"), 2: ("PHYSICS", "物理"), 3: ("CHEMISTRY", "化学")}
+    cube = [{"sid": 1, "qt": "SINGLE_CHOICE", "df": "basic", "n": 20, "c": 15}, {"sid": 1, "qt": "FILL_BLANK", "df": "basic", "n": 30, "c": 10},
+            {"sid": 1, "qt": "MULTIPLE_CHOICE", "df": "advanced", "n": 5, "c": 1},
+            {"sid": 2, "qt": "SINGLE_CHOICE", "df": "basic", "n": 10, "c": 9}, {"sid": 2, "qt": "TRUE_FALSE", "df": "basic", "n": 5, "c": 5}]
+    kp = [{"sid": 1, "kid": 1, "name": "角的分类", "n": 25, "c": 10, "b": 3, "r": 2}, {"sid": 1, "kid": 2, "name": "余角与补角", "n": 20, "c": 18, "b": 0, "r": 0},
+          {"sid": 1, "kid": 3, "name": "只做了一次", "n": 1, "c": 0, "b": 0, "r": 0}, {"sid": 2, "kid": 50, "name": "牛顿第二定律", "n": 8, "c": 7, "b": 0, "r": 0}]
+    return subs, cube, {"n": 100, "c": 70}, {"wrong": 30, "blank": 8, "rush": 6}, kp, {"practiced": 2, "total": 20, "rate": 10.0}
+
+
+def test_accuracy_build_stats():
+    from app.services.profile_service import _accuracy_build
+    subs, cube, prev, causes, kp, sem = _acc_data()
+    r = _accuracy_build(cube, subs, prev, causes, kp, sem)
+    st = r["stats"]
+    assert r["has_data"] and (st["total"], st["correct"], st["wrong"], st["accuracy"], st["prev_accuracy"]) == (70, 40, 30, 57.1, 70.0)
+    assert st["prev_correct"] == 70 and _accuracy_build(cube, subs, {"n": 5, "c": 3}, causes, kp, sem)["stats"]["prev_correct"] is None     # 前一段不足 10 题：不做对比
+    assert st["causes"] == {"wrong": 30, "blank": 8, "rush": 6, "thoughtful": 16}                      # 认真做仍错 = 30 − 8 − 6
+    assert st["semester"] == sem and (st["weak_kps"], st["strong_kps"]) == (1, 2)                      # 只做了 1 次的知识点不算
+    assert [(x["code"], x["count"], x["accuracy"]) for x in r["subjects"]] == [("MATH", 55, 47.3), ("PHYSICS", 15, 93.3), ("CHEMISTRY", 0, None)]
+    # 题型 / 难度：固定档位，按学科
+    assert [(x["key"], x["count"], x["accuracy"]) for x in r["types_by_subject"]["MATH"]][:4] == [("SINGLE_CHOICE", 20, 75.0), ("MULTIPLE_CHOICE", 5, 20.0), ("TRUE_FALSE", 0, None), ("FILL_BLANK", 30, 33.3)]
+    assert [(x["key"], x["count"], x["accuracy"]) for x in r["difficulty_by_subject"]["MATH"]] == [("basic", 50, 50.0), ("advanced", 5, 20.0), ("challenge", 0, None)]
+    # 薄弱 / 强项知识点：按学科，带错因
+    w = r["weak_by_subject"]["MATH"]
+    assert [x["name"] for x in w] == ["角的分类"] and (w[0]["error_rate"], w[0]["wrong"], w[0]["blank"], w[0]["rush"], w[0]["thoughtful"]) == (60.0, 15, 3, 2, 10)
+    assert [x["name"] for x in r["strong_by_subject"]["MATH"]] == ["余角与补角"] and r["strong_by_subject"]["MATH"][0]["accuracy"] == 90.0
+    assert r["weak_by_subject"]["PHYSICS"] == [] and [x["name"] for x in r["strong_by_subject"]["PHYSICS"]] == ["牛顿第二定律"]
+
+
+def test_accuracy_build_tips():
+    from app.services.profile_service import _accuracy_build
+    subs, cube, prev, causes, kp, sem = _acc_data()
+    tips = _accuracy_build(cube, subs, prev, causes, kp, sem)["tips"]
+    assert len(tips) <= 5 and all(len(t) <= 48 for t in tips)
+    assert "整体正确率 57.1%，比前一段下降了 12.9 个百分点" in tips[0] and "8 道错题是没作答（占错题 27%）" in tips[1]
+    assert "1 个知识点错误率超过 40%，最薄弱是「角的分类」（60%）" in tips[2] and "「数学」正确率 47.3%，比「物理」（93.3%）低 46 个百分点" in tips[3]
+    assert "「填空题」正确率仅 33.3%" in tips[4]
+    # 没有前一段、秒答多、基础题没做稳、学期只练了很少
+    only = [{"sid": 1, "qt": "SINGLE_CHOICE", "df": "basic", "n": 40, "c": 20}]
+    t2 = " ".join(_accuracy_build(only, subs, None, {"wrong": 20, "blank": 0, "rush": 12}, [], sem)["tips"])
+    assert "整体正确率 50%（共 40 题）" in t2 and "12 道错题是 3 秒内秒答（占 60%）" in t2 and "基础题正确率只有 50%" in t2 and "只练过 2/20 个知识点" in t2
+    # 错题多半是认真做了仍错：说明没吃透
+    assert "90% 的错题是认真做了仍错" in " ".join(_accuracy_build(only, subs, None, {"wrong": 20, "blank": 1, "rush": 1}, [], None)["tips"])
+    # 前一段差不多：不说涨跌；强项会被提到
+    t3 = " ".join(_accuracy_build(cube, subs, {"n": 100, "c": 57}, {"wrong": 0, "blank": 0, "rush": 0}, kp[1:2], None)["tips"])
+    assert "和前一段差不多" in t3 and "强项是「余角与补角」（正确率 90%）" in t3
+    # 没答题：没数据，给一条默认的
+    e = _accuracy_build([], subs, None, {"wrong": 0, "blank": 0, "rush": 0}, [], None)
+    assert e["has_data"] is False and e["stats"]["accuracy"] is None and e["tips"] == ["正确率整体稳定，继续保持"]
+
+
+def test_accuracy_build_trend():
+    """正确率趋势：按天从旧到新，每个点整体 + 各学科的正确率；样本太少（按天 < 2 题）的点不给正确率"""
+    from datetime import date
+    from app.services.profile_service import _accuracy_build, Range
+    subs, cube, prev, causes, kp, sem = _acc_data()
+    rng = Range(date(2026, 11, 9), date(2026, 11, 15))
+    # w：0 = 最近一天（11/15）、6 = 最早一天（11/9）
+    rows = [{"w": 6, "sid": 1, "n": 10, "c": 5}, {"w": 6, "sid": 2, "n": 4, "c": 4},          # 11/9：数学 5/10，物理 4/4 → 整体 9/14
+            {"w": 4, "sid": 1, "n": 1, "c": 1},                                                # 11/11：只答了 1 题
+            {"w": 0, "sid": 1, "n": 6, "c": 3}, {"w": 0, "sid": 3, "n": 2, "c": 1}]            # 11/15：数学 3/6，化学 1/2 → 整体 4/8
+    t = _accuracy_build(cube, subs, prev, causes, kp, sem, rows, rng)["trend"]
+    assert t["unit"] == "day" and [x["label"] for x in t["series"]] == ["11/9", "11/10", "11/11", "11/12", "11/13", "11/14", "11/15"]
+    s0, s2, s6 = t["series"][0], t["series"][2], t["series"][6]
+    assert (s0["count"], s0["accuracy"]) == (14, 64.3) and s0["by_subject"]["MATH"] == {"count": 10, "accuracy": 50.0} and s0["by_subject"]["PHYSICS"]["accuracy"] == 100.0
+    assert s0["by_subject"]["CHEMISTRY"] == {"count": 0, "accuracy": None}                                   # 这天没做化学
+    assert (s2["count"], s2["accuracy"], s2["by_subject"]["MATH"]["accuracy"]) == (1, None, None)            # 只有 1 题：不给正确率
+    assert (s6["accuracy"], s6["by_subject"]["CHEMISTRY"]) == (50.0, {"count": 2, "accuracy": 50.0})
+    assert t["series"][1]["accuracy"] is None and t["series"][1]["count"] == 0                               # 没答题的天
+    # 不传 rng：没有趋势（兼容老调用）
+    assert _accuracy_build(cube, subs, prev, causes, kp, sem)["trend"] is None
+
+
+def test_accuracy_build_weak_kp_meta():
+    """薄弱知识点带上「走向」和「可能的前置」（来自按全部历史算的知识点统计）；没有就是 None"""
+    from app.services.profile_service import _accuracy_build
+    subs, cube, prev, causes, kp, sem = _acc_data()
+    meta = {1: {"trend": "down", "root_kp": {"id": 9, "name": "线段的比较与运算"}}}
+    w = _accuracy_build(cube, subs, prev, causes, kp, sem, None, None, meta)["weak_by_subject"]["MATH"][0]
+    assert w["name"] == "角的分类" and w["trend"] == "down" and w["root_kp"] == {"id": 9, "name": "线段的比较与运算"}
+    w0 = _accuracy_build(cube, subs, prev, causes, kp, sem)["weak_by_subject"]["MATH"][0]
+    assert w0["trend"] is None and w0["root_kp"] is None
+
+
+def _ai_rows(rng):
+    from datetime import timedelta
+    base = rng.since + timedelta(hours=20)          # 区间第一天 20:00（晚上）
+    def m(sid, role, at, **kw):
+        d = {"sid": sid, "role": role, "at": at, "aha": False, "rating": None, "strat": None, "strat_name": None, "ask_ans": False, "mood": False, "summary": None, "started": at}
+        d.update(kw)
+        return d
+    return [
+        m("a", "student", base, ask_ans=True), m("a", "assistant", base + timedelta(minutes=1), strat="S1", strat_name="苏格拉底", rating="like", aha=True, summary="学生搞懂了余角"),
+        m("a", "student", base + timedelta(minutes=2)),
+        m("b", "student", base + timedelta(days=1, hours=-14), mood=True),
+        m("old", "student", rng.since - timedelta(days=1)),
+    ]
+
+
+def test_ai_build_counts_and_tips():
+    from app.services import profile_service as ps
+    rng = ps.Range.last(7)
+    r = ps._ai_build(_ai_rows(rng), rng)
+    st = r["stats"]
+    assert (st["total"], st["sessions"], st["aha"], st["prev_total"]) == (3, 2, 1, 1)
+    assert st["avg_ask"] == 1.5 and st["like_rate"] == 100.0 and st["ask_answer"] == 1 and st["mood"] == 1
+    assert sum(x["count"] for x in r["periods"]) == 3 and sum(x["count"] for x in r["series"]) == 3
+    assert r["strategies"][0]["name"] == "苏格拉底" and r["strategies"][0]["likes"] == 1
+    assert any("顿悟" in t for t in r["tips"]) and len(r["tips"]) <= 5
+
+
+def test_ai_build_empty():
+    from app.services import profile_service as ps
+    r = ps._ai_build([], ps.Range.last(7))
+    assert r["has_data"] is False and r["tips"] == [] and r["stats"]["avg_ask"] is None

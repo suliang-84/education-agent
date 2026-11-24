@@ -347,6 +347,8 @@ export interface StudyTime {
   unit?: 'day' | 'week'
   time_buckets?: { key: string; label: string; range: string; minutes: number }[]
   types?: { key: string; label: string; minutes: number; sessions: number; share: number | null }[]
+  /** 每个学科各自的练习方式时长分布（键是学科 code；占比按这个学科自己的总时长算） */
+  types_by_subject?: Record<string, { key: string; label: string; minutes: number; sessions: number; share: number | null }[]>
   tips?: string[]
   subjects?: { code: string; name: string; minutes: number; share: number | null }[]
   series?: { label: string; minutes: Record<string, number>; total: number }[]
@@ -359,10 +361,94 @@ export interface StudyTime {
   kp_top?: Record<string, { id: number; name: string; minutes: number; answered: number }[]>
 }
 
+/** 训练次数明细（中间明细区，顶部选中「训练次数」时用）。口径见后端 _sessions_build */
+export interface TrainingStats {
+  has_data: boolean
+  unit?: 'day' | 'week'
+  stats?: {
+    total: number; prev_total: number; days: number; active_days: number; done: number
+    avg_per_day: number; prev_avg_per_day: number | null
+    best_day: { date: string; count: number }; prev_best_count: number | null
+    completion: number | null; prev_completion: number | null          // 答题完成度：作答题数 ÷ 下发题数（%）
+    avg_answered: number | null; prev_avg_answered: number | null       // 平均每次作答题数（只算作答了的训练）
+    weekday_avg: number | null; weekend_avg: number | null              // ÷ 范围内对应的天数
+    max_gap_days: number
+    completeness: { full: number; partial: number; none: number }       // 全部作答 / 作答一部分 / 一题没答
+  }
+  /** 各学科的训练次数（一次训练归到下发题目里最多的那个学科） */
+  subjects?: { code: string; name: string; count: number; share: number | null }[]
+  series?: { label: string; done: number; undone: number; total: number; by_subject: Record<string, number> }[]
+  types?: { key: string; label: string; count: number; share: number | null; done_rate: number | null }[]
+  /** 每个学科各自的练习方式次数分布（键是学科 code；占比按这个学科自己的训练数算） */
+  types_by_subject?: Record<string, { key: string; label: string; count: number; share: number | null; done_rate: number | null }[]>
+  /** 每个学科周期内被训练次数最多的 5 个知识点（键是学科 code）；一次训练里同一个知识点只算一次，count 是训练次数，done 是其中完成的次数 */
+  kp_top?: Record<string, { id: number; name: string; count: number; done: number }[]>
+  tips?: string[]
+}
+
+/** 答题数明细（中间明细区，顶部选中「答题数」时用）。错题 / 顽固错题 / 收藏是当前状态，不随日期范围变；其余是所选范围内的。口径见后端 _answers_build */
+export interface AnswerBucket { key: string; label: string; count: number; correct: number; accuracy: number | null; share: number | null }
+export interface AnswerStats {
+  has_data: boolean
+  stats: {
+    total: number; prev_total: number; correct: number; accuracy: number | null
+    wrong_pending: number; wrong_mastered: number; mastered_rate: number | null    // 待攻克 / 已攻克 / 攻克率（%）
+    stubborn: number; favorites: number                                            // 顽固错题（同一道题错 3 次以上）/ 收藏题数
+    breakdown: Record<string, { pending: number; mastered: number; stubborn: number; favorites: number }>   // 每个学科各是多少
+  }
+  subjects: { code: string; name: string; count: number; correct: number; accuracy: number | null; share: number | null }[]
+  types_by_subject: Record<string, AnswerBucket[]>            // 题型：固定 5 种
+  difficulty_by_subject: Record<string, AnswerBucket[]>       // 难度：固定 基础 / 进阶 / 挑战
+  kp_top: Record<string, { id: number; name: string; count: number; correct: number; accuracy: number | null }[]>
+  tips: string[]
+}
+
+/** 正确率明细（中间明细区，顶部选中「正确率」时用）。口径和「学业掌握」标签页一致，但限定在所选日期范围内，并按学科拆开。见后端 _accuracy_build */
+export interface AccuracyKp {
+  id: number; name: string; count: number; correct: number; accuracy: number | null; error_rate: number | null
+  wrong: number; blank: number; rush: number; thoughtful: number          // 错因：没作答 / 秒答 / 认真做仍错
+  trend: 'up' | 'flat' | 'down' | null                                       // 走向（同「学业掌握」：按全部历史算，做的次数不够为 null）
+  root_kp: { id: number; name: string } | null                              // 可能被它拖累的前置薄弱点
+}
+export interface AiAsksStats {
+  has_data: boolean
+  stats: {
+    total: number; prev_total: number; sessions: number; prev_sessions: number; aha: number; prev_aha: number
+    avg_ask: number | null; prev_avg_ask: number | null; like_rate: number | null; rated: number; ask_answer: number; mood: number
+  }
+  series: { label: string; count: number; aha: number }[]
+  unit: 'day' | 'week'
+  periods: { key: string; label: string; range: string; count: number; share: number | null }[]
+  strategies: { id: string; name: string; uses: number; likes: number; dislikes: number }[]
+  tips: string[]
+}
+export interface AccuracyStats {
+  has_data: boolean
+  stats: {
+    total: number; correct: number; wrong: number; accuracy: number | null
+    prev_accuracy: number | null; prev_total: number; prev_correct: number | null      // 前一段不足 10 题时为 null
+    weak_kps: number; strong_kps: number                                                // 薄弱（错误率 ≥ 40%）/ 强项知识点个数（做过 2 次以上）
+    semester: { practiced: number; total: number; rate: number | null }                 // 当前学期进度：练过的知识点 / 总数
+    causes: { wrong: number; blank: number; rush: number; thoughtful: number }
+  }
+  subjects: { code: string; name: string; count: number; correct: number; accuracy: number | null }[]
+  /** 正确率趋势：从旧到新，每个点（按天 / 按周）的整体和各学科正确率；样本太少（按天 < 2 题、按周 < 3 题）为 null */
+  trend: { unit: 'day' | 'week'; series: { label: string; count: number; accuracy: number | null; by_subject: Record<string, { count: number; accuracy: number | null }> }[] } | null
+  types_by_subject: Record<string, AnswerBucket[]>
+  difficulty_by_subject: Record<string, AnswerBucket[]>
+  weak_by_subject: Record<string, AccuracyKp[]>
+  strong_by_subject: Record<string, AccuracyKp[]>
+  tips: string[]
+}
+
 export interface StudentProfile {
   generated_at: string
   kpis: ProfileKpi[]
   study_time: StudyTime
+  training?: TrainingStats
+  answers?: AnswerStats
+  accuracy?: AccuracyStats
+  ai_asks?: AiAsksStats
   range: { start: string; end: string; days: number; label: string; is_recent: boolean; daily: boolean; min_answered: number; freq_full: number; review_full: number }
   summary: {
     status: string; status_reason: string; engagement_score: number
