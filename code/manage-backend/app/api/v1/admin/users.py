@@ -128,6 +128,22 @@ async def get_student_profile(
     return ok_response(data)
 
 
+@router.get("/students/{student_id}/profile/advice", summary="学生画像：大模型综合建议与各维度总结（各最多 5 条）")
+async def get_student_profile_advice(
+    student_id: int,
+    start_date: str | None = Query(None, description="统计开始日期 YYYY-MM-DD"),
+    end_date: str | None = Query(None, description="统计结束日期 YYYY-MM-DD"),
+    refresh: bool = Query(False, description="true 时忽略缓存，重新生成"),
+    db: AsyncSession = Depends(get_db),
+    _: AdminUser = Depends(get_current_admin),
+):
+    """结合学生画像与五力认知能力，由大模型一次生成：最有效的建议（≤5 条）+ 五个维度各自的总结（各 ≤5 条）；结果缓存 30 分钟，大模型不可用时退回规则建议（source = rule，summaries 为空，页面沿用规则总结）"""
+    from app.services import profile_advice, profile_service
+    data = await profile_service.get_profile(db, student_id, start_date, end_date)
+    await db.commit()
+    return ok_response(await profile_advice.generate(data, (student_id, start_date, end_date), refresh))
+
+
 @router.get("/students/{student_id}/warnings", summary="学生预警列表")
 async def list_student_warnings(
     student_id: int,

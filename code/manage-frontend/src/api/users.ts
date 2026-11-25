@@ -57,6 +57,10 @@ export const studentApi = {
   getProfile: (studentId: number, start?: string, end?: string) =>
     request.get<unknown, StudentProfile>(`/students/${studentId}/profile`, { params: { start_date: start, end_date: end } }),
 
+  /** 学生画像的综合建议与各维度总结（大模型，各最多 5 条）：GET /api/v1/admin/students/{id}/profile/advice；较慢，超时放宽到 90 秒 */
+  getProfileAdvice: (studentId: number, start?: string, end?: string, refresh = false) =>
+    request.get<unknown, { items: string[]; summaries: Record<string, string[]>; source: 'ai' | 'rule'; generated_at: number }>(`/students/${studentId}/profile/advice`, { params: { start_date: start, end_date: end, refresh }, timeout: 90000 }),
+
   /** 标记预警已处理：POST /api/v1/admin/students/{id}/warnings/{wid}/handle */
   handleWarning: (studentId: number, warningId: number, note: string) =>
     request.post<unknown, unknown>(`/students/${studentId}/warnings/${warningId}/handle`, { note }),

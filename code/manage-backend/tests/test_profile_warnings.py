@@ -770,3 +770,19 @@ def test_ai_build_empty():
     from app.services import profile_service as ps
     r = ps._ai_build([], ps.Range.last(7))
     assert r["has_data"] is False and r["tips"] == [] and r["stats"]["avg_ask"] is None
+
+
+def test_profile_advice_parse_and_context():
+    from app.services.profile_advice import parse_result, build_context, fallback_items, MAX_ITEMS
+    raw = '```json\n{"summaries": {"study_time": ["学习时长总结一条内容", "学习时长总结一条内容", "总结二二二二二二"], "accuracy": []}, "advice": ["建议一二三四五六七", "建议二二三四五六七", "建议三二三四五六七", "建议四二三四五六七", "建议五二三四五六七", "建议六二三四五六七"]}\n```'
+    adv, sums = parse_result(raw)
+    assert len(adv) == MAX_ITEMS == 5 and sums["study_time"] == ["学习时长总结一条内容", "总结二二二二二二"] and sums["accuracy"] == [] and "training" not in sums
+    assert parse_result("不是 JSON") == ([], {}) and parse_result('{"advice": "x"}') == ([], {})
+    p = {"basic": {"grade": 8, "nickname": "张三", "parents": [{"nickname": "家长"}]}, "traits": {"personal_insight": "喜欢篮球。【敏感】最近情绪低落。"},
+         "study_time": {"has_data": True, "stats": {"total_minutes": 90}, "series": [1] * 50}, "training": {"has_data": False, "stats": {"x": 1}},
+         "summary": {"tips": ["a" * 10], "dim_advice": [{"dim": "x", "text": "b" * 10}]}}
+    ctx = build_context(p)
+    s = str(ctx)
+    assert "张三" not in s and "家长" not in s and "情绪低落" not in s and "喜欢篮球" in s
+    assert ctx["各维度数据"] == {"学习时长": {"stats": {"total_minutes": 90}}}      # 没数据的维度不传，按天序列不传
+    assert fallback_items(p) == ["a" * 10, "b" * 10]

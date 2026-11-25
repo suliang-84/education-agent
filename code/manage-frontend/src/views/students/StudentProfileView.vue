@@ -178,16 +178,16 @@
             <div v-for="(x, i) in kpItems" :key="x.id" class="kp-row">
               <span class="kp-row__no num">{{ i + 1 }}</span>
               <span class="kp-row__name" :title="x.name">{{ x.name }}</span>
-              <div class="bar"><div class="bar__fill" :style="{ width: (x.minutes / kpMax * 100) + '%', background: SUBJECT_COLORS[kpCode] ?? SUBJECT_COLORS.OTHER }" /></div>
+              <div class="bar"><div class="bar__fill" :style="{ width: (x.minutes / kpMax * 100) + '%', '--bar-c': SUBJECT_COLORS[kpCode] ?? SUBJECT_COLORS.OTHER }" /></div>
               <span class="kp-row__val num">{{ fmtMin(x.minutes) }}</span>
             </div>
           </div>
           <div v-else class="chart-card__empty">{{ rangeLabel }}该科目暂无知识点学习记录</div>
         </div>
         <div class="chart-card">
-          <div class="chart-card__title">建议</div>
-          <div v-if="behaviorTips.length" class="chart-card__body chart-card__body--tips">
-            <div v-for="(t, i) in behaviorTips" :key="i" class="tip"><span class="tip__no num">{{ i + 1 }}</span>{{ t }}</div>
+          <div class="chart-card__title">总结</div>
+          <div v-if="sumOf('study_time').length" class="chart-card__body chart-card__body--tips">
+            <div v-for="(t, i) in sumOf('study_time')" :key="i" class="tip"><span class="tip__no num">{{ i + 1 }}</span>{{ t }}</div>
           </div>
           <div v-else class="chart-card__empty">{{ rangeLabel }}暂无学习记录</div>
         </div>
@@ -214,16 +214,16 @@
             <div v-for="(x, i) in tkpItems" :key="x.id" class="kp-row">
               <span class="kp-row__no num">{{ i + 1 }}</span>
               <span class="kp-row__name" :title="x.name">{{ x.name }}</span>
-              <div class="bar"><div class="bar__fill" :style="{ width: (x.count / tkpMax * 100) + '%', background: SUBJECT_COLORS[tkpCode] ?? SUBJECT_COLORS.OTHER }" /></div>
+              <div class="bar"><div class="bar__fill" :style="{ width: (x.count / tkpMax * 100) + '%', '--bar-c': SUBJECT_COLORS[tkpCode] ?? SUBJECT_COLORS.OTHER }" /></div>
               <span class="kp-row__val num" :title="`其中完成 ${x.done} 次`">{{ x.count }} 次</span>
             </div>
           </div>
           <div v-else class="chart-card__empty">{{ rangeLabel }}该科目暂无知识点训练记录</div>
         </div>
         <div class="chart-card">
-          <div class="chart-card__title">建议</div>
-          <div v-if="p.training?.tips?.length" class="chart-card__body chart-card__body--tips">
-            <div v-for="(t, i) in p.training.tips" :key="i" class="tip"><span class="tip__no num">{{ i + 1 }}</span>{{ t }}</div>
+          <div class="chart-card__title">总结</div>
+          <div v-if="sumOf('training').length" class="chart-card__body chart-card__body--tips">
+            <div v-for="(t, i) in sumOf('training')" :key="i" class="tip"><span class="tip__no num">{{ i + 1 }}</span>{{ t }}</div>
           </div>
           <div v-else class="chart-card__empty">{{ rangeLabel }}暂无训练记录</div>
         </div>
@@ -251,7 +251,7 @@
             <div v-for="(x, i) in akpItems" :key="x.id" class="kp-row">
               <span class="kp-row__no num">{{ i + 1 }}</span>
               <span class="kp-row__name" :title="x.name">{{ x.name }}</span>
-              <div class="bar"><div class="bar__fill" :style="{ width: (x.count / akpMax * 100) + '%', background: SUBJECT_COLORS[akpCode] ?? SUBJECT_COLORS.OTHER }" /></div>
+              <div class="bar"><div class="bar__fill" :style="{ width: (x.count / akpMax * 100) + '%', '--bar-c': SUBJECT_COLORS[akpCode] ?? SUBJECT_COLORS.OTHER }" /></div>
               <span class="kp-row__val num" :title="`答对 ${x.correct} 题，正确率 ${x.accuracy ?? 0}%`">{{ x.count }} 题</span>
             </div>
           </div>
@@ -259,8 +259,8 @@
         </div>
         <div class="chart-card">
           <div class="chart-card__title">总结</div>
-          <div v-if="p.answers?.tips?.length" class="chart-card__body chart-card__body--tips">
-            <div v-for="(t, i) in p.answers.tips" :key="i" class="tip"><span class="tip__no num">{{ i + 1 }}</span>{{ t }}</div>
+          <div v-if="sumOf('answers').length" class="chart-card__body chart-card__body--tips">
+            <div v-for="(t, i) in sumOf('answers')" :key="i" class="tip"><span class="tip__no num">{{ i + 1 }}</span>{{ t }}</div>
           </div>
           <div v-else class="chart-card__empty">{{ rangeLabel }}暂无答题记录</div>
         </div>
@@ -279,7 +279,7 @@
             <div v-for="(x, i) in p.ai_asks.strategies" :key="x.id" class="kp-row">
               <span class="kp-row__no num">{{ i + 1 }}</span>
               <span class="kp-row__name" :title="x.name">{{ x.name }}</span>
-              <div class="bar"><div class="bar__fill" :style="{ width: (x.uses / aiStrategyMax * 100) + '%', background: SUBJECT_COLORS.MATH }" /></div>
+              <div class="bar"><div class="bar__fill" :style="{ width: (x.uses / aiStrategyMax * 100) + '%', '--bar-c': SUBJECT_COLORS.MATH }" /></div>
               <span class="kp-row__val num" :title="`点赞 ${x.likes} · 点踩 ${x.dislikes}`">{{ x.uses }} 次</span>
             </div>
           </div>
@@ -287,8 +287,8 @@
         </div>
         <div class="chart-card">
           <div class="chart-card__title">总结</div>
-          <div v-if="p.ai_asks?.tips?.length" class="chart-card__body chart-card__body--tips">
-            <div v-for="(t, i) in p.ai_asks.tips" :key="i" class="tip"><span class="tip__no num">{{ i + 1 }}</span>{{ t }}</div>
+          <div v-if="sumOf('ai_asks').length" class="chart-card__body chart-card__body--tips">
+            <div v-for="(t, i) in sumOf('ai_asks')" :key="i" class="tip"><span class="tip__no num">{{ i + 1 }}</span>{{ t }}</div>
           </div>
           <div v-else class="chart-card__empty">{{ rangeLabel }}暂无 AI 提问</div>
         </div>
@@ -327,8 +327,8 @@
         </div>
         <div class="chart-card">
           <div class="chart-card__title">总结</div>
-          <div v-if="p.accuracy?.tips?.length" class="chart-card__body chart-card__body--tips">
-            <div v-for="(t, i) in p.accuracy.tips" :key="i" class="tip"><span class="tip__no num">{{ i + 1 }}</span>{{ t }}</div>
+          <div v-if="sumOf('accuracy').length" class="chart-card__body chart-card__body--tips">
+            <div v-for="(t, i) in sumOf('accuracy')" :key="i" class="tip"><span class="tip__no num">{{ i + 1 }}</span>{{ t }}</div>
           </div>
           <div v-else class="chart-card__empty">{{ rangeLabel }}暂无答题记录</div>
         </div>
@@ -346,15 +346,25 @@
             <div class="cog-layout__radar"><div ref="radarRef" class="radar-chart" /></div>
             <div class="cog-layout__main">
                 <el-table v-if="cogInsights" :data="cogInsights.powers" size="small" class="mini-table cog-table">
-                  <el-table-column label="能力" width="70"><template #default="{ row }"><span :style="{ color: POWER_COLORS[row.key], fontWeight: 600 }">{{ row.label }}</span></template></el-table-column>
-                  <el-table-column label="测试得分" min-width="120">
+                  <el-table-column label="能力" width="104">
                     <template #default="{ row }">
-                      <div class="cog-bar"><div class="bar"><div class="bar__fill" :style="{ width: (row.test ?? 0) + '%', background: POWER_COLORS[row.key] }" /></div><span class="num">{{ row.test ?? '—' }}</span></div>
+                      <span class="power-cell" :style="{ color: POWER_COLORS[row.key] }">
+                        <span class="power-cell__ico" :style="{ background: `color-mix(in srgb, ${POWER_COLORS[row.key]} 16%, transparent)` }"><SvgIcon :name="`power_${String(row.key).toLowerCase()}`" :size="14" /></span>{{ row.label }}
+                      </span>
                     </template>
                   </el-table-column>
-                  <el-table-column label="实战正确率" min-width="120">
+                  <el-table-column label="测试得分" min-width="170">
                     <template #default="{ row }">
-                      <div class="cog-bar"><div class="bar"><div class="bar__fill bar__fill--real" :style="{ width: (row.accuracy ?? 0) + '%' }" /></div><span class="num">{{ fmtPct(row.accuracy) }}</span><small>{{ row.answered }}题</small></div>
+                      <div class="cog-bar"><div class="bar bar--fancy"><div class="bar__fill" :class="{ 'is-zero': !row.test }" :style="{ width: (row.test ?? 0) + '%', '--bar-c': POWER_COLORS[row.key] }" /></div><span class="num">{{ row.test ?? '—' }}</span></div>
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="实战正确率" min-width="210">
+                    <template #default="{ row }">
+                      <div class="cog-bar" :title="`${row.answered} 题`">
+                        <div class="bar bar--fancy bar--scale"><div class="bar__fill" :class="[accLevel(row.accuracy)?.cls, { 'is-zero': !row.accuracy }]" :style="{ width: (row.accuracy ?? 0) + '%' }" /></div>
+                        <span class="num">{{ fmtPct(row.accuracy) }}</span>
+                        <span v-if="accLevel(row.accuracy)" class="lv-chip" :class="accLevel(row.accuracy)!.cls">{{ accLevel(row.accuracy)!.label }}</span>
+                      </div>
                     </template>
                   </el-table-column>
                   <el-table-column label="较前期" width="76">
@@ -435,9 +445,18 @@
             </template>
         </div>
         <div class="chart-card">
-          <div class="chart-card__title">建议</div>
-          <div v-if="p.summary.tips.length" class="tips tips--card">
-            <div v-for="(t, i) in p.summary.tips" :key="i" class="tip"><span class="tip__no num">{{ i + 1 }}</span>{{ t }}</div>
+          <div class="chart-card__head">
+            <div class="chart-card__title">建议</div>
+            <span class="card-hint">
+              <template v-if="adviceLoading">AI 正在结合认知能力与学习数据分析…</template>
+              <template v-else-if="advice?.source === 'rule'">AI 暂不可用，以下为规则建议</template>
+              <template v-else>AI 综合认知能力与学习数据生成</template>
+            </span>
+            <button v-if="!adviceLoading" type="button" class="advice-refresh" @click="loadAdvice(true)">重新生成</button>
+          </div>
+          <div v-if="adviceLoading" class="tips tips--card advice-skeleton"><i v-for="n in 5" :key="n" /></div>
+          <div v-else-if="advice?.items.length" class="tips tips--card">
+            <div v-for="(t, i) in advice.items" :key="i" class="tip"><span class="tip__no num">{{ i + 1 }}</span>{{ t }}</div>
           </div>
           <div v-else class="card-empty">暂无建议</div>
         </div>
@@ -688,9 +707,34 @@ const diagVerdict = computed(() => {
   return out
 })
 // 建议：接口 study_time.highlights 返回的学习时长结论（如「时间分配比较均衡，数学占 62.8%」）
+// 底部「建议」（≤5 条）+ 各维度「总结」（每个维度 ≤5 条）：大模型结合学生画像 + 认知能力一次生成（接口较慢，画像加载完后单独请求；失败时后端退回规则建议）
+const advice = ref<{ items: string[]; summaries: Record<string, string[]>; source: 'ai' | 'rule' }>()
+const adviceLoading = ref(false)
+let adviceSeq = 0
+// 维度「总结」：优先用大模型的结果；还在生成 / 大模型不可用时，用规则生成的事实性小结顶上
+function sumOf(key: 'study_time' | 'training' | 'answers' | 'accuracy' | 'ai_asks'): string[] {
+  const ai = advice.value?.summaries?.[key]
+  if (ai?.length) return ai
+  return key === 'study_time' ? behaviorTips.value : (p.value?.[key]?.tips ?? [])
+}
+async function loadAdvice(refresh = false) {
+  const seq = ++adviceSeq
+  adviceLoading.value = true
+  try {
+    const r = await studentApi.getProfileAdvice(studentId, dateRange.value[0], dateRange.value[1], refresh)
+    if (seq === adviceSeq) advice.value = r
+  } catch { if (seq === adviceSeq) advice.value = undefined }
+  finally { if (seq === adviceSeq) adviceLoading.value = false }
+}
 const behaviorTips = computed(() => (p.value?.study_time?.highlights ?? []).map(h => h.text))
 const cogInsights = computed(() => p.value?.cognitive.insights)
 
+// 实战正确率分级：优秀 90–100、良好 80–89、一般 60–79、不及格 0–59（按显示的整数判断）
+function accLevel(v: number | null | undefined): { label: string; cls: string } | null {
+  if (v === null || v === undefined) return null
+  const n = Math.round(v)
+  return n >= 90 ? { label: '优秀', cls: 'lv--excellent' } : n >= 80 ? { label: '良好', cls: 'lv--good' } : n >= 60 ? { label: '一般', cls: 'lv--ok' } : { label: '不及格', cls: 'lv--fail' }
+}
 const fmtPct = (v: number | null | undefined) => (v === null || v === undefined ? '—' : `${v}%`)
 
 // 图表主色：暗色主题用偏灰的薰衣草蓝紫（和页面强调色一致），亮色主题沿用系统主色
@@ -1108,6 +1152,7 @@ async function load() {
   loading.value = true
   try {
     p.value = await studentApi.getProfile(studentId, dateRange.value[0], dateRange.value[1])
+    loadAdvice()
     await nextTick()
     renderDetail()
     await drawTab()
@@ -1252,8 +1297,10 @@ onBeforeUnmount(() => { window.removeEventListener('resize', onResize); charts.f
 .radar-chart { height: 270px; }
 .history-chart { height: 270px; }
 .cog-table :deep(.el-table__cell) { padding: 6px 0; }
-.cog-bar { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-1); .bar { flex: 1; min-width: 36px; } small { font-size: 11px; color: var(--text-3); } }
-.bar__fill--real { background: var(--green); }
+// 能力列：左侧五力图标（同小程序：洞察 = 靶心、建构 = 尺、推演 = 分支、调适 = 循环、迁移 = 火箭），放在五力色的浅底圆角块里
+.power-cell { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; white-space: nowrap; }
+.power-cell__ico { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 8px; flex-shrink: 0; }
+.cog-bar { display: flex; align-items: center; gap: 10px; width: 100%; font-size: 13px; color: var(--text-1); .bar { flex: 1 1 auto; min-width: 90px; } .num { flex: none; min-width: 26px; text-align: right; } small { font-size: 11px; color: var(--text-3); } }
 .cog-chip { display: inline-block; white-space: nowrap; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; cursor: default;
   &--below { background: color-mix(in srgb, var(--red) 16%, transparent); color: var(--red); }
   &--above { background: color-mix(in srgb, var(--green) 16%, transparent); color: var(--green); }
@@ -1296,7 +1343,7 @@ onBeforeUnmount(() => { window.removeEventListener('resize', onResize); charts.f
 .bottom-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; @media (max-width: 1100px) { grid-template-columns: 1fr; } }
 .bottom-row .chart-card { display: flex; flex-direction: column; }
 // 认知能力：左雷达、右表格，下面一排洞察
-.cog-layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 20px; align-items: center; margin-top: 6px; @media (max-width: 1100px) { grid-template-columns: 1fr; } }
+.cog-layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 20px; align-items: center; margin-top: 6px; @media (max-width: 1100px) { grid-template-columns: 1fr; } }
 .cog-layout .radar-chart { height: 250px; }
 .cog-hls { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 10px; margin-top: 12px; }
 .hl-chip { position: relative; padding: 9px 12px 9px 26px; border-radius: 10px; font-size: 13px; line-height: 1.6; color: var(--text-1);
@@ -1314,6 +1361,13 @@ onBeforeUnmount(() => { window.removeEventListener('resize', onResize); charts.f
 .warn-sub { margin: 14px 0 8px; font-size: 12px; color: var(--text-3); }
 .bottom-row .warn-item--done { margin-bottom: 8px; background: transparent; border: 1px dashed color-mix(in srgb, var(--text-3) 22%, transparent); }
 .tips--card { margin-top: 10px; .tip { margin-bottom: 9px; } }
+.advice-refresh { flex-shrink: 0; border: none; background: transparent; padding: 0; font-size: 12px; color: var(--text-3); cursor: pointer; transition: color 0.2s; &:hover { color: var(--color-primary); } }
+.chart-card__head .card-hint { margin-left: auto; }
+// 生成中的骨架：5 行淡色条，带流光
+.advice-skeleton { display: flex; flex-direction: column; gap: 14px; padding-top: 4px;
+  i { display: block; height: 14px; border-radius: 7px; background: linear-gradient(90deg, color-mix(in srgb, var(--text-3) 10%, transparent) 25%, color-mix(in srgb, var(--text-3) 22%, transparent) 50%, color-mix(in srgb, var(--text-3) 10%, transparent) 75%); background-size: 200% 100%; animation: pf-shimmer 1.4s linear infinite;
+    &:nth-child(2) { width: 88%; } &:nth-child(3) { width: 94%; } &:nth-child(4) { width: 76%; } &:nth-child(5) { width: 84%; } } }
+@keyframes pf-shimmer { to { background-position: -200% 0; } }
 // ── 暗色主题（参考图）：胶囊标签 / 按钮、小号大写表头、底部区块的深蓝玻璃 ──
 </style>
 
@@ -1372,11 +1426,119 @@ html[data-theme="dark"] .page-root {
   .el-table th.el-table__cell { font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); }
 }
 
+// ═══ 质感精修（只增不改：入场动效 / 悬停反馈 / 标题层次 / 进度条 / 选中态）═══
+@keyframes pf-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+:root { --pf-ease: cubic-bezier(0.22, 1, 0.36, 1); }
+
+// 入场：各行依次上浮淡入；切换顶部统计卡时中间明细区也会重播，形成过渡
+.page-root .kpi-strip > .kpi, .page-root .chart-row > *, .page-root .detail-row > *, .page-root > .cog-card, .page-root .bottom-row > * {
+  animation: pf-rise 0.5s var(--pf-ease) backwards; }
+.page-root .kpi-strip > .kpi:nth-child(2) { animation-delay: 0.04s; } .page-root .kpi-strip > .kpi:nth-child(3) { animation-delay: 0.08s; }
+.page-root .kpi-strip > .kpi:nth-child(4) { animation-delay: 0.12s; } .page-root .kpi-strip > .kpi:nth-child(5) { animation-delay: 0.16s; }
+.page-root .chart-row > * { animation-delay: 0.08s; } .page-root .detail-row > * { animation-delay: 0.14s; }
+.page-root .detail-row > *:nth-child(2) { animation-delay: 0.19s; } .page-root .detail-row > *:nth-child(3) { animation-delay: 0.24s; }
+.page-root > .cog-card { animation-delay: 0.1s; }
+
+// 选中的统计卡：底部一条主色光带，一眼看出当前维度
+.page-root .kpi.kpi--active::after { content: ''; position: absolute; left: 16px; right: 16px; bottom: 0; height: 2px; z-index: 3; border-radius: 2px 2px 0 0;
+  background: linear-gradient(90deg, transparent, var(--color-primary), transparent); animation: pf-rise 0.4s var(--pf-ease) backwards; }
+html[data-theme="dark"] .page-root .kpi.kpi--active::after { box-shadow: 0 0 12px var(--color-primary); }
+
+// 数字：等宽 + 等宽数字，数值更精致
+.page-root .kpi__val { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1; }
+.page-root .kpi__lbl { font-weight: 500; letter-spacing: 0.02em; }
+
+// 卡片标题：加一小段主色竖标，层次更清楚
+.page-root .chart-card__title { position: relative; padding-left: 10px; font-size: 13.5px; font-weight: 600; letter-spacing: 0.03em; color: var(--text-2);
+  &::before { content: ''; position: absolute; left: 0; top: 50%; width: 3px; height: 13px; margin-top: -6.5px; border-radius: 2px;
+    background: linear-gradient(180deg, var(--color-primary), color-mix(in srgb, var(--color-primary) 35%, transparent)); } }
+.page-root .chart-card__head { margin-bottom: 2px; }
+
+// 科目切换：去掉外框和底色，做成轻量文字标签；选中项文字提亮 + 底部一小段主色下划线（从中间向两侧展开）
+.page-root .seg { gap: 16px; margin: -4px 0; padding: 0; border: none; border-radius: 0; background: transparent; }
+.page-root .seg__btn { position: relative; height: 24px; padding: 0 1px; border-radius: 0; background: transparent; font-size: 12.5px; line-height: 24px; color: var(--text-3); letter-spacing: 0.02em; transition: color 0.2s;
+  &::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; border-radius: 2px; transform: scaleX(0); transform-origin: center;
+    background: linear-gradient(90deg, transparent, var(--color-primary), transparent); transition: transform 0.35s var(--pf-ease); }
+  &:hover { color: var(--text-2); background: transparent; }
+  &.is-active { background: transparent; box-shadow: none; color: var(--text-1); font-weight: 600; &::after { transform: scaleX(1); } } }
+.page-root .seg__btn:focus-visible, .page-root .kpi--link:focus-visible { outline: 2px solid color-mix(in srgb, var(--color-primary) 70%, transparent); outline-offset: 2px; }
+
+// 进度条：更饱满的圆角 + 流畅的宽度动画 + 柔和高光
+.page-root .bar { height: 7px; border-radius: 999px; }
+.page-root .bar__fill { position: relative; border-radius: 999px; transition: width 0.7s var(--pf-ease);
+  background-image: linear-gradient(90deg, rgba(255, 255, 255, 0.0), rgba(255, 255, 255, 0.22)); background-blend-mode: overlay; }
+
+// 榜单（知识点学习时长 / 训练次数 / 答题数 Top5、启发策略 Top5）：行间距 10px，进度条用渐变
+// 颜色与折线图同源（学科色 --bar-c = subjColor），左端学科色 → 右端白色
+.page-root .kp-list { gap: 10px; padding-top: 16px; }   // 与标题拉开 16px
+.page-root .kp-row { height: 24px; }   // 行高收紧；行距 10px，整体靠上排
+.page-root .kp-row .bar { height: 8px; }
+.page-root .kp-row .bar__fill { background-image: linear-gradient(90deg, var(--bar-c), #fff); background-blend-mode: normal; }
+// 知识点榜单：前三名序号用主色
+.page-root .kp-row:nth-child(-n+3) .kp-row__no { color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 18%, transparent); font-weight: 600; }
+.page-root .kp-row__val { font-variant-numeric: tabular-nums; }
+
+// 建议 / 总结：条目之间留白更舒展
+.page-root .tip { line-height: 1.7; margin-bottom: 8px; }
+.page-root .tip__no { font-weight: 600; }
+// 总结卡：第一项的位置与同排 Top5 榜单卡对齐（榜单：上方留白 16px，行高 24px、内容垂直居中）
+.page-root .chart-card__body--tips { padding-top: 16px; }
+.page-root .chart-card__body--tips .tip { line-height: 24px; margin-bottom: 10px; }
+.page-root .chart-card__body--tips .tip__no { margin-top: 3px; }
+// 底部「建议」卡：同样对齐（标题行自带 2px 下边距，所以这里留 14px，合起来也是 16px）
+.page-root .tips--card { margin-top: 14px; }
+.page-root .tips--card .tip { line-height: 24px; margin-bottom: 10px; }
+.page-root .tips--card .tip__no { margin-top: 3px; }
+.page-root .tips--card.advice-skeleton { gap: 10px; padding-top: 0; i { height: 14px; margin: 5px 0; } }
+
+// 引用段落：左侧竖线渐变，更像高级摘录
+.page-root .quote { border-left: none; position: relative; padding-left: 18px; background: color-mix(in srgb, var(--text-3) 6%, transparent);
+  &::before { content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; border-radius: 2px;
+    background: linear-gradient(180deg, var(--color-primary), color-mix(in srgb, var(--color-primary) 20%, transparent)); } }
+
+.page-root .level-tag { letter-spacing: 0.04em; }
+.page-root .count-badge { box-shadow: 0 0 0 3px color-mix(in srgb, var(--amber) 10%, transparent); }
+
+// 内部滚动条（建议 / 总结卡）：细、淡
+.page-root .chart-card__body--tips { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--text-3) 40%, transparent) transparent; }
+
+// 尊重「减少动态效果」系统设置
+@media (prefers-reduced-motion: reduce) {
+  .page-root *, .page-root *::before, .page-root *::after { animation: none !important; transition: none !important; }
+}
+
+
+// ── 认知能力进度条（bar--fancy）：粗圆角轨道 + 同色渐变填充 + 顶部高光 + 末端小亮点 + 柔和光晕；正确率条带 60 / 80 / 90 分级刻度 ──
+:root { --lv-excellent: #10b981; --lv-good: #3b82f6; --lv-ok: #f59e0b; --lv-fail: #ef4444; }
+html[data-theme="dark"] { --lv-excellent: #34d399; --lv-good: #60a5fa; --lv-ok: #fbbf24; --lv-fail: #f87171; }
+.lv--excellent { --bar-c: var(--lv-excellent); } .lv--good { --bar-c: var(--lv-good); } .lv--ok { --bar-c: var(--lv-ok); } .lv--fail { --bar-c: var(--lv-fail); }
+@keyframes pf-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.page-root .bar--fancy { position: relative; height: 10px; border-radius: 999px; overflow: visible;
+  background: color-mix(in srgb, var(--text-3) 14%, transparent); box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12);
+  .bar__fill { position: relative; height: 100%; border-radius: 999px; transform-origin: left center; animation: pf-grow 0.9s var(--pf-ease) backwards;
+    background-image: linear-gradient(90deg, color-mix(in srgb, var(--bar-c) 45%, transparent), var(--bar-c));
+    box-shadow: 0 0 10px -1px color-mix(in srgb, var(--bar-c) 55%, transparent);
+    // 顶部高光
+    &::before { content: ''; position: absolute; left: 6px; right: 6px; top: 1.5px; height: 3px; border-radius: 3px; background: linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0)); }
+    // 末端亮点
+    &::after { content: ''; position: absolute; right: 2px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: #fff; box-shadow: 0 0 6px 1px color-mix(in srgb, var(--bar-c) 70%, transparent); } } }
+// 0 分 / 无数据：宽度为 0，不画高光、亮点和光晕
+.page-root .bar--fancy .bar__fill.is-zero { box-shadow: none; &::before, &::after { display: none; } }
+// 分级刻度：60 / 80 / 90 三条细竖线，压在填充之上
+.page-root .bar--scale::after { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background:
+    linear-gradient(90deg, transparent calc(60% - 0.5px), rgba(255, 255, 255, 0.55) calc(60% - 0.5px) calc(60% + 0.5px), transparent calc(60% + 0.5px)),
+    linear-gradient(90deg, transparent calc(80% - 0.5px), rgba(255, 255, 255, 0.55) calc(80% - 0.5px) calc(80% + 0.5px), transparent calc(80% + 0.5px)),
+    linear-gradient(90deg, transparent calc(90% - 0.5px), rgba(255, 255, 255, 0.55) calc(90% - 0.5px) calc(90% + 0.5px), transparent calc(90% + 0.5px)); opacity: 0.7; }
+// 等级标签
+.page-root .lv-chip { flex: none; min-width: 38px; padding: 0 8px; border-radius: 999px; text-align: center; font-size: 11.5px; line-height: 20px; font-weight: 600; white-space: nowrap;
+  color: var(--bar-c); background: color-mix(in srgb, var(--bar-c) 15%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bar-c) 30%, transparent); }
+
 // ── 表格（.mini-table）：和卡片融成一体，不分层 ──
-// 没有表头底色、没有斑马纹、没有外框；表头只是一行小号淡色文字，下面一条细线；行与行之间用极淡的细线，悬停时整行泛一层淡淡的光。
+// 没有表头底色、没有斑马纹、没有外框；表头只是一行小号淡色文字，下面一条细线；行与行之间用极淡的细线，悬停无背景变化。
 // el-table 内部会重新定义变量，所以这里直接在 .el-table 作用域里覆盖，并写死颜色
-:root { --tbl-line: rgba(96, 141, 248, 0.14); --tbl-head: #8a92aa; --tbl-text: #2d3550; --tbl-text-2: #5a6380; --tbl-hover: rgba(94, 141, 249, 0.07); }
-html[data-theme="dark"] { --tbl-line: rgba(210, 216, 255, 0.08); --tbl-head: #7f86a6; --tbl-text: #dfe2f4; --tbl-text-2: #a2a8c4; --tbl-hover: rgba(160, 170, 240, 0.08); }
+:root { --tbl-line: rgba(96, 141, 248, 0.14); --tbl-head: #8a92aa; --tbl-text: #2d3550; --tbl-text-2: #5a6380; }
+html[data-theme="dark"] { --tbl-line: rgba(210, 216, 255, 0.08); --tbl-head: #7f86a6; --tbl-text: #dfe2f4; --tbl-text-2: #a2a8c4; }
 .page-root .mini-table.el-table {
   --el-table-bg-color: transparent; --el-table-tr-bg-color: transparent; --el-table-header-bg-color: transparent;
   --el-table-row-hover-bg-color: transparent; --el-table-border-color: transparent; --el-table-border: none;
@@ -1393,7 +1555,6 @@ html[data-theme="dark"] { --tbl-line: rgba(210, 216, 255, 0.08); --tbl-head: #7f
   th.el-table__cell, td.el-table__cell { padding-left: 8px !important; padding-right: 8px !important; }
   th.el-table__cell:first-child, td.el-table__cell:first-child { padding-left: 0 !important; }
   th .cell { color: inherit; }
-  tbody tr:hover > td.el-table__cell { background: var(--tbl-hover) !important; }
   tbody tr > td.el-table__cell:first-child { border-radius: 8px 0 0 8px; }
   tbody tr > td.el-table__cell:last-child { border-radius: 0 8px 8px 0; }
   .el-table__empty-block { background: transparent; }

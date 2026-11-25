@@ -3,6 +3,7 @@
 一期只用现有表，不依赖日汇总表：直接按单个学生查询。设计见 docs/4.架构设计/09_学生画像设计方案.md。
 """
 import math
+import re
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 
@@ -1716,6 +1717,44 @@ async def _study_time(db, sid, rng, k, beh, wrong_pending=0):
     return _study_time_build(rows, subs, rng, k["t1"], k["t0"], beh.get("avg_seconds_per_session"), hours, types, wrong_pending, prev_best, kp_rows)
 
 
+# ── 各维度的「总结」与「建议」拆分 ──
+# 维度里的 tips 是「事实 + 建议」混写的一句话（如「周末几乎没有学习记录，可以安排一次复盘」）。
+# 页面上每个维度的卡片只展示事实（总结），建议统一汇总到页面最底下的「建议」卡片。
+_ADVICE_MARK = re.compile(r"[，；](建议|可以|可多|可适当|可在|值得|需要讲解|先把|每次|基础稳了|继续保持)")
+
+
+def split_tip(text: str) -> tuple[str, bool]:
+    """返回（总结部分，是否含建议）。「继续保持」只是鼓励，不算建议；没有分界词的整句都是总结"""
+    m = None if text.startswith("最近一次：") else _ADVICE_MARK.search(text)   # 「最近一次」是引用学生的对话摘要，不拆
+    if not m:
+        return text, False
+    fact = text[:m.start()].strip("，；。 ")
+    if m.group(1) == "继续保持":
+        return fact or text, False
+    return fact or text, True
+
+
+_DIM_LABELS = {"study_time": "学习时长", "training": "训练次数", "answers": "答题数", "accuracy": "正确率", "ai_asks": "AI 提问"}
+
+
+def split_dimension_tips(dims: dict) -> list[dict]:
+    """就地把每个维度的 tips 改成只含总结，返回汇总后的建议 [{dim, text}]（text 保留完整一句，脱离上下文也读得懂）"""
+    advice: list[dict] = []
+    for key, label in _DIM_LABELS.items():
+        d = dims.get(key)
+        if not isinstance(d, dict) or not d.get("tips"):
+            continue
+        facts = []
+        for t in d["tips"]:
+            fact, has_adv = split_tip(t)
+            facts.append(fact)
+            if has_adv:
+                advice.append({"dim": label, "text": t})
+        d["tips"] = facts
+    return advice
+
+
+
 async def get_profile(db: AsyncSession, student_id: int, start: str | None = None, end: str | None = None) -> dict:
     """start / end：统计日期范围（YYYY-MM-DD，北京时间，含起止两天；默认近 7 天，最长 90 天）。
     答题量、正确率、行为、诊断、AI 互动、学习状态、投入度等按这个范围统计；
@@ -1745,6 +1784,7 @@ async def get_profile(db: AsyncSession, student_id: int, start: str | None = Non
     beh.pop("_sessions", None)
     await profile_warning_service.sync(db, student_id, basic)
     warnings = await profile_warning_service.list_warnings(db, student_id)
+    summary["dim_advice"] = split_dimension_tips({"study_time": study_time, "training": training, "answers": answers, "accuracy": accuracy, "ai_asks": ai_asks})
     return {
         "generated_at": datetime.now(timezone.utc), "range": rng.info(),
         "summary": summary, "kpis": kpis, "study_time": study_time, "training": training, "answers": answers, "accuracy": accuracy, "ai_asks": ai_asks, "basic": basic, "cognitive": cog, "mastery": mastery,
