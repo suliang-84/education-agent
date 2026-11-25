@@ -25,7 +25,72 @@
     </div>
 
     <template v-if="p">
-      <!-- 基础档案 + 综合评估 -->
+      <!-- 顶部概览：第一层「是谁 + 现在怎么样」，第二层「能力 | 累计学习」 -->
+      <div class="hero chart-card">
+        <div class="hero__top">
+          <!-- 身份 -->
+          <div class="hero__id">
+            <div class="hero__avatar"><img v-if="p.basic.avatar_url" :src="p.basic.avatar_url" alt="" /><span v-else>{{ (p.basic.nickname || '?').slice(0, 1) }}</span></div>
+            <div class="hero__txt">
+              <div class="hero__namerow">
+                <span class="hero__name">{{ p.basic.nickname }}</span>
+                <span v-if="p.basic.grade" class="hero__grade">{{ GRADES[p.basic.grade] ?? p.basic.grade }}{{ p.basic.semester ? ` · ${SEMESTERS[p.basic.semester] ?? p.basic.semester}` : '' }}</span>
+                <span v-if="p.basic.is_minor" class="hero__minor">未成年</span>
+                <span v-if="p.basic.is_active === false" class="hero__minor hero__minor--bad">已停用</span>
+              </div>
+              <div class="hero__meta">
+                <span>{{ p.basic.phone_masked || '未留手机号' }}</span>
+                <span>加入第 <b class="num">{{ joinDays }}</b> 天</span>
+                <span>最近登录 {{ lastLoginText }}</span>
+                <span :class="{ 'is-warn': !p.basic.parents.length }">{{ p.basic.parents.length ? `家长 ${p.basic.parents.map(x => x.nickname).join('、')}` : '家长未绑定' }}</span>
+              </div>
+            </div>
+          </div>
+          <!-- 当前状态 -->
+          <div class="hero__side">
+            <div class="ring" :style="{ '--p': p.summary.engagement_score }" title="学习投入度"><b class="num">{{ p.summary.engagement_score }}</b><i>投入度</i></div>
+            <div class="hero__status">
+              <div class="hero__state">
+                <span class="hero__dot" :class="`tone--${statusTone}`" /><span class="hero__tag" :class="`tone--${statusTone}`">{{ p.summary.status }}</span>
+                <span class="hero__warn" :class="warnTone">{{ warnText }}</span>
+              </div>
+              <div class="hero__reason" :title="p.summary.status_reason">{{ p.summary.status_reason }}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="hero__body">
+          <!-- 五力速览 -->
+          <section class="hero__power">
+            <div class="hero__label">五力速览<span v-if="p.cognitive.has_profile && p.cognitive.tested_at">测试于 {{ formatDate(p.cognitive.tested_at) }}</span></div>
+            <template v-if="p.cognitive.has_profile">
+              <div class="pw-row">
+                <div v-for="k in POWERS" :key="k" class="pw" :class="{ 'is-strong': p.cognitive.primary_strength === k, 'is-weak': p.cognitive.primary_weakness === k }" :style="{ '--pc': POWER_COLORS[k] }">
+                  <span class="pw__ico"><SvgIcon :name="`power_${k.toLowerCase()}`" :size="15" /></span>
+                  <b class="pw__num num">{{ p.cognitive.final?.[k] ?? '—' }}</b>
+                  <span class="pw__name">{{ FivePowerLabels[k] }}</span>
+                </div>
+              </div>
+              <div class="hero__cap">{{ modeText }}</div>
+            </template>
+            <div v-else class="hero__cap hero__cap--empty">尚未完成五力测试，暂无能力画像</div>
+          </section>
+          <!-- 累计学习 -->
+          <section class="hero__stats">
+            <div class="hero__label">累计学习<span>全部历史，不随日期范围变化</span></div>
+            <div class="hs-grid">
+              <div v-for="x in heroStats" :key="x.label" class="hs">
+                <div class="hs__lbl">{{ x.label }}</div>
+                <div class="hs__val num">{{ x.value }}<small v-if="x.unit">{{ x.unit }}</small></div>
+                <div v-if="x.bar != null" class="bar hs__bar"><div class="bar__fill" :style="{ width: x.bar + '%', '--bar-c': 'var(--color-primary)' }" /></div>
+                <div v-else-if="x.sub" class="hs__sub">{{ x.sub }}</div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <div v-if="p.kpis?.length" class="sec-title"><span>学习概览</span><em>{{ rangeLabel }}，涨跌为较前一周期</em></div>
       <!-- 顶部统计小卡片 -->
       <div v-if="p.kpis?.length" class="kpi-strip">
         <div v-for="k in p.kpis" :key="k.key" class="kpi" :class="{ 'kpi--link': DETAIL_KEYS.includes(k.key), 'kpi--active': activeKpi === k.key }" @click="pickKpi(k.key)">
@@ -61,6 +126,7 @@
       <!-- ═══ 中间明细区：跟着顶部统计卡当前选中的维度切换（activeKpi）═══ -->
       <!-- 上面一行：4 张统计卡（detailStats 按维度取）| 右边一张图（学习时长：学科分布；训练次数：次数趋势） -->
       <template v-if="DETAIL_KEYS.includes(activeKpi)">
+      <div class="sec-title"><span>维度明细</span><em>点击上方统计卡切换维度</em></div>
       <div class="chart-row" :class="{ 'chart-row--3': activeKpi === 'answered' || activeKpi === 'accuracy' }">
         <div v-if="activeKpi !== 'accuracy'" class="stat-grid">
           <div v-for="x in detailStats" :key="x.label" class="kpi kpi--plain" :title="x.hint">
@@ -355,6 +421,7 @@
       </template>
 
       <!-- ═══ 下面各模块平铺：认知能力（整行）→ 个人洞察 | 学习信息摘要 → 预警 | 建议 ═══ -->
+      <div class="sec-title"><span>能力画像</span><em>五力测试 vs 实战表现</em></div>
       <div class="chart-card cog-card">
         <div class="chart-card__head">
           <div class="chart-card__title">认知能力</div>
@@ -419,6 +486,7 @@
         <div v-else class="chart-card__empty cog-empty">该学生尚未完成五力测试，暂无能力画像</div>
       </div>
 
+      <div class="sec-title"><span>智能洞察</span><em>个人洞察、预警与 AI 建议</em></div>
       <div class="bottom-row">
         <div class="chart-card">
           <div class="chart-card__head">
@@ -445,7 +513,7 @@
             <span class="card-hint">规则和阈值可在「配置管理」里修改</span>
           </div>
             <div v-if="p.warnings.open.length" class="warn-list">
-              <div v-for="w in p.warnings.open" :key="w.id" class="warn-item">
+              <div v-for="w in p.warnings.open" :key="w.id" class="warn-item" :class="`warn-item--${w.level}`">
                 <span class="level-tag" :class="`level--${w.level}`">{{ w.level_label }}</span>
                 <div class="warn-item__main">
                   <div class="warn-item__title">{{ w.rule_name }}</div>
@@ -470,9 +538,9 @@
               </div>
             </template>
         </div>
-        <div class="chart-card">
+        <div class="chart-card advice-card">
           <div class="chart-card__head">
-            <div class="chart-card__title">建议</div>
+            <div class="chart-card__title">建议<span class="ai-badge"><SvgIcon name="sparkle" :size="12" />AI</span></div>
             <span class="card-hint">
               <template v-if="adviceLoading">AI 正在结合认知能力与学习数据分析…</template>
               <template v-else-if="advice?.source === 'rule'">AI 暂不可用，以下为规则建议</template>
@@ -534,10 +602,10 @@ function fmtMin(m?: number | null) {
   if (m == null) return '—'
   return m < 60 ? `${Math.round(m * 10) / 10} 分钟` : `${Math.round(m / 6) / 10} 小时`
 }
-// 练习方式的颜色（和小程序「练习方式」同一批名称）：和学科色同一个思路，只用页面本身的蓝紫灰色阶（定义在下方非 scoped 样式块的 --type-* 变量里，亮 / 暗各一套）。
+// 练习方式的颜色（和小程序「练习方式」同一批名称）：配色取自题目类型那一套（与答题类型分布一致），定义在下方非 scoped 样式块的 --type-* 变量里，亮 / 暗各一套。
 // 7 档明度会让相邻两段太像，所以相邻的练习方式一深一浅交错排，图例也分得开
 const TYPE_VAR: Record<string, string> = { KNOWLEDGE_POINT: 'kp', UNIT: 'unit', ERROR_QUESTIONS: 'err', FAVORITES: 'fav', SMART: 'smart', RANDOM: 'random', SEMESTER: 'sem' }
-const TYPE_FALLBACK: Record<string, string> = { kp: '#8aa0ff', unit: '#c4d4ff', err: '#a58bf0', fav: '#d8cdfb', smart: '#6272e6', random: '#7a84a6', sem: '#7ab4f5' }
+const TYPE_FALLBACK: Record<string, string> = { kp: '#60a5fa', unit: '#22d3ee', err: '#f472b6', fav: '#facc15', smart: '#a78bfa', random: '#94a3b8', sem: '#34d399' }
 function typeColor(key: string) {
   const k = TYPE_VAR[key] ?? 'sem'
   return cssVar(`--type-${k}`, TYPE_FALLBACK[k])
@@ -665,6 +733,48 @@ function kpiTone(k: { delta: number | null; good: 'up' | 'down' | null }) {
   if (!k.good) return ''
   return (k.delta > 0) === (k.good === 'up') ? 'delta--up' : 'delta--down'
 }
+// 学习状态 → 色调：提升绿 / 平稳蓝 / 瓶颈琥珀 / 懈怠红 / 数据不足灰
+const statusTone = computed(() => ({ 稳步提升: 'good', 状态平稳: 'calm', 遇到瓶颈: 'warn', 近期懈怠: 'bad' } as Record<string, string>)[p.value?.summary.status ?? ''] ?? 'none')
+// ── 顶部概览用到的派生数据 ──
+const dayDiff = (iso?: string | null) => (iso ? Math.floor((Date.now() - new Date(iso).getTime()) / 86400000) : null)
+const joinDays = computed(() => (dayDiff(p.value?.basic.created_at) ?? 0) + 1)
+const lastLoginText = computed(() => {
+  const d = dayDiff(p.value?.basic.last_login_at)
+  return d == null ? '从未登录' : d <= 0 ? '今天' : `${d} 天前`
+})
+const MODE_LABELS: Record<string, string> = { TRAIN_WEAKNESS: '补足模式', LEARN_BY_STRENGTH: '一通百通模式' }
+const modeText = computed(() => {
+  const c = p.value?.cognitive
+  if (!c?.has_profile) return ''
+  const mode = c.recommended_mode ? MODE_LABELS[c.recommended_mode] ?? c.recommended_mode : ''
+  const lbl = (k?: string) => (k ? FivePowerLabels[k as FivePower] ?? k : '')
+  const parts = [c.primary_strength && `最强「${lbl(c.primary_strength)}」`, c.primary_weakness && `最需提升「${lbl(c.primary_weakness)}」`].filter(Boolean)
+  return `${parts.join('，')}${mode ? `；系统推荐：${mode}` : ''}`
+})
+// 未处理预警：条数 + 最高级别（严重 > 关注 > 提示）
+const warnTone = computed(() => {
+  const open = p.value?.warnings.open ?? []
+  return open.some(w => w.level === 'critical') ? 'is-critical' : open.some(w => w.level === 'attention') ? 'is-attention' : open.length ? 'is-notice' : 'is-ok'
+})
+const warnText = computed(() => {
+  const n = p.value?.warnings.open.length ?? 0
+  return n ? `${n} 条未处理预警` : '暂无预警'
+})
+// 累计学习数据（整个账号的历史，不随日期范围变）
+const heroStats = computed(() => {
+  const q = p.value
+  if (!q) return []
+  const last = q.behavior.last_active_date
+  const sp = q.mastery.semester_progress
+  return [
+    { label: '累计训练', value: String(q.behavior.sessions_total), unit: '次', sub: last ? `最近学习 ${last.slice(5).replace('-', '/')}` : '' },
+    { label: '累计答题', value: String(q.cognitive.training_info?.total_question_count ?? q.mastery.answered), unit: '题', sub: `覆盖 ${q.mastery.kp_total_practiced} 个知识点` },
+    { label: '连续学习', value: String(q.behavior.streak_days), unit: '天', sub: '' },
+    { label: '近 30 天学习', value: String(q.basic.active_days_30), unit: '天', sub: `占 ${Math.round((q.basic.active_days_30 / 30) * 100)}%` },
+    { label: '本学期知识点', value: `${sp.practiced}/${sp.total}`, unit: '', bar: sp.rate ?? 0, sub: sp.rate != null ? `已练 ${sp.rate}%` : '' },
+    { label: '待攻克错题', value: String(q.mastery.wrong_pending), unit: '题', sub: `已攻克 ${q.mastery.wrong_mastered} 道` },
+  ] as { label: string; value: string; unit: string; sub: string; bar?: number }[]
+})
 const rangeLabel = computed(() => p.value?.range.label ?? '近 7 天')
 function onRangeChange() {
   const [s, e] = dateRange.value
@@ -812,20 +922,28 @@ function renderRadar() {
     // 测试综合得分 vs 所选范围内的实战正确率：两个多边形的差距就是「会但没发挥出来」或「实战超预期」
     const real = Object.fromEntries((cog.insights?.powers ?? []).map(x => [x.key, x.accuracy ?? 0]))
     const green = cssVar('--green', '#22c55e')
+    const dark = document.documentElement.dataset.theme === 'dark'
+    const areaGrad = (hex: string, edge: number) => ({ type: 'radial', x: 0.5, y: 0.5, r: 0.5, colorStops: [{ offset: 0, color: hexAlpha(hex, 0.04) }, { offset: 1, color: hexAlpha(hex, edge) }] })
+    const glow = (hex: string) => ({ shadowBlur: 12, shadowColor: hexAlpha(hex, 0.55) })
+    const rich = Object.fromEntries(POWERS.map(k => [k, { color: POWER_COLORS[k], fontSize: 12.5, fontWeight: 600 }]))
+    const cogColor = (hex: string) => (hex.startsWith('#') ? hex : '#7f9bff')
     c.setOption({
       backgroundColor: 'transparent',
-      legend: { bottom: 0, itemWidth: 12, itemHeight: 8, textStyle: { color: cssVar('--text-2', '#888'), fontSize: 12 } },
+      legend: { bottom: 0, itemWidth: 14, itemHeight: 3, icon: 'roundRect', itemGap: 18, textStyle: { color: cssVar('--text-2', '#888'), fontSize: 12 } },
       tooltip: {},
       radar: {
-        indicator: POWERS.map(k => ({ name: FivePowerLabels[k], max: 100 })), radius: 85, center: ['50%', '47%'],
-        axisName: { color: cssVar('--text-2', '#888'), fontSize: 12 },
-        splitLine: { lineStyle: { color: 'rgba(128,128,128,0.22)' } }, splitArea: { show: false }, axisLine: { lineStyle: { color: 'rgba(128,128,128,0.22)' } },
+        shape: 'circle', indicator: POWERS.map(k => ({ name: `{${k}|${FivePowerLabels[k]}}`, max: 100 })), radius: 84, center: ['50%', '47%'], axisNameGap: 10,
+        axisName: { formatter: (v: string) => v, rich },
+        splitNumber: 4,
+        splitLine: { lineStyle: { color: dark ? 'rgba(190,200,255,0.16)' : 'rgba(94,141,249,0.22)', type: 'dashed' } },
+        splitArea: { areaStyle: { color: dark ? ['rgba(150,160,240,0.05)', 'rgba(150,160,240,0.0)'] : ['rgba(94,141,249,0.06)', 'rgba(94,141,249,0.0)'] } },
+        axisLine: { lineStyle: { color: dark ? 'rgba(190,200,255,0.16)' : 'rgba(94,141,249,0.22)' } },
       },
       series: [{
-        type: 'radar',
+        type: 'radar', symbol: 'circle', symbolSize: 6,
         data: [
-          { name: '测试得分', value: POWERS.map(k => cog.final?.[k] ?? 0), lineStyle: { color: primary, width: 2 }, itemStyle: { color: primary }, areaStyle: { color: primary, opacity: 0.18 } },
-          { name: `实战正确率`, value: POWERS.map(k => real[k] ?? 0), lineStyle: { color: green, width: 2, type: 'dashed' }, itemStyle: { color: green }, areaStyle: { color: green, opacity: 0.12 } },
+          { name: '测试得分', value: POWERS.map(k => cog.final?.[k] ?? 0), lineStyle: { color: cogColor(primary), width: 2.5, ...glow(cogColor(primary)) }, itemStyle: { color: cogColor(primary), borderColor: dark ? '#0d0f1c' : '#fff', borderWidth: 2 }, areaStyle: { color: areaGrad(cogColor(primary), 0.5) } },
+          { name: `实战正确率`, value: POWERS.map(k => real[k] ?? 0), lineStyle: { color: green, width: 2, type: 'dashed', ...glow(green) }, itemStyle: { color: green, borderColor: dark ? '#0d0f1c' : '#fff', borderWidth: 2 }, areaStyle: { color: areaGrad(green, 0.34) } },
         ],
       }],
     })
@@ -1423,6 +1541,10 @@ onBeforeUnmount(() => { window.removeEventListener('resize', onResize); charts.f
 // 预警：每条是一行圆角浅底，不再用分隔线
 .bottom-row .warn-list { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
 .bottom-row .warn-item { padding: 9px 12px; border: none; border-radius: 10px; background: color-mix(in srgb, var(--text-3) 8%, transparent); }
+// 未处理预警：按紧急程度铺一层向右渐隐的底色（提示 = 主色、关注 = 琥珀、严重 = 红），一眼分出轻重
+.bottom-row .warn-item--notice { background: linear-gradient(90deg, color-mix(in srgb, var(--color-primary) 22%, transparent), color-mix(in srgb, var(--color-primary) 2%, transparent) 85%); }
+.bottom-row .warn-item--attention { background: linear-gradient(90deg, color-mix(in srgb, var(--amber) 24%, transparent), color-mix(in srgb, var(--amber) 2%, transparent) 85%); }
+.bottom-row .warn-item--critical { background: linear-gradient(90deg, color-mix(in srgb, var(--red) 26%, transparent), color-mix(in srgb, var(--red) 2%, transparent) 85%); }
 .warn-sub { margin: 14px 0 8px; font-size: 12px; color: var(--text-3); }
 .bottom-row .warn-item--done { margin-bottom: 8px; background: transparent; border: 1px dashed color-mix(in srgb, var(--text-3) 22%, transparent); }
 .tips--card { margin-top: 10px; .tip { margin-bottom: 9px; } }
@@ -1444,8 +1566,9 @@ onBeforeUnmount(() => { window.removeEventListener('resize', onResize); charts.f
 html[data-theme="dark"] { --subj-math: #7f9bff; --subj-physics: #4fd0c4; --subj-chemistry: #b595ff; --subj-other: #5b617c; }
 :root { --diff-basic: #a9bdf9; --diff-advanced: #6272e6; --diff-challenge: #3d4fc4; }
 html[data-theme="dark"] { --diff-basic: #c4caf0; --diff-advanced: #8f97ea; --diff-challenge: #6a72d0; }
-:root { --type-kp: #4f6bed; --type-unit: #8fb0fb; --type-err: #7a5fd6; --type-fav: #b4a6f0; --type-smart: #3d4fc4; --type-random: #9aa3c4; --type-sem: #5fa0e8; }
-html[data-theme="dark"] { --type-kp: #8aa0ff; --type-unit: #c4d4ff; --type-err: #a58bf0; --type-fav: #d8cdfb; --type-smart: #6272e6; --type-random: #7a84a6; --type-sem: #7ab4f5; }
+// 练习方式的圆环配色：取题目类型的那一套色（--qt-*：单选蓝 / 多选紫 / 填空黄 / 判断青 / 应用粉，与「答题类型分布」一致），不够的两种补中性灰和绿
+:root { --type-kp: #3b82f6; --type-unit: #06b6d4; --type-err: #ec4899; --type-fav: #ca8a04; --type-smart: #8b5cf6; --type-random: #94a3b8; --type-sem: #10b981; }
+html[data-theme="dark"] { --type-kp: #60a5fa; --type-unit: #22d3ee; --type-err: #f472b6; --type-fav: #facc15; --type-smart: #a78bfa; --type-random: #94a3b8; --type-sem: #34d399; }
 
 // 暗色主题（参考图）：更深的蓝黑底 + 右上角淡薰衣草光；强调色偏灰的薰衣草蓝紫；
 // 胶囊标签 / 按钮、小号大写表头；亮色主题的统计卡 / 图表卡配色
@@ -1507,7 +1630,7 @@ html[data-theme="dark"] .page-root {
 .page-root .detail-row > *:nth-child(2) { animation-delay: 0.19s; } .page-root .detail-row > *:nth-child(3) { animation-delay: 0.24s; }
 .page-root > .cog-card { animation-delay: 0.1s; }
 
-// 选中的统计卡：底部一条主色光带，一眼看出当前维度
+// 选中的统计卡：描边提亮（上面 scoped 块里的 .kpi--active）+ 底部一条主色光带
 .page-root .kpi.kpi--active::after { content: ''; position: absolute; left: 16px; right: 16px; bottom: 0; height: 2px; z-index: 3; border-radius: 2px 2px 0 0;
   background: linear-gradient(90deg, transparent, var(--color-primary), transparent); animation: pf-rise 0.4s var(--pf-ease) backwards; }
 html[data-theme="dark"] .page-root .kpi.kpi--active::after { box-shadow: 0 0 12px var(--color-primary); }
@@ -1607,6 +1730,104 @@ html[data-theme="dark"] { --lv-excellent: #34d399; --lv-good: #60a5fa; --lv-ok: 
 // 等级标签
 .page-root .lv-chip { flex: none; min-width: 38px; padding: 0 8px; border-radius: 999px; text-align: center; font-size: 11.5px; line-height: 20px; font-weight: 600; white-space: nowrap;
   color: var(--bar-c); background: color-mix(in srgb, var(--bar-c) 15%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bar-c) 30%, transparent); }
+
+// ═══ 整体质感：顶部概览 Hero / 分区标题 / 学习投入度环 / AI 建议卡 ═══
+.page-root > .hero, .page-root > .sec-title { animation: pf-rise 0.5s var(--pf-ease) backwards; }
+.page-root > .sec-title { animation-delay: 0.05s; }
+
+// 分区标题：小号字距 + 一条向右渐隐的细线，把页面分成清楚的几块
+.page-root .sec-title { display: flex; align-items: center; gap: 12px; margin: 6px 0 -4px; flex-shrink: 0;
+  span { font-size: 12px; font-weight: 600; letter-spacing: 0.22em; color: var(--text-2); }
+  em { font-style: normal; font-size: 12px; color: var(--text-3); letter-spacing: 0.02em; }
+  &::after { content: ''; flex: 1; height: 1px; order: 3; background: linear-gradient(90deg, color-mix(in srgb, var(--text-3) 40%, transparent), transparent); } }
+
+// Hero —— 三层信息：
+//   ① 身份（大字昵称 + 一行安静的小字）     ② 当前状态（环 + 状态 + 一句原因）      —— 第一眼
+//   ③ 五力速览（五个等宽小方块）            ④ 累计学习（3×2 数据）                  —— 第二眼
+// 规则：颜色只给「状态」和「五力」；其余全部用灰阶；所有板块共用同一套间距（外边距 24 / 板块间 20 / 内部 12）和同一种小标题
+:root { --st-good: #10b981; --st-calm: #60a5fa; --st-warn: #f59e0b; --st-bad: #ef4444; --st-none: #8b92b0; }
+.page-root .hero { overflow: hidden; display: flex; flex-direction: column; gap: 20px; padding: 24px; flex-shrink: 0;
+  &::after { content: ''; position: absolute; right: -60px; top: -90px; width: 340px; height: 260px; border-radius: 50%; pointer-events: none; z-index: 0;
+    background: radial-gradient(closest-side, color-mix(in srgb, var(--color-primary) 18%, transparent), transparent); }
+  > * { position: relative; z-index: 1; } }
+.hero__label { display: flex; align-items: baseline; gap: 10px; font-size: 12px; font-weight: 600; letter-spacing: 0.1em; color: var(--text-3);
+  span { font-weight: 400; letter-spacing: 0.02em; } }
+
+// 第一层
+.hero__top { display: flex; align-items: center; justify-content: space-between; gap: 32px; @media (max-width: 1000px) { flex-direction: column; align-items: flex-start; } }
+.hero__id { display: flex; align-items: center; gap: 18px; min-width: 0; }
+.hero__avatar { flex: none; width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; overflow: hidden; font-size: 24px; font-weight: 600; color: #fff;
+  background: linear-gradient(135deg, var(--color-primary), color-mix(in srgb, var(--color-primary) 40%, #7c3aed)); box-shadow: 0 8px 22px color-mix(in srgb, var(--color-primary) 36%, transparent), inset 0 0 0 2px rgba(255, 255, 255, 0.25);
+  img { width: 100%; height: 100%; object-fit: cover; } }
+.hero__txt { min-width: 0; }
+.hero__namerow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.hero__name { font-size: 24px; font-weight: 600; line-height: 1.2; letter-spacing: 0.02em; color: var(--text-1); }
+.hero__grade { font-size: 13px; font-weight: 600; color: var(--color-primary); }
+.hero__minor { padding: 0 8px; border-radius: 999px; font-size: 11.5px; line-height: 20px; color: var(--text-2); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text-3) 40%, transparent);
+  &--bad { color: var(--st-bad); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--st-bad) 50%, transparent); } }
+// 一行小字：手机号 · 加入 · 最近登录 · 家长（灰阶，圆点分隔；家长没绑定时用琥珀色轻提醒）
+.hero__meta { display: flex; flex-wrap: wrap; margin-top: 8px; font-size: 12.5px; color: var(--text-3);
+  span { white-space: nowrap; b { margin: 0 2px; font-weight: 600; color: var(--text-2); } &.is-warn { color: var(--st-warn); } }
+  span + span::before { content: '·'; margin: 0 10px; color: var(--text-3); opacity: 0.6; } }
+
+.hero__side { display: flex; align-items: center; gap: 18px; min-width: 0; }
+.hero__status { min-width: 0; max-width: 360px; }
+.hero__state { display: flex; align-items: center; gap: 8px; }
+.hero__tag { font-size: 20px; font-weight: 600; letter-spacing: 0.04em; }
+.hero__dot { width: 9px; height: 9px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 18%, transparent), 0 0 10px currentColor; animation: pf-pulse 2.4s ease-in-out infinite; }
+@keyframes pf-pulse { 50% { box-shadow: 0 0 0 7px color-mix(in srgb, currentColor 6%, transparent), 0 0 16px currentColor; } }
+.hero .tone--good { color: var(--st-good); } .hero .tone--calm { color: var(--st-calm); } .hero .tone--warn { color: var(--st-warn); } .hero .tone--bad { color: var(--st-bad); } .hero .tone--none { color: var(--st-none); }
+.hero__reason { margin-top: 6px; font-size: 12.5px; line-height: 1.6; color: var(--text-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+// 预警小标：和状态同一行，颜色跟最高级别
+.hero__warn { margin-left: 6px; padding: 0 9px; border-radius: 999px; font-size: 11.5px; line-height: 20px; font-weight: 400; letter-spacing: 0; white-space: nowrap;
+  color: var(--wc); background: color-mix(in srgb, var(--wc) 14%, transparent);
+  &.is-critical { --wc: var(--st-bad); } &.is-attention { --wc: var(--st-warn); } &.is-notice { --wc: var(--color-primary); } &.is-ok { --wc: var(--st-good); } }
+// 投入度环：圆锥渐变进度（主色 → 白）；数字下面一行小字写「投入度」，不再需要单独标题
+.page-root .ring { --p: 0; position: relative; flex: none; width: 76px; height: 76px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  &::before { content: ''; position: absolute; inset: 0; border-radius: 50%;
+    background: conic-gradient(from 0deg, var(--color-primary) 0, #fff calc(var(--p) * 1%), color-mix(in srgb, var(--text-3) 20%, transparent) 0);
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 8px), #000 calc(100% - 7px)); mask: radial-gradient(farthest-side, transparent calc(100% - 8px), #000 calc(100% - 7px));
+    filter: drop-shadow(0 0 8px color-mix(in srgb, var(--color-primary) 45%, transparent)); }
+  b { position: relative; font-size: 24px; font-weight: 500; line-height: 1; color: var(--text-1); }
+  i { position: relative; margin-top: 3px; font-style: normal; font-size: 10.5px; color: var(--text-3); } }
+
+// 第二层：左右两块，中间一条细分隔线，顶部与第一层之间也是一条细线
+.hero__body { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 0 40px; padding-top: 20px; border-top: 1px solid color-mix(in srgb, var(--text-3) 20%, transparent);
+  @media (max-width: 1000px) { grid-template-columns: 1fr; gap: 20px; } }
+.hero__power, .hero__stats { min-width: 0; }
+.hero__stats { padding-left: 40px; border-left: 1px solid color-mix(in srgb, var(--text-3) 20%, transparent); @media (max-width: 1000px) { padding-left: 0; border-left: none; } }
+
+// 五力：五个等宽小方块，图标 + 得分 + 名称；最强项底色加深，其余样式一致（强弱在下面一行文字里说明）（说明文字在下面一行）
+.pw-row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+.pw { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 4px 10px; border-radius: 12px;
+  background: color-mix(in srgb, var(--pc) 7%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pc) 16%, transparent);
+  &.is-strong { background: color-mix(in srgb, var(--pc) 16%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pc) 50%, transparent); } }
+.pw__ico { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 8px; color: var(--pc); background: color-mix(in srgb, var(--pc) 16%, transparent); }
+.pw__num { font-size: 20px; font-weight: 500; line-height: 1.1; color: var(--text-1); }
+.pw__name { font-size: 12px; color: var(--text-2); }
+.hero__cap { margin-top: 12px; font-size: 12.5px; line-height: 1.6; color: var(--text-2); &--empty { margin-top: 20px; color: var(--text-3); } }
+
+// 累计学习：3 列 × 2 行，每格 = 小标题 / 数字 / 一行补充
+.hs-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px 24px; margin-top: 12px; }
+.hs { min-width: 0; }
+.hs__lbl { font-size: 12px; color: var(--text-3); white-space: nowrap; }
+.hs__val { margin-top: 3px; font-size: 22px; font-weight: 400; line-height: 1.15; letter-spacing: -0.02em; color: var(--text-1); white-space: nowrap;
+  small { margin-left: 4px; font-size: 12px; letter-spacing: 0; color: var(--text-2); } }
+.hs__bar { margin-top: 6px; }
+.hs__sub { margin-top: 3px; font-size: 12px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+// 顶部统计卡数字：暗色下用白 → 淡蓝紫的纵向渐变字，更有质感
+html[data-theme="dark"] .page-root .kpi__val { background: linear-gradient(180deg, #ffffff 30%, #aab3ec); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  .kpi__unit { -webkit-text-fill-color: var(--text-2); } }
+
+// AI 建议卡：标题旁的 AI 徽章 + 缓慢流动的渐变描边，和别的卡片区分开
+.page-root .ai-badge { display: inline-flex; align-items: center; gap: 3px; margin-left: 8px; padding: 0 8px; height: 18px; border-radius: 999px; font-size: 11px; line-height: 1; font-weight: 600; letter-spacing: 0.06em; color: #fff;
+  background: linear-gradient(135deg, var(--color-primary), #a78bfa); box-shadow: 0 2px 8px color-mix(in srgb, var(--color-primary) 40%, transparent); }
+// 标题和 AI 徽章：之前徽章是行内元素 + vertical-align 微调，和标题文字的基线对不齐；改成弹性布局，两者按中线垂直居中
+.page-root .advice-card .chart-card__title { display: flex; align-items: center; line-height: 1.4; }
+.page-root .ai-badge svg { flex: none; display: block; }
+.page-root .advice-card::before { background: linear-gradient(120deg, var(--color-primary), transparent 30%, transparent 70%, #a78bfa, var(--color-primary)); background-size: 220% 220%; animation: pf-flow 8s linear infinite; opacity: 0.8; }
+@keyframes pf-flow { to { background-position: 220% 220%; } }
 
 // ── 表格（.mini-table）：和卡片融成一体，不分层 ──
 // 没有表头底色、没有斑马纹、没有外框；表头只是一行小号淡色文字，下面一条细线；行与行之间用极淡的细线，悬停无背景变化。

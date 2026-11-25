@@ -461,6 +461,7 @@ export interface StudentProfile {
   }
   basic: {
     id: number; nickname: string; avatar_url: string | null; grade: string | null; semester: string | null; is_minor: boolean
+    is_active?: boolean; phone_masked?: string | null   // 账号是否启用 / 脱敏手机号
     created_at: string; last_login_at: string | null; active_days_30: number
     parents: { id: number; nickname: string; confirmed_at: string | null }[]
   }
