@@ -351,6 +351,7 @@ export interface StudyTime {
   stats?: {
     total_minutes: number; prev_minutes: number; delta_pct: number | null; active_days: number; avg_per_active_day: number | null
     best_day: { date: string; minutes: number } | null; prev_best_minutes?: number | null; avg_per_session: number | null; weekday_avg: number | null; weekend_avg: number | null
+    prev_avg_per_session?: number | null; prev_weekday_avg?: number | null; prev_weekend_avg?: number | null   // 前一周期对应值（分钟），没有则 null
   }
   highlights?: { tone: 'good' | 'warn'; text: string }[]
   /** 每个学科周期内用时最长的 5 个知识点（键是学科 code）；一道题挂多个知识点时各算一份，只用来排名 */
@@ -389,6 +390,7 @@ export interface AnswerStats {
   stats: {
     total: number; prev_total: number; correct: number; accuracy: number | null
     wrong_pending: number; wrong_mastered: number; mastered_rate: number | null    // 待攻克 / 已攻克 / 攻克率（%）
+    prev_wrong_pending?: number | null; prev_wrong_mastered?: number | null; prev_stubborn?: number | null; prev_favorites?: number | null   // 所选范围开始时的值（涨跌 = 范围内净变化）
     stubborn: number; favorites: number                                            // 顽固错题（同一道题错 3 次以上）/ 收藏题数
     breakdown: Record<string, { pending: number; mastered: number; stubborn: number; favorites: number }>   // 每个学科各是多少
   }

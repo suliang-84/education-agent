@@ -1005,7 +1005,7 @@ def _study_time_tips(stats, subj, types, tb, rng, wrong_pending):
     return tips[:5]
 
 
-def _study_time_build(rows, subjects, rng, t1, t0, avg_session_sec, hour_rows=None, type_rows=None, wrong_pending=0, prev_best_sec=None, kp_rows=None):
+def _study_time_build(rows, subjects, rng, t1, t0, avg_session_sec, hour_rows=None, type_rows=None, wrong_pending=0, prev_best_sec=None, kp_rows=None, prev_stats=None):
     """学习时长明细（纯计算，方便测试）。rows：每天每个学科的 {d, sid, t(秒), n, c}；subjects：{id: (code, name)}。
     时长 = 每道题的作答用时之和（系统没有记录页面在线时长，这是最接近的口径）。
     prev_best_sec：前一段同样长度时间里，学得最久那一天的秒数（没有学习记录时传 None / 0），用来给「单日最长」做涨跌对比。
@@ -1054,6 +1054,9 @@ def _study_time_build(rows, subjects, rng, t1, t0, avg_session_sec, hour_rows=No
         "prev_best_minutes": round(prev_best_sec / 60, 1) if prev_best_sec else None,     # 前一段的单日最长；前一段没学习则为 None（不做对比）
         "avg_per_session": None if not avg_session_sec else round(avg_session_sec / 60, 1),
         "weekday_avg": round(wk_total / n_wd / 60, 1) if n_wd else None, "weekend_avg": round(we_total / n_we / 60, 1) if n_we else None,
+        # 前一段同样长度时间的对应值（分钟），给三张统计卡做涨跌对比；前一段没有学习记录则为 None
+        "prev_avg_per_session": (prev_stats or {}).get("avg_per_session"),
+        "prev_weekday_avg": (prev_stats or {}).get("weekday_avg"), "prev_weekend_avg": (prev_stats or {}).get("weekend_avg"),
     }
 
     hl = []
@@ -1308,7 +1311,7 @@ def _answer_dist(cube, field, labels, code_of, codes):
     return out
 
 
-def _answers_build(cube, subjects, prev_total, wrong_rows, stubborn_rows, fav_rows, kp_rows):
+def _answers_build(cube, subjects, prev_total, wrong_rows, stubborn_rows, fav_rows, kp_rows, at_start=None):
     """答题数明细（纯计算，方便测试）。
     cube：所选范围内「学科 × 题型 × 难度」的 {sid, qt, df, n(答题数), c(答对数)}；
     wrong_rows：错题 {sid, k(review_status), n}；stubborn_rows：顽固错题（同一道题错 3 次以上）{sid, n}；fav_rows：收藏 {sid, n}；
@@ -1347,7 +1350,10 @@ def _answers_build(cube, subjects, prev_total, wrong_rows, stubborn_rows, fav_ro
     stubborn, fav = sum(v["stubborn"] for v in bd.values()), sum(v["favorites"] for v in bd.values())
     stats = {"total": total, "prev_total": prev_total, "correct": correct, "accuracy": _pct(correct, total),
              "wrong_pending": pending, "wrong_mastered": mastered, "mastered_rate": _pct(mastered, pending + mastered),
-             "stubborn": stubborn, "favorites": fav, "breakdown": bd}
+             "stubborn": stubborn, "favorites": fav, "breakdown": bd,
+             # 这四项是「当前状态」，对比口径 = 所选范围开始那一刻的值（涨跌 = 范围内的净变化）；没有历史时间戳可推算时为 None
+             "prev_wrong_pending": (at_start or {}).get("pending"), "prev_wrong_mastered": (at_start or {}).get("mastered"),
+             "prev_stubborn": (at_start or {}).get("stubborn"), "prev_favorites": (at_start or {}).get("favorites")}
 
     # 题型 / 难度分布：按学科，固定输出全部题型 / 全部难度（没做过的是 0，看得出「没做过挑战题」）
     types_by_subject = _answer_dist(cube, "qt", TYPE_LABELS, code_of, per)
@@ -1440,7 +1446,19 @@ async def _answers_stats(db, sid, rng):
         WHERE s.student_id = :sid AND COALESCE(a.is_seed_data, false) = false AND a.answered_at >= :since AND a.answered_at < :until
         GROUP BY 1, 2, 3""", sid=sid, **rng.params)
     subs = {r["id"]: (r["code"], r["name"]) for r in await _rows(db, "SELECT id, code, name FROM subjects")}
-    return _answers_build(cube, subs, prev["n"] if prev else 0, wrong, stubborn, fav, kp_rows)
+    # 范围开始那一刻的状态（错题 / 顽固错题 / 收藏都只存当前状态，按各自的时间戳回推）
+    #   待攻克 = 此前已产生、且当时还没攻克的错题；已攻克 = 此前已攻克的；顽固 = 当时已错 3 次以上的题；收藏 = 此前已收藏的
+    w0 = await _one(db, """
+        SELECT count(*) FILTER (WHERE w.review_status <> 'aha_achieved' OR coalesce(w.aha_at, w.reviewed_at, w.created_at) >= :since) pending,
+               count(*) FILTER (WHERE w.review_status = 'aha_achieved' AND coalesce(w.aha_at, w.reviewed_at, w.created_at) < :since) mastered
+        FROM wrong_answer_records w WHERE w.student_id = :sid AND w.created_at < :since
+          AND w.review_status IN ('unreview', 'aha_achieved')""", sid=sid, since=rng.since)
+    st0 = await _one(db, f"""
+        SELECT count(*) n FROM (SELECT a.question_id {_BASE} AND NOT a.is_correct AND a.answered_at < :since GROUP BY 1 HAVING count(*) >= 3) x""", sid=sid, since=rng.since)
+    fv0 = await _one(db, "SELECT count(*) n FROM question_favorites f WHERE f.student_id = :sid AND f.created_at < :since", sid=sid, since=rng.since)
+    at_start = {"pending": int(w0["pending"]) if w0 else 0, "mastered": int(w0["mastered"]) if w0 else 0,
+                "stubborn": int(st0["n"]) if st0 else 0, "favorites": int(fv0["n"]) if fv0 else 0}
+    return _answers_build(cube, subs, prev["n"] if prev else 0, wrong, stubborn, fav, kp_rows, at_start)
 
 
 def _accuracy_build(cube, subjects, prev, causes, kp_rows, semester, trend_rows=None, rng=None, kp_meta=None):
@@ -1705,6 +1723,18 @@ async def _study_time(db, sid, rng, k, beh, wrong_pending=0):
         SELECT (a.answered_at AT TIME ZONE '{TZ}')::date d, coalesce(sum(a.time_spent_sec), 0) t
         {_base(True)} GROUP BY 1""", sid=sid, since=rng.prev_since, until=rng.since)
     prev_best = max((float(r["t"] or 0) for r in prev), default=0)
+    # 前一段的：平均每次训练时长、工作日 / 周末日均（口径同当前：该类日子的总时长 ÷ 该类日子的天数，没学习的天也算）
+    prev_sess = await _one(db, f"""
+        SELECT avg(x.tot) v FROM (SELECT sum(a.time_spent_sec) tot {_base(True)} GROUP BY a.session_id) x""", sid=sid, since=rng.prev_since, until=rng.since)
+    p_start = rng.start - timedelta(days=rng.days)
+    p_wd = sum(1 for i in range(rng.days) if (p_start + timedelta(days=i)).weekday() < 5)
+    p_we = rng.days - p_wd
+    p_wk_t = sum(float(r["t"] or 0) for r in prev if r["d"].weekday() < 5)
+    p_we_t = sum(float(r["t"] or 0) for r in prev if r["d"].weekday() >= 5)
+    prev_stats = None
+    if prev_best:     # 前一段完全没有学习记录：不做对比
+        prev_stats = {"avg_per_session": round(float(prev_sess["v"]) / 60, 1) if prev_sess and prev_sess["v"] else None,
+                      "weekday_avg": round(p_wk_t / p_wd / 60, 1) if p_wd else None, "weekend_avg": round(p_we_t / p_we / 60, 1) if p_we else None}
     kp_rows = await _rows(db, """
         SELECT q.subject_id sid, kp.id kid, kp.name, coalesce(sum(a.time_spent_sec), 0) t, count(*) n
         FROM training_answer_records a
@@ -1714,7 +1744,7 @@ async def _study_time(db, sid, rng, k, beh, wrong_pending=0):
         JOIN knowledge_points kp ON kp.id = (CASE WHEN k.kid ~ '^[0-9]+$' THEN k.kid::bigint END)
         WHERE s.student_id = :sid AND COALESCE(a.is_seed_data, false) = false AND a.answered_at >= :since AND a.answered_at < :until
         GROUP BY 1, 2, 3""", sid=sid, **rng.params)
-    return _study_time_build(rows, subs, rng, k["t1"], k["t0"], beh.get("avg_seconds_per_session"), hours, types, wrong_pending, prev_best, kp_rows)
+    return _study_time_build(rows, subs, rng, k["t1"], k["t0"], beh.get("avg_seconds_per_session"), hours, types, wrong_pending, prev_best, kp_rows, prev_stats)
 
 
 # ── 各维度的「总结」与「建议」拆分 ──

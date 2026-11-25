@@ -68,7 +68,7 @@
               <div class="kpi__lbl">{{ x.label }}</div>
               <div class="kpi__val num">{{ splitUnit(x.value).num }}<small v-if="splitUnit(x.value).unit" class="kpi__unit">{{ splitUnit(x.value).unit }}</small></div>
               <div class="kpi__delta">
-                <span v-if="x.delta != null && x.delta !== 0" class="delta" :class="kpiTone(x)" :title="`较前一周期${x.delta > 0 ? '上升' : '下降'} ${Math.abs(x.delta)}${x.unit}`">
+                <span v-if="x.delta != null && x.delta !== 0" class="delta" :class="kpiTone(x)" :title="`${x.deltaLabel ?? '较前一周期'}${x.delta > 0 ? '上升' : '下降'} ${Math.abs(x.delta)}${x.unit}`">
                   <SvgIcon name="arrow_up" :size="11" :class="{ 'delta__down': x.delta < 0 }" />{{ Math.abs(x.delta) }}{{ x.unit }}
                 </span>
                 <span v-else-if="x.delta === 0" class="delta">持平</span>
@@ -78,9 +78,14 @@
             <div class="kpi__viz"><KpiSpark :kind="x.viz" :gid="`st-${x.viz}`" /></div>
           </div>
         </div>
-        <!-- 正确率：正确率趋势（整体 + 各科），占统计卡的位置 -->
+        <!-- 正确率：正确率趋势（总计 / 各科切换，同训练次数分布），占统计卡的位置 -->
         <div v-else class="chart-card">
-          <div class="chart-card__title">正确率趋势</div>
+          <div class="chart-card__head">
+            <div class="chart-card__title">正确率趋势</div>
+            <div v-if="p.accuracy?.has_data && p.accuracy.trend" class="seg" role="tablist">
+              <button v-for="sj in accLineOptions" :key="sj.code" type="button" class="seg__btn" :class="{ 'is-active': accLineCode === sj.code }" @click="accLinePick = sj.code">{{ sj.name }}</button>
+            </div>
+          </div>
           <div v-if="p.accuracy?.has_data && p.accuracy.trend" ref="accTrendRef" class="chart-card__body" />
           <div v-else class="chart-card__empty">{{ rangeLabel }}暂无答题记录</div>
         </div>
@@ -126,7 +131,14 @@
                 <button v-for="sj in ansTypeSubjects" :key="sj.code" type="button" class="seg__btn" :class="{ 'is-active': ansTypeCode === sj.code }" @click="ansTypeSubject = sj.code">{{ sj.name }}</button>
               </div>
             </div>
-            <div v-if="ansTypeItems.length" ref="ansTypeRef" class="chart-card__body" />
+            <div v-if="ansTypeItems.length" class="chart-card__body kp-list">
+              <div v-for="x in ansTypeItems" :key="x.key" class="kp-row kp-row--qt" :title="ratePart(x)">
+                <SvgIcon :name="QT_ICONS[x.key] ?? 'qt_single'" :size="16" :color="QT_COLORS[x.key] ?? 'var(--text-3)'" class="qt-ico" />
+                <span class="kp-row__name">{{ x.label }}</span>
+                <div class="bar"><div class="bar__fill" :style="{ width: (x.count / ansTypeMax * 100) + '%', '--bar-c': QT_COLORS[x.key] ?? 'var(--text-3)' }" /></div>
+                <span class="kp-row__val num">{{ x.count }} 题</span>
+              </div>
+            </div>
             <div v-else class="chart-card__empty">{{ rangeLabel }}该科目暂无答题记录</div>
           </div>
         </template>
@@ -149,7 +161,14 @@
                 <button v-for="sj in accTypeSubjects" :key="sj.code" type="button" class="seg__btn" :class="{ 'is-active': accTypeCode === sj.code }" @click="accTypeSubject = sj.code">{{ sj.name }}</button>
               </div>
             </div>
-            <div v-if="accTypeItems.length" ref="accTypeRef" class="chart-card__body" />
+            <div v-if="accTypeItems.length" class="chart-card__body kp-list">
+              <div v-for="x in accTypeItems" :key="x.key" class="kp-row kp-row--qt kp-row--qt-acc" :title="accPart(x)">
+                <SvgIcon :name="QT_ICONS[x.key] ?? 'qt_single'" :size="16" :color="QT_COLORS[x.key] ?? 'var(--text-3)'" class="qt-ico" />
+                <span class="kp-row__name">{{ x.label }}</span>
+                <div class="bar"><div class="bar__fill" :style="{ width: (x.count ? (x.accuracy ?? 0) : 0) + '%', '--bar-c': QT_COLORS[x.key] ?? 'var(--text-3)' }" /></div>
+                <span class="kp-row__val num">{{ x.count ? `${x.accuracy ?? 0}%` : '—' }}<small v-if="x.count" class="kp-row__sub">{{ x.correct }}/{{ x.count }}</small></span>
+              </div>
+            </div>
             <div v-else class="chart-card__empty">{{ rangeLabel }}该科目暂无答题记录</div>
           </div>
         </template>
@@ -174,7 +193,7 @@
               <button v-for="sj in kpSubjects" :key="sj.code" type="button" class="seg__btn" :class="{ 'is-active': kpCode === sj.code }" @click="kpSubject = sj.code">{{ sj.name }}</button>
             </div>
           </div>
-          <div v-if="kpItems.length" class="chart-card__body kp-list">
+          <div v-if="kpItems.length" class="chart-card__body kp-list kp-list--auto">
             <div v-for="(x, i) in kpItems" :key="x.id" class="kp-row">
               <span class="kp-row__no num">{{ i + 1 }}</span>
               <span class="kp-row__name" :title="x.name">{{ x.name }}</span>
@@ -210,7 +229,7 @@
               <button v-for="sj in tkpSubjects" :key="sj.code" type="button" class="seg__btn" :class="{ 'is-active': tkpCode === sj.code }" @click="tkpSubject = sj.code">{{ sj.name }}</button>
             </div>
           </div>
-          <div v-if="tkpItems.length" class="chart-card__body kp-list">
+          <div v-if="tkpItems.length" class="chart-card__body kp-list kp-list--auto">
             <div v-for="(x, i) in tkpItems" :key="x.id" class="kp-row">
               <span class="kp-row__no num">{{ i + 1 }}</span>
               <span class="kp-row__name" :title="x.name">{{ x.name }}</span>
@@ -247,7 +266,7 @@
               <button v-for="sj in akpSubjects" :key="sj.code" type="button" class="seg__btn" :class="{ 'is-active': akpCode === sj.code }" @click="akpSubject = sj.code">{{ sj.name }}</button>
             </div>
           </div>
-          <div v-if="akpItems.length" class="chart-card__body kp-list">
+          <div v-if="akpItems.length" class="chart-card__body kp-list kp-list--auto">
             <div v-for="(x, i) in akpItems" :key="x.id" class="kp-row">
               <span class="kp-row__no num">{{ i + 1 }}</span>
               <span class="kp-row__name" :title="x.name">{{ x.name }}</span>
@@ -275,7 +294,7 @@
         </div>
         <div class="chart-card">
           <div class="chart-card__title">启发策略使用Top5</div>
-          <div v-if="p.ai_asks?.strategies?.length" class="chart-card__body kp-list">
+          <div v-if="p.ai_asks?.strategies?.length" class="chart-card__body kp-list kp-list--auto">
             <div v-for="(x, i) in p.ai_asks.strategies" :key="x.id" class="kp-row">
               <span class="kp-row__no num">{{ i + 1 }}</span>
               <span class="kp-row__name" :title="x.name">{{ x.name }}</span>
@@ -358,13 +377,20 @@
                       <div class="cog-bar"><div class="bar bar--fancy"><div class="bar__fill" :class="{ 'is-zero': !row.test }" :style="{ width: (row.test ?? 0) + '%', '--bar-c': POWER_COLORS[row.key] }" /></div><span class="num">{{ row.test ?? '—' }}</span></div>
                     </template>
                   </el-table-column>
-                  <el-table-column label="实战正确率" min-width="210">
+                  <el-table-column label="实战正确率" min-width="170">
                     <template #default="{ row }">
                       <div class="cog-bar" :title="`${row.answered} 题`">
                         <div class="bar bar--fancy bar--scale"><div class="bar__fill" :class="[accLevel(row.accuracy)?.cls, { 'is-zero': !row.accuracy }]" :style="{ width: (row.accuracy ?? 0) + '%' }" /></div>
                         <span class="num">{{ fmtPct(row.accuracy) }}</span>
-                        <span v-if="accLevel(row.accuracy)" class="lv-chip" :class="accLevel(row.accuracy)!.cls">{{ accLevel(row.accuracy)!.label }}</span>
                       </div>
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="级别" width="76">
+                    <template #default="{ row }">
+                      <el-tooltip v-if="accLevel(row.accuracy)" content="优秀 90–100 · 良好 80–89 · 一般 60–79 · 不及格 0–59" placement="top">
+                        <span class="lv-chip" :class="accLevel(row.accuracy)!.cls">{{ accLevel(row.accuracy)!.label }}</span>
+                      </el-tooltip>
+                      <span v-else class="cause-mini">—</span>
                     </template>
                   </el-table-column>
                   <el-table-column label="较前期" width="76">
@@ -481,6 +507,10 @@ const POWERS = ['INSIGHT', 'CONSTRUCT', 'DEDUCE', 'ADAPT', 'MIGRATE'] as FivePow
 const POWER_COLORS: Record<string, string> = {
   INSIGHT: '#0D9488', CONSTRUCT: '#E11D48', DEDUCE: '#0EA5E9', ADAPT: '#D97706', MIGRATE: '#7C3AED',
 }
+// 题型颜色：取 --qt-*（与小程序、训练题管理的题目类型一致，随亮 / 暗主题切换）
+const QT_COLORS: Record<string, string> = {
+  SINGLE_CHOICE: 'var(--qt-single)', MULTIPLE_CHOICE: 'var(--qt-multi)', TRUE_FALSE: 'var(--qt-judge)', FILL_BLANK: 'var(--qt-fill)', APPLICATION: 'var(--qt-application)',
+}
 const QT_ICONS: Record<string, string> = {
   SINGLE_CHOICE: 'qt_single', MULTIPLE_CHOICE: 'qt_multi', TRUE_FALSE: 'qt_judge', FILL_BLANK: 'qt_fill', APPLICATION: 'qt_application',
 }
@@ -549,17 +579,19 @@ const { picked: typeSubject, list: typeSubjects, code: typeCode, items: typeItem
   useKpTop(() => p.value?.study_time?.subjects, () => p.value?.study_time?.types_by_subject, x => x.minutes)
 const { picked: tkpSubject, list: tkpSubjects, code: tkpCode, items: tkpItems, max: tkpMax } =
   useKpTop(() => p.value?.training?.subjects, () => p.value?.training?.kp_top, x => x.count)
-type StatCard = { label: string; value: string; delta: number | null; unit: string; good: 'up' | 'down' | null; viz: 'dial' | 'ridge' | 'bubbles' | 'tide'; hint?: string }
+type StatCard = { label: string; value: string; delta: number | null; unit: string; good: 'up' | 'down' | null; viz: 'dial' | 'ridge' | 'bubbles' | 'tide'; hint?: string; deltaLabel?: string }
+// 分钟类涨跌：和顶部统计卡同口径（各自四舍五入后相减）；前一周期没有值则不显示
+const diffMin = (a: number | null | undefined, b: number | null | undefined) => (a == null || b == null ? null : Math.round(a) - Math.round(b))
 const studyStats = computed(() => {
   const st = p.value?.study_time?.stats
   const bd = st?.best_day
   // 单日最长：较前一段同样长度时间的变化（分钟，和顶部统计卡同口径：各自四舍五入后相减）；前一段没有学习记录则不显示
   const bestDelta = bd && st?.prev_best_minutes != null ? Math.round(bd.minutes) - Math.round(st.prev_best_minutes) : null
   const cards: StatCard[] = [
-    { label: '平均每次训练时长', value: fmtMin(st?.avg_per_session), delta: null, unit: '分钟', good: 'up', viz: 'dial' },
+    { label: '平均每次训练时长', value: fmtMin(st?.avg_per_session), delta: diffMin(st?.avg_per_session, st?.prev_avg_per_session), unit: '分钟', good: 'up', viz: 'dial' },
     { label: bd ? `单日最长学习时长（${bd.date.slice(5).replace('-', '/')}）` : '单日最长学习时长', value: fmtMin(bd?.minutes), delta: bestDelta, unit: '分钟', good: 'up', viz: 'ridge' },
-    { label: '周末日均学习时长', value: fmtMin(st?.weekend_avg), delta: null, unit: '分钟', good: 'up', viz: 'bubbles' },
-    { label: '非周末日均学习时长', value: fmtMin(st?.weekday_avg), delta: null, unit: '分钟', good: 'up', viz: 'tide' },
+    { label: '周末日均学习时长', value: fmtMin(st?.weekend_avg), delta: diffMin(st?.weekend_avg, st?.prev_weekend_avg), unit: '分钟', good: 'up', viz: 'bubbles' },
+    { label: '非周末日均学习时长', value: fmtMin(st?.weekday_avg), delta: diffMin(st?.weekday_avg, st?.prev_weekday_avg), unit: '分钟', good: 'up', viz: 'tide' },
   ]
   return cards
 })
@@ -586,9 +618,11 @@ const aiStats = computed<StatCard[]>(() => {
     { label: '场均提问数', value: st?.avg_ask != null ? `${st.avg_ask} 问` : '—', delta: diff1(st?.avg_ask, st?.prev_avg_ask), unit: '问', good: 'up', viz: 'ridge' },
   ]
 })
+const ansTypeMax = computed(() => Math.max(1, ...ansTypeItems.value.map(x => x.count)))
 const aiStrategyMax = computed(() => Math.max(1, ...(p.value?.ai_asks?.strategies ?? []).map(x => x.uses)))
-// 答题数的 4 张统计卡：错题 / 顽固错题 / 收藏都是「当前状态」，不随日期范围变，所以没有涨跌；悬停看各科各是多少
+// 答题数的 4 张统计卡：错题 / 顽固错题 / 收藏都是「当前状态」，不随日期范围变；涨跌 = 较所选范围开始时的净变化；悬停看各科各是多少
 //   待攻克 = 还没攻克的错题；已攻克 = 已经攻克的错题；顽固 = 同一道题错 3 次以上；收藏 = 收藏的题
+const RANGE_START = '较所选范围开始时'   // 这四项是当前状态，涨跌 = 所选范围内的净变化
 const answerStats = computed<StatCard[]>(() => {
   const st = p.value?.answers?.stats
   const subs = p.value?.answers?.subjects ?? []
@@ -596,10 +630,10 @@ const answerStats = computed<StatCard[]>(() => {
     subs.filter(x => SUBJECT_CODES.includes(x.code)).map(x => `${x.name} ${st?.breakdown?.[x.code]?.[k] ?? 0}`).join(' · ')
   const val = (n: number | undefined) => (n == null ? '—' : `${n} 题`)
   return [
-    { label: '待攻克错题', value: val(st?.wrong_pending), delta: null, unit: '题', good: 'down', viz: 'ridge', hint: hint('pending') },
-    { label: '已攻克错题', value: val(st?.wrong_mastered), delta: null, unit: '题', good: 'up', viz: 'dial', hint: hint('mastered') },
-    { label: '顽固错题', value: val(st?.stubborn), delta: null, unit: '题', good: 'down', viz: 'tide', hint: hint('stubborn') },
-    { label: '收藏题数', value: val(st?.favorites), delta: null, unit: '题', good: 'up', viz: 'bubbles', hint: hint('favorites') },
+    { label: '待攻克错题', value: val(st?.wrong_pending), delta: diff1(st?.wrong_pending, st?.prev_wrong_pending), deltaLabel: RANGE_START, unit: '题', good: 'down', viz: 'ridge', hint: hint('pending') },
+    { label: '已攻克错题', value: val(st?.wrong_mastered), delta: diff1(st?.wrong_mastered, st?.prev_wrong_mastered), deltaLabel: RANGE_START, unit: '题', good: 'up', viz: 'dial', hint: hint('mastered') },
+    { label: '顽固错题', value: val(st?.stubborn), delta: diff1(st?.stubborn, st?.prev_stubborn), deltaLabel: RANGE_START, unit: '题', good: 'down', viz: 'tide', hint: hint('stubborn') },
+    { label: '收藏题数', value: val(st?.favorites), delta: diff1(st?.favorites, st?.prev_favorites), deltaLabel: RANGE_START, unit: '题', good: 'up', viz: 'bubbles', hint: hint('favorites') },
   ]
 })
 // 中间明细区上面那 4 张统计卡：跟着顶部选中的维度走
@@ -648,12 +682,10 @@ const studyTypeRef = ref<HTMLElement>()
 const sessTrendRef = ref<HTMLElement>()
 const sessTypeRef = ref<HTMLElement>()
 const ansSubjRef = ref<HTMLElement>()
-const ansTypeRef = ref<HTMLElement>()
 const ansDiffRef = ref<HTMLElement>()
 const accTrendRef = ref<HTMLElement>()
 const aiTrendRef = ref<HTMLElement>()
 const aiPeriodRef = ref<HTMLElement>()
-const accTypeRef = ref<HTMLElement>()
 const accDiffRef = ref<HTMLElement>()
 const charts: echarts.ECharts[] = []
 
@@ -741,8 +773,11 @@ const fmtPct = (v: number | null | undefined) => (v === null || v === undefined 
 function accent() {
   return document.documentElement.dataset.theme === 'dark' ? '#9aa4ef' : cssVar('--color-primary', '#608df9')
 }
+// 从页面根节点（.page-root）读 CSS 变量：本页在暗色 / 亮色下都单独调整了次要文字色（--text-2 / --text-3），
+// 图表里的文字必须读同一份，否则会取到全局偏暗的值（暗色下 --text-3 全局是 #4B5563，在深色底上几乎看不清）
 function cssVar(name: string, fallback: string) {
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback
+  const el = document.querySelector('.page-root') ?? document.documentElement
+  return getComputedStyle(el).getPropertyValue(name).trim() || fallback
 }
 function initChart(el?: HTMLElement) {
   if (!el) return null
@@ -807,6 +842,7 @@ function useLineView(subjects: () => { code: string; name: string; count?: numbe
 }
 const { picked: studyPick, options: studyOptions, code: studyCode } = useLineView(() => p.value?.study_time?.subjects)
 const { picked: sessLinePick, options: sessLineOptions, code: sessLineCode } = useLineView(() => p.value?.training?.subjects)
+const { picked: accLinePick, options: accLineOptions, code: accLineCode } = useLineView(() => p.value?.accuracy?.subjects)
 
 function renderStudy() {
   const t = p.value?.study_time
@@ -906,50 +942,73 @@ function renderSessionType() {
   })
 }
 
-// 胶囊柱状图（参考设计稿）：柱子两头全圆、上深下浅的渐变，虚线网格，坐标文字很淡；每根柱子可以各用各的颜色
-const PILL_BAR_WIDTH = 12   // 胶囊柱的宽度（px），三张图统一
-function renderPillBars(el: HTMLElement | undefined, o: { labels: string[]; values: number[]; colors: string[]; tooltip: (i: number) => string; percent?: boolean }) {
+// 画布里的颜色要写成 rgba（不认 CSS 的 color-mix）
+const hexAlpha = (hex: string, a: number) => { const n = parseInt(hex.replace('#', ''), 16); return `rgba(${n >> 16 & 255}, ${n >> 8 & 255}, ${n & 255}, ${a})` }
+
+// 横向排行条（科目答题数 / 答题类型分布 / 题型正确率）：每项一根圆头的细条，浅色轨道托底，由该科目的颜色渐变为白色 + 柔光；
+// 数值统一排在轨道右侧一列，左边是名称，一眼能横向比较。百分比类的轨道固定 0~100%，次数类的轨道以最大值为满格。
+function renderRankBars(el: HTMLElement | undefined, o: { labels: string[]; values: number[]; colors: string[]; valueText: (i: number) => string; tooltip: (i: number) => string; percent?: boolean; labelW?: number }) {
   const c = initDimChart(el)
-  const txt3 = cssVar('--text-3', '#999')
-  // 画布里的颜色要写成 rgba（不认 CSS 的 color-mix）：上端是学科色本身，下端是 50% 透明
-  const alpha = (hex: string, a: number) => { const n = parseInt(hex.replace('#', ''), 16); return `rgba(${n >> 16 & 255}, ${n >> 8 & 255}, ${n & 255}, ${a})` }
-  const grad = (clr: string) => ({ type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: alpha(clr, 1) }, { offset: 1, color: alpha(clr, 0.5) }] })
-  c?.setOption({
-    grid: { left: 0, right: 0, top: 14, bottom: 0, containLabel: true },
+  if (!c) return
+  const txt2 = cssVar('--text-2', '#888')
+  const txt1 = cssVar('--text-1', '#fff')
+  const full = o.percent ? 100 : Math.max(1, ...o.values)
+  const BAR = 10   // 与 CSS 变量 --pf-bar-h 保持一致（全页进度条同高）
+  c.setOption({
+    grid: { left: 0, right: o.labelW ?? 72, top: 6, bottom: 6, containLabel: true },
     tooltip: { trigger: 'axis', axisPointer: { type: 'none' }, formatter: (ps: { dataIndex: number }[]) => o.tooltip(ps[0].dataIndex) },
-    xAxis: { type: 'category', data: o.labels, axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: txt3, fontSize: 11, margin: 12 } },
-    // 百分比：固定 0~100%、每 25% 一条虚线；次数：整数刻度
-    yAxis: { type: 'value', ...(o.percent ? { min: 0, max: 100, interval: 25 } : { minInterval: 1, splitNumber: 3 }), splitLine: { lineStyle: { color: 'rgba(160,168,220,0.16)', type: 'dashed' } }, axisLabel: { color: txt3, fontSize: 11, ...(o.percent ? { formatter: (v: number) => `${v}%` } : {}) } },
-    series: [{
-      type: 'bar', barWidth: PILL_BAR_WIDTH, showBackground: false,
-      data: o.values.map((v, i) => ({ value: v, itemStyle: { color: grad(o.colors[i]), borderRadius: 999 } })),
-      emphasis: { itemStyle: { opacity: 0.85 } },
-    }],
+    xAxis: { type: 'value', min: 0, max: full, show: false },
+    yAxis: { type: 'category', inverse: true, data: o.labels, axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: txt2, fontSize: 12.5, margin: 10 } },
+    series: [
+      // 轨道：同时负责把数值文字排在最右一列
+      { type: 'bar', silent: true, z: 1, barWidth: BAR, barGap: '-100%', data: o.labels.map(() => full),
+        itemStyle: { color: 'rgba(128, 128, 128, 0.14)', borderRadius: 999 },
+        label: { show: true, position: 'right', distance: 10, color: txt1, fontSize: 12.5, fontWeight: 500, formatter: (x: { dataIndex: number }) => o.valueText(x.dataIndex) } },
+      { type: 'bar', z: 2, barWidth: BAR, data: o.values.map((v, i) => ({ value: v, itemStyle: {
+          borderRadius: 999,
+          color: { type: 'linear', x: 0, y: 0, x2: 1, y2: 0, colorStops: [{ offset: 0, color: o.colors[i] }, { offset: 1, color: '#ffffff' }] },
+          shadowBlur: 10, shadowColor: hexAlpha(o.colors[i], 0.4), shadowOffsetY: 2 } })) },
+    ],
   })
 }
 
-// ── 答题数明细：科目答题数、答题类型分布、难度分布（都是胶囊柱状图）──
+// 环形进度（难度正确率）：每一项一个圆环，圆头进度 + 渐变，中间是大号百分比和名称，下面一行小字写答对 / 答题数
+function renderRingGauges(el: HTMLElement | undefined, o: { items: { name: string; value: number | null; sub: string }[]; color: string; tooltip: (i: number) => string }) {
+  const c = initDimChart(el)
+  if (!c) return
+  const cw = c.getWidth(), ch = c.getHeight(), n = o.items.length
+  const r = Math.max(34, Math.min(ch / 2 - 24, cw / n / 2 - 12))
+  const cy = ch / 2 - 8
+  const W = Math.max(8, Math.round(r * 0.17))
+  const txt1 = cssVar('--text-1', '#fff'), txt3 = cssVar('--text-3', '#999')
+  c.setOption({
+    tooltip: { formatter: (x: { seriesIndex: number }) => o.tooltip(x.seriesIndex) },
+    graphic: o.items.map((x, i) => ({ type: 'text', silent: true, style: { x: ((i + 0.5) / n) * cw, y: cy + r + 10, text: x.sub, fill: txt3, fontSize: 12, textAlign: 'center', textVerticalAlign: 'top' } })),
+    series: o.items.map((x, i) => ({
+      type: 'gauge', center: [`${((i + 0.5) / n) * 100}%`, cy], radius: r, startAngle: 90, endAngle: -270, min: 0, max: 100, pointer: { show: false }, animationDuration: 900,
+      axisLine: { lineStyle: { width: W, color: [[1, 'rgba(128, 128, 128, 0.16)']] }, roundCap: true },
+      progress: { show: x.value != null, width: W, roundCap: true, itemStyle: { color: { type: 'linear', x: 0, y: 0, x2: 1, y2: 1, colorStops: [{ offset: 0, color: o.color }, { offset: 1, color: '#ffffff' }] }, shadowBlur: 10, shadowColor: hexAlpha(o.color, 0.4) } },
+      axisTick: { show: false }, splitLine: { show: false }, axisLabel: { show: false }, anchor: { show: false },
+      title: { offsetCenter: [0, '34%'], fontSize: 12, color: txt3 },
+      detail: { offsetCenter: [0, '-8%'], fontSize: Math.max(16, Math.round(r * 0.36)), fontWeight: 600, color: txt1, valueAnimation: true, formatter: (v: number) => (x.value == null ? '—' : `${Math.round(v)}%`) },
+      data: [{ value: x.value ?? 0, name: x.name }],
+    })),
+  })
+}
+
+// ── 答题数明细：科目答题数、答题类型分布（横向排行条）、难度分布（环形图）──
 const ratePart = (x: { count: number; correct: number; accuracy: number | null }) => `答题 ${x.count} 题，答对 ${x.correct} 题（正确率 ${x.accuracy ?? 0}%）`
 function renderAnswers() {
   const a = p.value?.answers
   if (!a?.has_data) return
-  // ① 科目答题数：每个科目一根柱子，颜色用学科色
+  // ① 科目答题数：每个科目一根条，颜色用学科色；右侧写答题数和正确率
   const subs = a.subjects.filter(x => SUBJECT_CODES.includes(x.code) || x.count > 0)
-  renderPillBars(ansSubjRef.value, {
-    labels: subs.map(x => x.name), values: subs.map(x => x.count), colors: subs.map(x => subjColor(x.code)),
+  renderRankBars(ansSubjRef.value, {
+    labels: subs.map(x => x.name), values: subs.map(x => x.count), colors: subs.map(x => subjColor(x.code)), labelW: 104,
+    valueText: i => `${subs[i].count} 题 · ${subs[i].accuracy ?? 0}%`,
     tooltip: i => `${subs[i].name}<br/>${ratePart(subs[i])}<br/>占全部答题的 ${subs[i].share ?? 0}%`,
   })
-  renderAnswerType()
   renderAnswerDiff()
-}
-function renderAnswerType() {
-  const items = ansTypeItems.value
-  if (!items.length) return
-  const clr = subjColor(ansTypeCode.value)
-  renderPillBars(ansTypeRef.value, {
-    labels: items.map(x => x.label), values: items.map(x => x.count), colors: items.map(() => clr),
-    tooltip: i => `${items[i].label}<br/>${ratePart(items[i])}`,
-  })
 }
 // 难度分布：环形图。基础 / 进阶 / 挑战三档，颜色是 --diff-* 变量（页面蓝紫灰色阶）
 const DIFF_FALLBACK: Record<string, string> = { basic: '#c4caf0', advanced: '#8f97ea', challenge: '#6a72d0' }
@@ -1059,7 +1118,8 @@ function renderAccuracyTrend() {
   const t = a?.trend
   if (!a?.has_data || !t) return
   const subs = a.subjects.filter(x => SUBJECT_CODES.includes(x.code) || x.count > 0)
-  renderSubjectLines(accTrendRef.value, { labels: t.series.map(x => x.label), subjects: subs, totalVals: t.series.map(x => x.accuracy), valueOf: (i, code) => t.series[i].by_subject[code]?.accuracy ?? null, only: 'ALL', fmt: v => `${v}%`, percent: true })
+  // 总计只画整体一条线，选某一科只画这一科（同训练次数分布，不再把整体和各科叠在一起）
+  renderSubjectLines(accTrendRef.value, { labels: t.series.map(x => x.label), subjects: subs, totalVals: t.series.map(x => x.accuracy), valueOf: (i, code) => t.series[i].by_subject[code]?.accuracy ?? null, only: accLineCode.value, totalOnly: true, fmt: v => `${v}%`, percent: true })
 }
 
 // ── 正确率明细：题型正确率、难度正确率（0~100% 的胶囊柱状图）──
@@ -1068,20 +1128,16 @@ function renderAccuracy() {
   const a = p.value?.accuracy
   if (!a?.has_data) return
   renderAccuracyTrend()
-  renderAccuracyType()
   renderAccuracyDiff()
 }
-function renderAccuracyType() {
-  const items = accTypeItems.value
-  if (!items.length) return
-  const clr = subjColor(accTypeCode.value)
-  renderPillBars(accTypeRef.value, { labels: items.map(x => x.label), values: items.map(x => x.accuracy ?? 0), colors: items.map(() => clr), percent: true, tooltip: i => `${items[i].label}<br/>${accPart(items[i])}` })
-}
+// 难度正确率：三个并排的环形进度（基础 / 进阶 / 挑战）
 function renderAccuracyDiff() {
   const items = accDiffItems.value
   if (!items.length) return
-  const clr = subjColor(accDiffCode.value)
-  renderPillBars(accDiffRef.value, { labels: items.map(x => x.label), values: items.map(x => x.accuracy ?? 0), colors: items.map(() => clr), percent: true, tooltip: i => `${items[i].label}<br/>${accPart(items[i])}` })
+  renderRingGauges(accDiffRef.value, {
+    items: items.map(x => ({ name: x.label, value: x.count ? (x.accuracy ?? 0) : null, sub: x.count ? `答对 ${x.correct} / ${x.count} 题` : '还没有答题' })),
+    color: subjColor(accDiffCode.value), tooltip: i => `${items[i].label}<br/>${accPart(items[i])}`,
+  })
 }
 
 // ── AI 提问明细：提问趋势（提问数柱 + 顿悟数标记）、提问时段分布（环形图）──
@@ -1090,22 +1146,25 @@ function renderAiAsks() {
   if (!a?.has_data) return
   const dark = document.documentElement.dataset.theme === 'dark'
   const barClr = dark ? '#7f9bff' : '#4f6bed'
-  const ahaClr = dark ? '#e6e8f8' : '#475066'
   const txt3 = cssVar('--text-3', '#999')
   const alpha = (hex: string, al: number) => { const n = parseInt(hex.replace('#', ''), 16); return `rgba(${n >> 16 & 255}, ${n >> 8 & 255}, ${n & 255}, ${al})` }
   const s = a.series
   const c = initDimChart(aiTrendRef.value)
+  const ahaLine = dark ? '#fbbf24' : '#f59e0b'
+  const area = (clr: string, top: number) => ({ color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: alpha(clr, top) }, { offset: 1, color: alpha(clr, 0) }] } })
+  // 提问次数：平滑面积折线（蓝）；顿悟次数：平滑折线（琥珀，像灯泡亮起）。悬停有竖虚线 + 圆点，平时不画点
   c?.setOption({
-    grid: { left: 0, right: 0, top: 30, bottom: 0, containLabel: true },
-    legend: { top: 0, itemWidth: 12, itemHeight: 3, icon: 'roundRect', textStyle: { color: cssVar('--text-2', '#888'), fontSize: 12 } },
-    tooltip: { trigger: 'axis', axisPointer: { type: 'none' },
+    grid: { left: 0, right: 8, top: 32, bottom: 0, containLabel: true },
+    legend: { top: 0, right: 0, itemWidth: 10, itemHeight: 10, icon: 'circle', itemGap: 16, textStyle: { color: cssVar('--text-2', '#888'), fontSize: 12 } },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'line', lineStyle: { color: dark ? 'rgba(255,255,255,0.22)' : 'rgba(71,80,102,0.25)', type: 'dashed' } },
       formatter: (ps: { dataIndex: number }[]) => `${s[ps[0].dataIndex].label}<br/>提问 ${s[ps[0].dataIndex].count} 次<br/>顿悟 ${s[ps[0].dataIndex].aha} 次` },
-    xAxis: { type: 'category', data: s.map(x => x.label), axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: txt3, fontSize: 11, margin: 12 } },
+    xAxis: { type: 'category', boundaryGap: false, data: s.map(x => x.label), axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: txt3, fontSize: 11, margin: 12 } },
     yAxis: { type: 'value', min: 0, minInterval: 1, splitNumber: 3, splitLine: { lineStyle: { color: 'rgba(160,168,220,0.16)', type: 'dashed' } }, axisLabel: { color: txt3, fontSize: 11 } },
     series: [
-      { name: '提问次数', type: 'bar', barWidth: a.unit === 'week' ? 26 : 15, data: s.map(x => x.count),
-        itemStyle: { borderRadius: 999, color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: alpha(barClr, 1) }, { offset: 1, color: alpha(barClr, 0.5) }] } } },
-      { name: '顿悟次数', type: 'line', data: s.map(x => x.aha), smooth: 0.5, smoothMonotone: 'x', symbol: 'none', lineStyle: { color: ahaClr, width: 2, type: [3, 6] }, itemStyle: { color: ahaClr } },
+      { name: '提问次数', type: 'line', z: 2, data: s.map(x => x.count), smooth: 0.5, smoothMonotone: 'x', symbol: 'circle', symbolSize: 8, showSymbol: false,
+        lineStyle: { color: barClr, width: 2.5, cap: 'round', shadowBlur: 10, shadowColor: alpha(barClr, 0.45), shadowOffsetY: 3 }, itemStyle: { color: barClr, borderColor: dark ? '#0d0f1c' : '#fff', borderWidth: 2 }, areaStyle: area(barClr, 0.32) },
+      { name: '顿悟次数', type: 'line', z: 3, data: s.map(x => x.aha), smooth: 0.5, smoothMonotone: 'x', symbol: 'circle', symbolSize: 8, showSymbol: false,
+        lineStyle: { color: ahaLine, width: 2, cap: 'round' }, itemStyle: { color: ahaLine, borderColor: dark ? '#0d0f1c' : '#fff', borderWidth: 2 }, areaStyle: area(ahaLine, 0.16) },
     ],
   })
   const per = a.periods
@@ -1142,11 +1201,10 @@ function pickKpi(key: string) { if (DETAIL_KEYS.includes(key)) activeKpi.value =
 watch(activeKpi, async () => { await nextTick(); renderDetail() })
 watch(studyCode, async () => { await nextTick(); if (activeKpi.value === 'study_time') renderStudy() })
 watch(sessLineCode, async () => { await nextTick(); if (activeKpi.value === 'sessions') renderSessionLines() })
+watch(accLineCode, async () => { await nextTick(); if (activeKpi.value === 'accuracy') renderAccuracyTrend() })
 watch(typeCode, async () => { await nextTick(); if (activeKpi.value === 'study_time') renderStudyType() })
 watch(sessTypeCode, async () => { await nextTick(); if (activeKpi.value === 'sessions') renderSessionType() })
-watch(ansTypeCode, async () => { await nextTick(); if (activeKpi.value === 'answered') renderAnswerType() })
 watch(ansDiffCode, async () => { await nextTick(); if (activeKpi.value === 'answered') renderAnswerDiff() })
-watch(accTypeCode, async () => { await nextTick(); if (activeKpi.value === 'accuracy') renderAccuracyType() })
 watch(accDiffCode, async () => { await nextTick(); if (activeKpi.value === 'accuracy') renderAccuracyDiff() })
 async function load() {
   loading.value = true
@@ -1208,6 +1266,13 @@ onBeforeUnmount(() => { window.removeEventListener('resize', onResize); charts.f
   &.is-active { background: color-mix(in srgb, var(--text-1) 13%, transparent); color: var(--text-1); font-weight: 600; } }
 .kp-list { display: flex; flex-direction: column; }      // 固定行高、靠上排：不足 5 个知识点时，下面留白，不把行拉开
 .kp-row { height: 40px; display: grid; grid-template-columns: 20px minmax(0, 1.25fr) minmax(0, 1fr) 62px; align-items: center; gap: 10px; font-size: 13px; color: var(--text-1); }
+.qt-ico { justify-self: center; }
+// 答题类型：图标与文字 5px，进度条两端（到题型名、到数值）都是 10px（名称列、数值列定宽，数值左对齐，进度条两端到相邻内容的距离每行一致）
+.kp-row--qt { grid-template-columns: 16px 39px minmax(0, 1fr) var(--qt-val-w, 46px); gap: 10px;
+  .qt-ico { margin-right: -5px; }
+  .kp-row__val { text-align: left; } }
+// 题型正确率：数值列放「76%  19/25」（百分比 + 答对 / 答题数小字）
+.kp-row--qt-acc { --qt-val-w: 84px; .kp-row__sub { margin-left: 6px; font-size: 11px; color: var(--text-3); } }
 .kp-row__no { width: 20px; height: 20px; border-radius: 50%; text-align: center; line-height: 20px; font-size: 11px; color: var(--text-2); background: color-mix(in srgb, var(--text-3) 16%, transparent); }
 .kp-row__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .kp-row__val { text-align: right; color: var(--text-2); white-space: nowrap; }
@@ -1386,11 +1451,14 @@ html[data-theme="dark"] { --type-kp: #8aa0ff; --type-unit: #c4d4ff; --type-err: 
 // 胶囊标签 / 按钮、小号大写表头；亮色主题的统计卡 / 图表卡配色
 html[data-theme="dark"] .page-root {
   // 参考图的暗色：更深的蓝黑底，右上角一团淡薰衣草光；强调色是偏灰的薰衣草蓝紫，次要文字带一点蓝紫
-  --text-3: #8189aa; --text-2: #b4bbdc; --color-primary: #9aa4ef; --el-color-primary: #9aa4ef;
+  --text-3: #9aa2c4; --text-2: #c3c9e6; --color-primary: #9aa4ef; --el-color-primary: #9aa4ef;
   background:
     radial-gradient(900px circle at 100% -8%, rgba(120, 132, 214, 0.20), transparent 62%),
     radial-gradient(700px circle at 0% 112%, rgba(80, 90, 170, 0.10), transparent 60%);
 }
+
+// 亮色：全局次要文字色 --text-3 是 #94A3B8，落在浅色卡片（#F4F7FF）上对比度只有 2.5:1 左右，看不清；本页压深到 WCAG AA（≥ 4.5:1）
+html[data-theme="light"] .page-root { --text-3: #64708a; --text-2: #46506b; }
 
 html[data-theme="light"] .page-root .chart-card {
   --edge-a: rgba(94, 141, 249, 0.42); --edge-b: rgba(94, 141, 249, 0.10); --edge-c: rgba(94, 141, 249, 0.26);
@@ -1464,15 +1532,21 @@ html[data-theme="dark"] .page-root .kpi.kpi--active::after { box-shadow: 0 0 12p
 .page-root .seg__btn:focus-visible, .page-root .kpi--link:focus-visible { outline: 2px solid color-mix(in srgb, var(--color-primary) 70%, transparent); outline-offset: 2px; }
 
 // 进度条：更饱满的圆角 + 流畅的宽度动画 + 柔和高光
-.page-root .bar { height: 7px; border-radius: 999px; }
+// 全页进度条统一高度（Top5 榜单、认知能力表；图表里的横向排行条 renderRankBars 的 BAR 也是这个值，改的时候两边一起改）
+:root { --pf-bar-h: 10px; }
+.page-root .bar { height: var(--pf-bar-h); border-radius: 999px; }
 .page-root .bar__fill { position: relative; border-radius: 999px; transition: width 0.7s var(--pf-ease);
   background-image: linear-gradient(90deg, rgba(255, 255, 255, 0.0), rgba(255, 255, 255, 0.22)); background-blend-mode: overlay; }
 
 // 榜单（知识点学习时长 / 训练次数 / 答题数 Top5、启发策略 Top5）：行间距 10px，进度条用渐变
 // 颜色与折线图同源（学科色 --bar-c = subjColor），左端学科色 → 右端白色
 .page-root .kp-list { gap: 10px; padding-top: 16px; }   // 与标题拉开 16px
-.page-root .kp-row { height: 24px; }   // 行高收紧；行距 10px，整体靠上排
-.page-root .kp-row .bar { height: 8px; }
+.page-root .kp-row { height: 24px; }
+// Top5 榜单（学习时长 / 训练次数 / 答题数 / 启发策略）：四列网格，名称列、数值列按本榜单里最宽的一项自适应（名称列最宽占 45%），
+// 进度条夹在中间，所以进度条两端到最长的名称、最长的数值恰好都是 10px，每行进度条起点 / 终点对齐
+.page-root .kp-list.kp-list--auto { display: grid; grid-template-columns: 20px fit-content(45%) minmax(0, 1fr) max-content; column-gap: 10px; row-gap: 10px; grid-auto-rows: 24px; align-content: start; align-items: center;
+  .kp-row { display: contents; }
+  .kp-row__val { white-space: nowrap; } }   // 行高收紧；行距 10px，整体靠上排
 .page-root .kp-row .bar__fill { background-image: linear-gradient(90deg, var(--bar-c), #fff); background-blend-mode: normal; }
 // 知识点榜单：前三名序号用主色
 .page-root .kp-row:nth-child(-n+3) .kp-row__no { color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 18%, transparent); font-weight: 600; }
@@ -1513,7 +1587,7 @@ html[data-theme="dark"] .page-root .kpi.kpi--active::after { box-shadow: 0 0 12p
 html[data-theme="dark"] { --lv-excellent: #34d399; --lv-good: #60a5fa; --lv-ok: #fbbf24; --lv-fail: #f87171; }
 .lv--excellent { --bar-c: var(--lv-excellent); } .lv--good { --bar-c: var(--lv-good); } .lv--ok { --bar-c: var(--lv-ok); } .lv--fail { --bar-c: var(--lv-fail); }
 @keyframes pf-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-.page-root .bar--fancy { position: relative; height: 10px; border-radius: 999px; overflow: visible;
+.page-root .bar--fancy { position: relative; height: var(--pf-bar-h); border-radius: 999px; overflow: visible;
   background: color-mix(in srgb, var(--text-3) 14%, transparent); box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12);
   .bar__fill { position: relative; height: 100%; border-radius: 999px; transform-origin: left center; animation: pf-grow 0.9s var(--pf-ease) backwards;
     background-image: linear-gradient(90deg, color-mix(in srgb, var(--bar-c) 45%, transparent), var(--bar-c));
@@ -1537,8 +1611,8 @@ html[data-theme="dark"] { --lv-excellent: #34d399; --lv-good: #60a5fa; --lv-ok: 
 // ── 表格（.mini-table）：和卡片融成一体，不分层 ──
 // 没有表头底色、没有斑马纹、没有外框；表头只是一行小号淡色文字，下面一条细线；行与行之间用极淡的细线，悬停无背景变化。
 // el-table 内部会重新定义变量，所以这里直接在 .el-table 作用域里覆盖，并写死颜色
-:root { --tbl-line: rgba(96, 141, 248, 0.14); --tbl-head: #8a92aa; --tbl-text: #2d3550; --tbl-text-2: #5a6380; }
-html[data-theme="dark"] { --tbl-line: rgba(210, 216, 255, 0.08); --tbl-head: #7f86a6; --tbl-text: #dfe2f4; --tbl-text-2: #a2a8c4; }
+:root { --tbl-line: rgba(96, 141, 248, 0.14); --tbl-head: #66708c; --tbl-text: #2d3550; --tbl-text-2: #4e5877; }
+html[data-theme="dark"] { --tbl-line: rgba(210, 216, 255, 0.08); --tbl-head: #9aa2c4; --tbl-text: #e6e9f7; --tbl-text-2: #b8bedb; }
 .page-root .mini-table.el-table {
   --el-table-bg-color: transparent; --el-table-tr-bg-color: transparent; --el-table-header-bg-color: transparent;
   --el-table-row-hover-bg-color: transparent; --el-table-border-color: transparent; --el-table-border: none;
