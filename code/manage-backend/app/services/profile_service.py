@@ -187,7 +187,7 @@ async def _one(db: AsyncSession, sql: str, **p):
 # ── 各维度 ────────────────────────────────────────────────────
 
 async def _basic(db, sid):
-    s = await _one(db, "SELECT id, nickname, avatar_url, grade, semester, is_minor, created_at, last_login_at FROM students WHERE id=:sid AND deleted_at IS NULL", sid=sid)
+    s = await _one(db, "SELECT id, nickname, avatar_url, grade, semester, is_minor, is_active, phone_masked, created_at, last_login_at FROM students WHERE id=:sid AND deleted_at IS NULL", sid=sid)
     if not s:
         raise AppException("学生不存在", 404)
     parents = await _rows(db, """
@@ -199,7 +199,7 @@ async def _basic(db, sid):
         AND a.answered_at >= now() - interval '30 days'""", sid=sid)
     return {
         "id": s["id"], "nickname": s["nickname"], "avatar_url": s["avatar_url"], "grade": s["grade"],
-        "semester": s["semester"], "is_minor": s["is_minor"], "created_at": s["created_at"],
+        "semester": s["semester"], "is_minor": s["is_minor"], "is_active": s["is_active"], "phone_masked": s["phone_masked"], "created_at": s["created_at"],
         "last_login_at": s["last_login_at"], "active_days_30": active["d"] if active else 0,
         "parents": [dict(p) for p in parents],
     }
