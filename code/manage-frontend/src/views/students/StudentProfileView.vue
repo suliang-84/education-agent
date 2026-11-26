@@ -25,39 +25,8 @@
     </div>
 
     <template v-if="p">
-      <!-- 顶部概览：第一层「是谁 + 现在怎么样」，第二层「能力 | 累计学习」 -->
-      <div class="hero chart-card">
-        <!-- 身份 | 当前状态 + 预警 -->
-        <div class="hero__top">
-          <div class="hero__id">
-            <div class="hero__avatar"><img v-if="p.basic.avatar_url" :src="p.basic.avatar_url" alt="" /><span v-else>{{ (p.basic.nickname || '?').slice(0, 1) }}</span></div>
-            <div class="hero__txt">
-              <div class="hero__namerow">
-                <span class="hero__name">{{ p.basic.nickname }}</span>
-                <span v-if="p.basic.grade" class="hero__grade">{{ GRADES[p.basic.grade] ?? p.basic.grade }}{{ p.basic.semester ? ` · ${SEMESTERS[p.basic.semester] ?? p.basic.semester}` : '' }}</span>
-                <span v-if="p.basic.is_minor" class="hero__minor">未成年</span>
-                <span v-if="p.basic.is_active === false" class="hero__minor hero__minor--bad">已停用</span>
-              </div>
-              <div class="hero__meta">
-                <span>{{ p.basic.phone_masked || '未留手机号' }}</span>
-                <span>加入第 <b class="num">{{ joinDays }}</b> 天</span>
-                <span>最近登录 {{ lastLoginText }}</span>
-                <span :class="{ 'is-warn': !p.basic.parents.length }">{{ p.basic.parents.length ? `家长 ${p.basic.parents.map(x => x.nickname).join('、')}` : '家长未绑定' }}</span>
-              </div>
-            </div>
-          </div>
-          <div class="hero__state">
-            <div class="hero__cell">
-              <div class="hero__lbl">当前状态</div>
-              <div class="hero__tag" :class="`tone--${statusTone}`"><i class="hero__dot" />{{ p.summary.status }}</div>
-            </div>
-            <div class="hero__cell">
-              <div class="hero__lbl">预警</div>
-              <div class="hero__warn" :class="warnTone"><b class="num">{{ p.warnings.open.length }}</b><small>{{ p.warnings.open.length ? '条未处理' : '暂无预警' }}</small></div>
-            </div>
-          </div>
-        </div>
-
+      <!-- 顶部：累计学习统计卡 -->
+      <div class="hero">
         <!-- 累计学习 -->
         <div class="hero__stats">
           <div v-for="x in heroStats" :key="x.label" class="hs" :class="{ 'hs--wide': x.trend }" :style="{ '--hc': x.c }">
@@ -715,19 +684,6 @@ function kpiTone(k: { delta: number | null; good: 'up' | 'down' | null }) {
   return (k.delta > 0) === (k.good === 'up') ? 'delta--up' : 'delta--down'
 }
 // 学习状态 → 色调：提升绿 / 平稳蓝 / 瓶颈琥珀 / 懈怠红 / 数据不足灰
-const statusTone = computed(() => ({ 稳步提升: 'good', 状态平稳: 'calm', 遇到瓶颈: 'warn', 近期懈怠: 'bad' } as Record<string, string>)[p.value?.summary.status ?? ''] ?? 'none')
-// ── 顶部概览用到的派生数据 ──
-const dayDiff = (iso?: string | null) => (iso ? Math.floor((Date.now() - new Date(iso).getTime()) / 86400000) : null)
-const joinDays = computed(() => (dayDiff(p.value?.basic.created_at) ?? 0) + 1)
-const lastLoginText = computed(() => {
-  const d = dayDiff(p.value?.basic.last_login_at)
-  return d == null ? '从未登录' : d <= 0 ? '今天' : `${d} 天前`
-})
-// 未处理预警：条数 + 最高级别（严重 > 关注 > 提示）
-const warnTone = computed(() => {
-  const open = p.value?.warnings.open ?? []
-  return open.some(w => w.level === 'critical') ? 'is-critical' : open.some(w => w.level === 'attention') ? 'is-attention' : open.length ? 'is-notice' : 'is-ok'
-})
 // 累计学习数据（整个账号的历史，不随日期范围变）
 const heroStats = computed(() => {
   const q = p.value
@@ -1710,37 +1666,8 @@ html[data-theme="dark"] { --lv-excellent: #34d399; --lv-good: #60a5fa; --lv-ok: 
   em { font-style: normal; font-size: 12px; color: var(--text-3); letter-spacing: 0.02em; }
   &::after { content: ''; flex: 1; height: 1px; order: 3; background: linear-gradient(90deg, color-mix(in srgb, var(--text-3) 40%, transparent), transparent); } }
 
-// Hero —— 学生信息卡：沿用 .chart-card 的玻璃底和描边，版式、字重、细线与下方 KPI 卡 / 分区标题同一套语言
-// 上层：身份（头像 / 昵称 / 年级 / 一行小字）| 当前状态、预警；下层：累计学习 6 项，用渐隐细线隔开。
-// 颜色只给「状态」和「预警」，其余灰阶；数字用细字重，与 KPI 卡一致。
-:root { --st-good: #10b981; --st-calm: #60a5fa; --st-warn: #f59e0b; --st-bad: #ef4444; --st-none: #8b92b0; }
-.page-root .hero { display: flex; flex-direction: column; gap: 18px; padding: 20px 22px 20px; flex-shrink: 0; }
-.hero__top { display: flex; align-items: center; justify-content: space-between; gap: 28px; @media (max-width: 1000px) { flex-direction: column; align-items: flex-start; } }
-.hero__id { display: flex; align-items: center; gap: 16px; min-width: 0; }
-.hero__avatar { flex: none; width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; overflow: hidden; font-size: 22px; font-weight: 500; color: var(--color-primary);
-  background: color-mix(in srgb, var(--color-primary) 14%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 34%, transparent);
-  img { width: 100%; height: 100%; object-fit: cover; } }
-.hero__txt { min-width: 0; }
-.hero__namerow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.hero__name { font-size: 22px; font-weight: 500; line-height: 1.25; letter-spacing: 0.02em; color: var(--text-1); }
-.hero__grade, .hero__minor { padding: 0 10px; border-radius: 999px; font-size: 12px; line-height: 22px; letter-spacing: 0.03em; color: var(--text-2);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text-3) 40%, transparent); }
-.hero__grade { color: var(--color-primary); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 40%, transparent); background: color-mix(in srgb, var(--color-primary) 8%, transparent); }
-.hero__minor--bad { color: var(--st-bad); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--st-bad) 50%, transparent); }
-.hero__meta { display: flex; flex-wrap: wrap; margin-top: 8px; font-size: 12.5px; color: var(--text-3);
-  span { white-space: nowrap; b { margin: 0 2px; font-weight: 500; color: var(--text-2); } &.is-warn { color: var(--st-warn); } }
-  span + span::before { content: ''; display: inline-block; width: 1px; height: 10px; margin: 0 12px; vertical-align: -1px; background: color-mix(in srgb, var(--text-3) 50%, transparent); } }
-// 状态 / 预警：两格，小标题 + 内容，中间一条竖细线
-.hero__state { display: flex; align-items: stretch; flex: none; }
-.hero__cell { min-width: 112px; padding: 2px 24px; & + & { border-left: 1px solid color-mix(in srgb, var(--text-3) 24%, transparent); } &:last-child { padding-right: 4px; } }
-.hero__lbl { font-size: 12.5px; color: var(--text-3); }
-.hero__tag { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 20px; line-height: 1.2; font-weight: 500; letter-spacing: 0.04em; }
-.hero__dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 16%, transparent); }
-.hero .tone--good { color: var(--st-good); } .hero .tone--calm { color: var(--st-calm); } .hero .tone--warn { color: var(--st-warn); } .hero .tone--bad { color: var(--st-bad); } .hero .tone--none { color: var(--st-none); }
-.hero__warn { display: flex; align-items: baseline; gap: 6px; margin-top: 8px; color: var(--wc);
-  b { font-size: 26px; line-height: 1.1; font-weight: 400; letter-spacing: -0.02em; } small { font-size: 12.5px; color: var(--text-3); }
-  &.is-critical { --wc: var(--st-bad); } &.is-attention { --wc: var(--st-warn); } &.is-notice { --wc: var(--color-primary); } &.is-ok { --wc: var(--text-3); } }
-
+// 累计学习统计：6 张独立的小磁贴，每张一个主题色（极淡同色渐变底 + 细描边）；不再有学生信息卡外框
+.page-root .hero { flex-shrink: 0; }
 // 累计学习：6 个小磁贴，每项一个主题色（图标底 / 细进度条），磁贴本身是极淡的同色渐变底 + 细描边；悬停轻微上浮
 .hero__stats { display: grid; grid-template-columns: 1.6fr 1.6fr repeat(4, minmax(0, 1fr)); gap: 12px; @media (max-width: 1280px) { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .hs { position: relative; min-width: 0; padding: 12px 14px 11px; border-radius: 12px; overflow: hidden; transition: transform .2s, box-shadow .2s;
