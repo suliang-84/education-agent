@@ -442,6 +442,8 @@ export interface AccuracyStats {
 export interface StudentProfile {
   generated_at: string
   kpis: ProfileKpi[]
+  /** 最近三个月（91 天）每天的学习时长 / 正确率，固定口径，不随日期范围变；顶部卡片背景用 */
+  trend_3m?: { unit: 'day'; days: number; has_data: boolean; series: { date: string; label: string; minutes: number; answered: number; correct: number; accuracy: number | null; sessions: number }[] }
   study_time: StudyTime
   training?: TrainingStats
   answers?: AnswerStats

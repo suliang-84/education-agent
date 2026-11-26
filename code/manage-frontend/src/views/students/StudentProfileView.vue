@@ -27,8 +27,8 @@
     <template v-if="p">
       <!-- 顶部概览：第一层「是谁 + 现在怎么样」，第二层「能力 | 累计学习」 -->
       <div class="hero chart-card">
+        <!-- 身份 | 当前状态 + 预警 -->
         <div class="hero__top">
-          <!-- 身份 -->
           <div class="hero__id">
             <div class="hero__avatar"><img v-if="p.basic.avatar_url" :src="p.basic.avatar_url" alt="" /><span v-else>{{ (p.basic.nickname || '?').slice(0, 1) }}</span></div>
             <div class="hero__txt">
@@ -46,47 +46,27 @@
               </div>
             </div>
           </div>
-          <!-- 当前状态 -->
-          <div class="hero__side">
-            <div class="ring" :style="{ '--p': p.summary.engagement_score }" title="学习投入度"><b class="num">{{ p.summary.engagement_score }}</b><i>投入度</i></div>
-            <div class="hero__status">
-              <div class="hero__state">
-                <span class="hero__dot" :class="`tone--${statusTone}`" /><span class="hero__tag" :class="`tone--${statusTone}`">{{ p.summary.status }}</span>
-                <span class="hero__warn" :class="warnTone">{{ warnText }}</span>
-              </div>
-              <div class="hero__reason" :title="p.summary.status_reason">{{ p.summary.status_reason }}</div>
+          <div class="hero__state">
+            <div class="hero__cell">
+              <div class="hero__lbl">当前状态</div>
+              <div class="hero__tag" :class="`tone--${statusTone}`"><i class="hero__dot" />{{ p.summary.status }}</div>
+            </div>
+            <div class="hero__cell">
+              <div class="hero__lbl">预警</div>
+              <div class="hero__warn" :class="warnTone"><b class="num">{{ p.warnings.open.length }}</b><small>{{ p.warnings.open.length ? '条未处理' : '暂无预警' }}</small></div>
             </div>
           </div>
         </div>
 
-        <div class="hero__body">
-          <!-- 五力速览 -->
-          <section class="hero__power">
-            <div class="hero__label">五力速览<span v-if="p.cognitive.has_profile && p.cognitive.tested_at">测试于 {{ formatDate(p.cognitive.tested_at) }}</span></div>
-            <template v-if="p.cognitive.has_profile">
-              <div class="pw-row">
-                <div v-for="k in POWERS" :key="k" class="pw" :class="{ 'is-strong': p.cognitive.primary_strength === k, 'is-weak': p.cognitive.primary_weakness === k }" :style="{ '--pc': POWER_COLORS[k] }">
-                  <span class="pw__ico"><SvgIcon :name="`power_${k.toLowerCase()}`" :size="15" /></span>
-                  <b class="pw__num num">{{ p.cognitive.final?.[k] ?? '—' }}</b>
-                  <span class="pw__name">{{ FivePowerLabels[k] }}</span>
-                </div>
-              </div>
-              <div class="hero__cap">{{ modeText }}</div>
-            </template>
-            <div v-else class="hero__cap hero__cap--empty">尚未完成五力测试，暂无能力画像</div>
-          </section>
-          <!-- 累计学习 -->
-          <section class="hero__stats">
-            <div class="hero__label">累计学习<span>全部历史，不随日期范围变化</span></div>
-            <div class="hs-grid">
-              <div v-for="x in heroStats" :key="x.label" class="hs">
-                <div class="hs__lbl">{{ x.label }}</div>
-                <div class="hs__val num">{{ x.value }}<small v-if="x.unit">{{ x.unit }}</small></div>
-                <div v-if="x.bar != null" class="bar hs__bar"><div class="bar__fill" :style="{ width: x.bar + '%', '--bar-c': 'var(--color-primary)' }" /></div>
-                <div v-else-if="x.sub" class="hs__sub">{{ x.sub }}</div>
-              </div>
-            </div>
-          </section>
+        <!-- 累计学习 -->
+        <div class="hero__stats">
+          <div v-for="x in heroStats" :key="x.label" class="hs" :class="{ 'hs--wide': x.trend }" :style="{ '--hc': x.c }">
+            <div class="hs__head"><span class="hs__ico"><SvgIcon :name="x.ico" :size="14" /></span><span class="hs__lbl">{{ x.label }}</span></div>
+            <div class="hs__val num">{{ x.value }}<small v-if="x.unit">{{ x.unit }}</small></div>
+            <div v-if="x.trend" class="hs__chart"><GlowSpark :values="(p.trend_3m?.series ?? []).map(d => d[x.trend!])" :color="x.c" :gid="`hs-${x.trend}`" :unit="x.unit2" :soft="x.soft" :env="x.env" /></div>
+            <div v-if="x.bar != null" class="hs__bar"><i :style="{ width: x.bar + '%' }" /></div>
+            <div class="hs__sub">{{ x.sub || '&nbsp;' }}</div>
+          </div>
         </div>
       </div>
 
@@ -568,6 +548,7 @@ import { ElMessage } from 'element-plus'
 import type { StudentProfile, ProfileWarning, FivePower } from '@/types'
 import { FivePowerLabels } from '@/types'
 import KpiSpark from '@/components/KpiSpark.vue'
+import GlowSpark from '@/components/GlowSpark.vue'
 import { formatDate } from '@/utils/format'
 
 const TREND_LABELS: Record<string, string> = { up: '在进步', flat: '没起色', down: '在退步' }
@@ -742,23 +723,10 @@ const lastLoginText = computed(() => {
   const d = dayDiff(p.value?.basic.last_login_at)
   return d == null ? '从未登录' : d <= 0 ? '今天' : `${d} 天前`
 })
-const MODE_LABELS: Record<string, string> = { TRAIN_WEAKNESS: '补足模式', LEARN_BY_STRENGTH: '一通百通模式' }
-const modeText = computed(() => {
-  const c = p.value?.cognitive
-  if (!c?.has_profile) return ''
-  const mode = c.recommended_mode ? MODE_LABELS[c.recommended_mode] ?? c.recommended_mode : ''
-  const lbl = (k?: string) => (k ? FivePowerLabels[k as FivePower] ?? k : '')
-  const parts = [c.primary_strength && `最强「${lbl(c.primary_strength)}」`, c.primary_weakness && `最需提升「${lbl(c.primary_weakness)}」`].filter(Boolean)
-  return `${parts.join('，')}${mode ? `；系统推荐：${mode}` : ''}`
-})
 // 未处理预警：条数 + 最高级别（严重 > 关注 > 提示）
 const warnTone = computed(() => {
   const open = p.value?.warnings.open ?? []
   return open.some(w => w.level === 'critical') ? 'is-critical' : open.some(w => w.level === 'attention') ? 'is-attention' : open.length ? 'is-notice' : 'is-ok'
-})
-const warnText = computed(() => {
-  const n = p.value?.warnings.open.length ?? 0
-  return n ? `${n} 条未处理预警` : '暂无预警'
 })
 // 累计学习数据（整个账号的历史，不随日期范围变）
 const heroStats = computed(() => {
@@ -766,14 +734,15 @@ const heroStats = computed(() => {
   if (!q) return []
   const last = q.behavior.last_active_date
   const sp = q.mastery.semester_progress
+  const wp = q.mastery.wrong_pending, wm = q.mastery.wrong_mastered
   return [
-    { label: '累计训练', value: String(q.behavior.sessions_total), unit: '次', sub: last ? `最近学习 ${last.slice(5).replace('-', '/')}` : '' },
-    { label: '累计答题', value: String(q.cognitive.training_info?.total_question_count ?? q.mastery.answered), unit: '题', sub: `覆盖 ${q.mastery.kp_total_practiced} 个知识点` },
-    { label: '连续学习', value: String(q.behavior.streak_days), unit: '天', sub: '' },
-    { label: '近 30 天学习', value: String(q.basic.active_days_30), unit: '天', sub: `占 ${Math.round((q.basic.active_days_30 / 30) * 100)}%` },
-    { label: '本学期知识点', value: `${sp.practiced}/${sp.total}`, unit: '', bar: sp.rate ?? 0, sub: sp.rate != null ? `已练 ${sp.rate}%` : '' },
-    { label: '待攻克错题', value: String(q.mastery.wrong_pending), unit: '题', sub: `已攻克 ${q.mastery.wrong_mastered} 道` },
-  ] as { label: string; value: string; unit: string; sub: string; bar?: number }[]
+    { label: '累计训练', ico: 'play', c: '#8b7cf6', trend: 'sessions', unit2: '次', soft: 4, env: 0, value: String(q.behavior.sessions_total), unit: '次', sub: last ? `最近学习 ${last.slice(5).replace('-', '/')}` : '暂无学习记录' },
+    { label: '累计答题', ico: 'edit', c: '#38bdf8', trend: 'answered', unit2: '题', soft: 8, env: 2, value: String(q.cognitive.training_info?.total_question_count ?? q.mastery.answered), unit: '题', sub: `覆盖 ${q.mastery.kp_total_practiced} 个知识点` },
+    { label: '连续学习', ico: 'sparkle', c: '#f59e0b', value: String(q.behavior.streak_days), unit: '天', sub: q.behavior.streak_days ? '保持中' : '今天还没开始' },
+    { label: '近 30 天学习', ico: 'analyse', c: '#10b981', value: String(q.basic.active_days_30), unit: '天', bar: Math.round((q.basic.active_days_30 / 30) * 100), sub: `占 ${Math.round((q.basic.active_days_30 / 30) * 100)}%` },
+    { label: '本学期知识点', ico: 'detail', c: '#8b5cf6', value: `${sp.practiced}/${sp.total}`, unit: '', bar: sp.rate ?? 0, sub: sp.rate != null ? `已练 ${sp.rate}%` : '' },
+    { label: '待攻克错题', ico: 'slot_weak', c: '#ef4444', value: String(wp), unit: '题', bar: wp + wm ? Math.round((wm / (wp + wm)) * 100) : 0, sub: `已攻克 ${wm} 道` },
+  ] as { label: string; ico: string; c: string; trend?: 'sessions' | 'answered'; unit2?: string; soft?: number; env?: number; value: string; unit: string; sub: string; bar?: number }[]
 })
 const rangeLabel = computed(() => p.value?.range.label ?? '近 7 天')
 function onRangeChange() {
@@ -1741,80 +1710,67 @@ html[data-theme="dark"] { --lv-excellent: #34d399; --lv-good: #60a5fa; --lv-ok: 
   em { font-style: normal; font-size: 12px; color: var(--text-3); letter-spacing: 0.02em; }
   &::after { content: ''; flex: 1; height: 1px; order: 3; background: linear-gradient(90deg, color-mix(in srgb, var(--text-3) 40%, transparent), transparent); } }
 
-// Hero —— 三层信息：
-//   ① 身份（大字昵称 + 一行安静的小字）     ② 当前状态（环 + 状态 + 一句原因）      —— 第一眼
-//   ③ 五力速览（五个等宽小方块）            ④ 累计学习（3×2 数据）                  —— 第二眼
-// 规则：颜色只给「状态」和「五力」；其余全部用灰阶；所有板块共用同一套间距（外边距 24 / 板块间 20 / 内部 12）和同一种小标题
+// Hero —— 学生信息卡：沿用 .chart-card 的玻璃底和描边，版式、字重、细线与下方 KPI 卡 / 分区标题同一套语言
+// 上层：身份（头像 / 昵称 / 年级 / 一行小字）| 当前状态、预警；下层：累计学习 6 项，用渐隐细线隔开。
+// 颜色只给「状态」和「预警」，其余灰阶；数字用细字重，与 KPI 卡一致。
 :root { --st-good: #10b981; --st-calm: #60a5fa; --st-warn: #f59e0b; --st-bad: #ef4444; --st-none: #8b92b0; }
-.page-root .hero { overflow: hidden; display: flex; flex-direction: column; gap: 20px; padding: 24px; flex-shrink: 0;
-  &::after { content: ''; position: absolute; right: -60px; top: -90px; width: 340px; height: 260px; border-radius: 50%; pointer-events: none; z-index: 0;
-    background: radial-gradient(closest-side, color-mix(in srgb, var(--color-primary) 18%, transparent), transparent); }
-  > * { position: relative; z-index: 1; } }
-.hero__label { display: flex; align-items: baseline; gap: 10px; font-size: 12px; font-weight: 600; letter-spacing: 0.1em; color: var(--text-3);
-  span { font-weight: 400; letter-spacing: 0.02em; } }
-
-// 第一层
-.hero__top { display: flex; align-items: center; justify-content: space-between; gap: 32px; @media (max-width: 1000px) { flex-direction: column; align-items: flex-start; } }
-.hero__id { display: flex; align-items: center; gap: 18px; min-width: 0; }
-.hero__avatar { flex: none; width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; overflow: hidden; font-size: 24px; font-weight: 600; color: #fff;
-  background: linear-gradient(135deg, var(--color-primary), color-mix(in srgb, var(--color-primary) 40%, #7c3aed)); box-shadow: 0 8px 22px color-mix(in srgb, var(--color-primary) 36%, transparent), inset 0 0 0 2px rgba(255, 255, 255, 0.25);
+.page-root .hero { display: flex; flex-direction: column; gap: 18px; padding: 20px 22px 20px; flex-shrink: 0; }
+.hero__top { display: flex; align-items: center; justify-content: space-between; gap: 28px; @media (max-width: 1000px) { flex-direction: column; align-items: flex-start; } }
+.hero__id { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.hero__avatar { flex: none; width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; overflow: hidden; font-size: 22px; font-weight: 500; color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 14%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 34%, transparent);
   img { width: 100%; height: 100%; object-fit: cover; } }
 .hero__txt { min-width: 0; }
 .hero__namerow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.hero__name { font-size: 24px; font-weight: 600; line-height: 1.2; letter-spacing: 0.02em; color: var(--text-1); }
-.hero__grade { font-size: 13px; font-weight: 600; color: var(--color-primary); }
-.hero__minor { padding: 0 8px; border-radius: 999px; font-size: 11.5px; line-height: 20px; color: var(--text-2); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text-3) 40%, transparent);
-  &--bad { color: var(--st-bad); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--st-bad) 50%, transparent); } }
-// 一行小字：手机号 · 加入 · 最近登录 · 家长（灰阶，圆点分隔；家长没绑定时用琥珀色轻提醒）
+.hero__name { font-size: 22px; font-weight: 500; line-height: 1.25; letter-spacing: 0.02em; color: var(--text-1); }
+.hero__grade, .hero__minor { padding: 0 10px; border-radius: 999px; font-size: 12px; line-height: 22px; letter-spacing: 0.03em; color: var(--text-2);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text-3) 40%, transparent); }
+.hero__grade { color: var(--color-primary); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 40%, transparent); background: color-mix(in srgb, var(--color-primary) 8%, transparent); }
+.hero__minor--bad { color: var(--st-bad); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--st-bad) 50%, transparent); }
 .hero__meta { display: flex; flex-wrap: wrap; margin-top: 8px; font-size: 12.5px; color: var(--text-3);
-  span { white-space: nowrap; b { margin: 0 2px; font-weight: 600; color: var(--text-2); } &.is-warn { color: var(--st-warn); } }
-  span + span::before { content: '·'; margin: 0 10px; color: var(--text-3); opacity: 0.6; } }
-
-.hero__side { display: flex; align-items: center; gap: 18px; min-width: 0; }
-.hero__status { min-width: 0; max-width: 360px; }
-.hero__state { display: flex; align-items: center; gap: 8px; }
-.hero__tag { font-size: 20px; font-weight: 600; letter-spacing: 0.04em; }
-.hero__dot { width: 9px; height: 9px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 18%, transparent), 0 0 10px currentColor; animation: pf-pulse 2.4s ease-in-out infinite; }
-@keyframes pf-pulse { 50% { box-shadow: 0 0 0 7px color-mix(in srgb, currentColor 6%, transparent), 0 0 16px currentColor; } }
+  span { white-space: nowrap; b { margin: 0 2px; font-weight: 500; color: var(--text-2); } &.is-warn { color: var(--st-warn); } }
+  span + span::before { content: ''; display: inline-block; width: 1px; height: 10px; margin: 0 12px; vertical-align: -1px; background: color-mix(in srgb, var(--text-3) 50%, transparent); } }
+// 状态 / 预警：两格，小标题 + 内容，中间一条竖细线
+.hero__state { display: flex; align-items: stretch; flex: none; }
+.hero__cell { min-width: 112px; padding: 2px 24px; & + & { border-left: 1px solid color-mix(in srgb, var(--text-3) 24%, transparent); } &:last-child { padding-right: 4px; } }
+.hero__lbl { font-size: 12.5px; color: var(--text-3); }
+.hero__tag { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 20px; line-height: 1.2; font-weight: 500; letter-spacing: 0.04em; }
+.hero__dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 16%, transparent); }
 .hero .tone--good { color: var(--st-good); } .hero .tone--calm { color: var(--st-calm); } .hero .tone--warn { color: var(--st-warn); } .hero .tone--bad { color: var(--st-bad); } .hero .tone--none { color: var(--st-none); }
-.hero__reason { margin-top: 6px; font-size: 12.5px; line-height: 1.6; color: var(--text-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-// 预警小标：和状态同一行，颜色跟最高级别
-.hero__warn { margin-left: 6px; padding: 0 9px; border-radius: 999px; font-size: 11.5px; line-height: 20px; font-weight: 400; letter-spacing: 0; white-space: nowrap;
-  color: var(--wc); background: color-mix(in srgb, var(--wc) 14%, transparent);
-  &.is-critical { --wc: var(--st-bad); } &.is-attention { --wc: var(--st-warn); } &.is-notice { --wc: var(--color-primary); } &.is-ok { --wc: var(--st-good); } }
-// 投入度环：圆锥渐变进度（主色 → 白）；数字下面一行小字写「投入度」，不再需要单独标题
-.page-root .ring { --p: 0; position: relative; flex: none; width: 76px; height: 76px; display: flex; flex-direction: column; align-items: center; justify-content: center;
-  &::before { content: ''; position: absolute; inset: 0; border-radius: 50%;
-    background: conic-gradient(from 0deg, var(--color-primary) 0, #fff calc(var(--p) * 1%), color-mix(in srgb, var(--text-3) 20%, transparent) 0);
-    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 8px), #000 calc(100% - 7px)); mask: radial-gradient(farthest-side, transparent calc(100% - 8px), #000 calc(100% - 7px));
-    filter: drop-shadow(0 0 8px color-mix(in srgb, var(--color-primary) 45%, transparent)); }
-  b { position: relative; font-size: 24px; font-weight: 500; line-height: 1; color: var(--text-1); }
-  i { position: relative; margin-top: 3px; font-style: normal; font-size: 10.5px; color: var(--text-3); } }
+.hero__warn { display: flex; align-items: baseline; gap: 6px; margin-top: 8px; color: var(--wc);
+  b { font-size: 26px; line-height: 1.1; font-weight: 400; letter-spacing: -0.02em; } small { font-size: 12.5px; color: var(--text-3); }
+  &.is-critical { --wc: var(--st-bad); } &.is-attention { --wc: var(--st-warn); } &.is-notice { --wc: var(--color-primary); } &.is-ok { --wc: var(--text-3); } }
 
-// 第二层：左右两块，中间一条细分隔线，顶部与第一层之间也是一条细线
-.hero__body { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 0 40px; padding-top: 20px; border-top: 1px solid color-mix(in srgb, var(--text-3) 20%, transparent);
-  @media (max-width: 1000px) { grid-template-columns: 1fr; gap: 20px; } }
-.hero__power, .hero__stats { min-width: 0; }
-.hero__stats { padding-left: 40px; border-left: 1px solid color-mix(in srgb, var(--text-3) 20%, transparent); @media (max-width: 1000px) { padding-left: 0; border-left: none; } }
-
-// 五力：五个等宽小方块，图标 + 得分 + 名称；最强项底色加深，其余样式一致（强弱在下面一行文字里说明）（说明文字在下面一行）
-.pw-row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
-.pw { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 4px 10px; border-radius: 12px;
-  background: color-mix(in srgb, var(--pc) 7%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pc) 16%, transparent);
-  &.is-strong { background: color-mix(in srgb, var(--pc) 16%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pc) 50%, transparent); } }
-.pw__ico { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 8px; color: var(--pc); background: color-mix(in srgb, var(--pc) 16%, transparent); }
-.pw__num { font-size: 20px; font-weight: 500; line-height: 1.1; color: var(--text-1); }
-.pw__name { font-size: 12px; color: var(--text-2); }
-.hero__cap { margin-top: 12px; font-size: 12.5px; line-height: 1.6; color: var(--text-2); &--empty { margin-top: 20px; color: var(--text-3); } }
-
-// 累计学习：3 列 × 2 行，每格 = 小标题 / 数字 / 一行补充
-.hs-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px 24px; margin-top: 12px; }
-.hs { min-width: 0; }
-.hs__lbl { font-size: 12px; color: var(--text-3); white-space: nowrap; }
-.hs__val { margin-top: 3px; font-size: 22px; font-weight: 400; line-height: 1.15; letter-spacing: -0.02em; color: var(--text-1); white-space: nowrap;
-  small { margin-left: 4px; font-size: 12px; letter-spacing: 0; color: var(--text-2); } }
-.hs__bar { margin-top: 6px; }
-.hs__sub { margin-top: 3px; font-size: 12px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+// 累计学习：6 个小磁贴，每项一个主题色（图标底 / 细进度条），磁贴本身是极淡的同色渐变底 + 细描边；悬停轻微上浮
+.hero__stats { display: grid; grid-template-columns: 1.6fr 1.6fr repeat(4, minmax(0, 1fr)); gap: 12px; @media (max-width: 1280px) { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.hs { position: relative; min-width: 0; padding: 12px 14px 11px; border-radius: 12px; overflow: hidden; transition: transform .2s, box-shadow .2s;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--hc) 11%, transparent), color-mix(in srgb, var(--hc) 2%, transparent) 70%);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--hc) 20%, transparent);
+  &::after { content: ''; position: absolute; right: -18px; top: -18px; width: 64px; height: 64px; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--hc) 22%, transparent), transparent 70%); pointer-events: none; }
+  &:hover { transform: translateY(-2px); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--hc) 38%, transparent); } }
+.hs--wide {
+  background: radial-gradient(260px circle at 0% 0%, color-mix(in srgb, var(--hc) 16%, transparent), transparent 70%), linear-gradient(160deg, rgba(20, 22, 44, 0.5), rgba(10, 12, 26, 0.55));
+  // 走势图作背景：铺在右侧 / 下方，左边渐隐进文字；内容层压在它上面
+  .hs__chart { position: absolute; z-index: 0; top: 12px; bottom: 10px; left: 52%; right: 2px; pointer-events: none; }
+  > :not(.hs__chart) { position: relative; z-index: 1; }
+  .hs__sub { max-width: 52%; } }
+html[data-theme="light"] .page-root .hs--wide { background: radial-gradient(260px circle at 0% 0%, color-mix(in srgb, var(--hc) 14%, transparent), transparent 70%), linear-gradient(160deg, rgba(246, 248, 255, 0.95), rgba(252, 253, 255, 0.9)); }
+.hs__chart { min-width: 0; }
+.hs__head { display: flex; align-items: center; gap: 8px; }
+.hs__ico { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 8px; color: var(--hc); background: color-mix(in srgb, var(--hc) 16%, transparent); }
+.hs__lbl { font-size: 12.5px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hs__val { margin-top: 10px; font-size: 28px; font-weight: 400; line-height: 1.1; letter-spacing: -0.02em; white-space: nowrap; color: var(--text-1);
+  small { margin-left: 5px; font-size: 12.5px; letter-spacing: 0; color: var(--text-3); } }
+// 进度条：与走势折线同一套语言——细线 + 外发光，颜色从淡的主题色渐变到高亮（暗色是白、亮色是主题色），末端一个环形圆点
+.hs { --hi: #fff; }
+html[data-theme="light"] .page-root .hs { --hi: var(--hc); }
+.hs__bar { position: relative; margin: 12px 5px 0 0; height: 3px; border-radius: 3px; background: color-mix(in srgb, var(--hc) 16%, transparent);
+  i { position: relative; display: block; height: 100%; border-radius: inherit; transition: width .7s;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--hc) 45%, transparent), var(--hc) 60%, var(--hi)); box-shadow: 0 0 8px color-mix(in srgb, var(--hc) 60%, transparent);
+    &::after { content: ''; position: absolute; right: -5px; top: 50%; width: 10px; height: 10px; margin-top: -5px; border-radius: 50%; box-sizing: border-box;
+      background: radial-gradient(circle, var(--hc) 0 2.5px, #fff 3px); box-shadow: 0 0 0 3px color-mix(in srgb, var(--hc) 55%, transparent), 0 0 6px var(--hc); } } }
+.hs__sub { margin-top: 6px; font-size: 12px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hs__bar + .hs__sub { margin-top: 6px; }
 
 // 顶部统计卡数字：暗色下用白 → 淡蓝紫的纵向渐变字，更有质感
 html[data-theme="dark"] .page-root .kpi__val { background: linear-gradient(180deg, #ffffff 30%, #aab3ec); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
