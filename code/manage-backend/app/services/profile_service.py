@@ -1785,6 +1785,34 @@ def split_dimension_tips(dims: dict) -> list[dict]:
 
 
 
+TREND_3M_DAYS = 91       # 画像页顶部卡片背景：最近三个月（91 天，含今天），每天一个点
+
+
+def _trend_3m_build(rows, today: date) -> dict:
+    """最近三个月的学习时长 / 正确率趋势（纯计算，方便测试）。rows：每天的 {d, t(秒), n(答题数), c(答对数), s(训练场次)}；
+    以今天为终点往前 91 天，每天一个点，从旧到新；与页面所选日期范围无关。
+    某天答题 < 2 道，正确率给 None（样本太小，页面上断开 / 连接相邻的点）；没有学习的天，时长为 0。"""
+    by_day = {r["d"]: r for r in rows}
+    series = []
+    for i in range(TREND_3M_DAYS - 1, -1, -1):
+        d = today - timedelta(days=i)
+        r = by_day.get(d)
+        n, c = (int(r["n"] or 0), int(r["c"] or 0)) if r else (0, 0)
+        series.append({"date": str(d), "label": f"{d.month}/{d.day}", "minutes": round(float(r["t"] or 0) / 60, 1) if r else 0.0,
+                       "answered": n, "correct": c, "accuracy": _pct(c, n) if n >= 2 else None,
+                       "sessions": int(r.get("s") or 0) if r else 0})
+    return {"unit": "day", "days": TREND_3M_DAYS, "has_data": any(x["answered"] for x in series), "series": series}
+
+
+async def _trend_3m(db, sid):
+    today = today_bj()
+    since = datetime(today.year, today.month, today.day, tzinfo=BJ) - timedelta(days=TREND_3M_DAYS - 1)
+    rows = await _rows(db, f"""
+        SELECT (a.answered_at AT TIME ZONE '{TZ}')::date d, coalesce(sum(a.time_spent_sec), 0) t, count(*) n, count(*) FILTER (WHERE a.is_correct) c, count(DISTINCT a.session_id) s
+        {_BASE} AND a.answered_at >= :since GROUP BY 1""", sid=sid, since=since)
+    return _trend_3m_build(rows, today)
+
+
 async def get_profile(db: AsyncSession, student_id: int, start: str | None = None, end: str | None = None) -> dict:
     """start / end：统计日期范围（YYYY-MM-DD，北京时间，含起止两天；默认近 7 天，最长 90 天）。
     答题量、正确率、行为、诊断、AI 互动、学习状态、投入度等按这个范围统计；
@@ -1811,13 +1839,14 @@ async def get_profile(db: AsyncSession, student_id: int, start: str | None = Non
     answers = await _answers_stats(db, student_id, rng)
     accuracy = await _accuracy_stats(db, student_id, rng, mastery.get("semester_progress"))
     ai_asks = await _ai_stats(db, student_id, rng)
+    trend_3m = await _trend_3m(db, student_id)    # 顶部卡片背景用：固定最近三个月，不随日期范围变
     beh.pop("_sessions", None)
     await profile_warning_service.sync(db, student_id, basic)
     warnings = await profile_warning_service.list_warnings(db, student_id)
     summary["dim_advice"] = split_dimension_tips({"study_time": study_time, "training": training, "answers": answers, "accuracy": accuracy, "ai_asks": ai_asks})
     return {
         "generated_at": datetime.now(timezone.utc), "range": rng.info(),
-        "summary": summary, "kpis": kpis, "study_time": study_time, "training": training, "answers": answers, "accuracy": accuracy, "ai_asks": ai_asks, "basic": basic, "cognitive": cog, "mastery": mastery,
+        "summary": summary, "trend_3m": trend_3m, "kpis": kpis, "study_time": study_time, "training": training, "answers": answers, "accuracy": accuracy, "ai_asks": ai_asks, "basic": basic, "cognitive": cog, "mastery": mastery,
         "behavior": beh, "diagnosis": diagnosis, "insights": insights, "ai_interaction": ai, "traits": traits,
         "warnings": warnings,
     }

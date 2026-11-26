@@ -786,3 +786,20 @@ def test_profile_advice_parse_and_context():
     assert "张三" not in s and "家长" not in s and "情绪低落" not in s and "喜欢篮球" in s
     assert ctx["各维度数据"] == {"学习时长": {"stats": {"total_minutes": 90}}}      # 没数据的维度不传，按天序列不传
     assert fallback_items(p) == ["a" * 10, "b" * 10]
+
+
+def test_trend_3m_build():
+    from datetime import date, timedelta
+    from app.services.profile_service import _trend_3m_build, TREND_3M_DAYS
+    today = date(2026, 11, 25)
+    rows = [{"d": today, "t": 600, "n": 10, "c": 8, "s": 2}, {"d": today - timedelta(days=1), "t": 90, "n": 1, "c": 1},       # 今天；昨天只答 1 题（正确率不给）
+            {"d": today - timedelta(days=90), "t": 60, "n": 6, "c": 3}, {"d": today - timedelta(days=91), "t": 999, "n": 9, "c": 9}]   # 第 91 天（最早一天）；第 92 天超范围
+    r = _trend_3m_build(rows, today)
+    assert len(r["series"]) == TREND_3M_DAYS == 91 and r["has_data"] and r["unit"] == "day"
+    last, prev, first = r["series"][-1], r["series"][-2], r["series"][0]
+    assert last["date"] == "2026-11-25" and last["label"] == "11/25" and last["minutes"] == 10.0 and last["answered"] == 10 and last["correct"] == 8 and last["accuracy"] == 80.0
+    assert prev["minutes"] == 1.5 and prev["accuracy"] is None
+    assert last["sessions"] == 2 and prev["sessions"] == 0
+    assert first["date"] == "2026-08-27" and first["minutes"] == 1.0 and first["accuracy"] == 50.0
+    assert r["series"][40]["minutes"] == 0.0 and r["series"][40]["accuracy"] is None      # 没学习的天
+    assert not _trend_3m_build([], today)["has_data"]
